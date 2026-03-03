@@ -127,26 +127,22 @@
     {% endif %}
 
     <!-- Activity log -->
-    {% if events %}
     <div class="card shadow-sm mt-4">
       <div class="card-header d-flex align-items-center justify-content-between"
            role="button" data-bs-toggle="collapse" data-bs-target="#activityPanel"
-           aria-expanded="false" style="cursor:pointer;">
+           aria-expanded="true" style="cursor:pointer;">
         <h6 class="mb-0"><i class="bi bi-clock-history me-1"></i>{{ _('Activity') }}</h6>
-        <i class="bi bi-chevron-down small text-muted"></i>
+        <i class="bi bi-chevron-up small text-muted"></i>
       </div>
-      <div class="collapse" id="activityPanel">
+      <div class="collapse show" id="activityPanel">
+        {% if events %}
         <ul class="list-group list-group-flush small">
           {% for ev in events %}
           <li class="list-group-item py-2 px-3 d-flex align-items-start gap-2">
             {% if ev.event_type == 'status' %}
               <i class="bi bi-arrow-repeat text-warning mt-1 flex-shrink-0"></i>
               <span class="flex-grow-1">
-                {% if ev.actor %}
-                  <strong>{{ ev.actor.username }}</strong>
-                {% else %}
-                  <strong>{{ _('System') }}</strong>
-                {% endif %}
+                <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
                 {{ _('changed status') }}
                 <span class="badge bg-secondary">{{ status_label(ev.from_value) }}</span>
                 → <span class="badge bg-{{ {'open':'secondary','in_progress':'primary','resolved':'success','closed':'dark'}.get(ev.to_value,'secondary') }}">{{ status_label(ev.to_value) }}</span>
@@ -192,9 +188,13 @@
           </li>
           {% endfor %}
         </ul>
+        {% else %}
+        <div class="p-3 text-muted small text-center">
+          <i class="bi bi-clock-history me-1"></i>{{ _('No activity yet.') }}
+        </div>
+        {% endif %}
       </div>
     </div>
-    {% endif %}
 
     <!-- Add message -->
     <div class="card shadow-sm mt-4">

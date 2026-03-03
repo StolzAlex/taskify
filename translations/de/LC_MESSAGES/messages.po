@@ -432,20 +432,23 @@ msgstr "GitHub-Verknüpfung"
 msgid "GitHub link updated."
 msgstr "GitHub-Verknüpfung aktualisiert."
 
-msgid "GitHub issue was closed \u2014 ticket status updated to Closed."
-msgstr "GitHub-Issue wurde geschlossen \u2014 Ticket-Status auf Geschlossen aktualisiert."
+msgid "GitHub issue was closed — ticket status updated to Closed."
+msgstr "GitHub-Issue wurde geschlossen — Ticket-Status auf Geschlossen aktualisiert."
 
-msgid "GitHub issue was reopened \u2014 ticket status updated to Open."
-msgstr "GitHub-Issue wurde wiedere\u00f6ffnet \u2014 Ticket-Status auf Offen aktualisiert."
+msgid "GitHub issue was reopened — ticket status updated to Open."
+msgstr "GitHub-Issue wurde wiedereöffnet — Ticket-Status auf Offen aktualisiert."
 
 msgid "Activity"
-msgstr "Aktivit\u00e4t"
+msgstr "Aktivität"
+
+msgid "No activity yet."
+msgstr "Noch keine Aktivität."
 
 msgid "System"
 msgstr "System"
 
 msgid "changed status"
-msgstr "Status ge\u00e4ndert"
+msgstr "Status geändert"
 
 msgid "assigned to"
 msgstr "zugewiesen an"
@@ -457,16 +460,16 @@ msgid "was"
 msgstr "war"
 
 msgid "linked"
-msgstr "verkn\u00fcpft"
+msgstr "verknüpft"
 
 msgid "removed GitHub link"
-msgstr "GitHub-Verkn\u00fcpfung entfernt"
+msgstr "GitHub-Verknüpfung entfernt"
 
 msgid "created GitHub issue"
 msgstr "GitHub-Issue erstellt"
 
 msgid "attached"
-msgstr "angeh\u00e4ngt"
+msgstr "angehängt"
 
 msgid "Customer replied"
 msgstr "Kunde hat geantwortet"
@@ -474,8 +477,8 @@ msgstr "Kunde hat geantwortet"
 msgid "Create GitHub Issue"
 msgstr "GitHub-Issue erstellen"
 
-msgid "Loading repos\u2026"
-msgstr "Repos werden geladen\u2026"
+msgid "Loading repos…"
+msgstr "Repos werden geladen…"
 
 msgid "Select repo"
 msgstr "Repo auswählen"
@@ -489,15 +492,15 @@ msgstr "Bitte wählen Sie ein Repository aus."
 msgid "GitHub issue created and linked."
 msgstr "GitHub-Issue erstellt und verknüpft."
 
-msgid "Search PRs and issues\u2026"
-msgstr "PRs und Issues suchen\u2026"
+msgid "Search PRs and issues…"
+msgstr "PRs und Issues suchen…"
 
 #, python-format
-msgid "repo: query  \u2014  or search all of %(org)s\u2026"
-msgstr "repo: Suchbegriff  \u2014  oder alles in %(org)s durchsuchen\u2026"
+msgid "repo: query  —  or search all of %(org)s…"
+msgstr "repo: Suchbegriff  —  oder alles in %(org)s durchsuchen…"
 
-msgid "Searching\u2026"
-msgstr "Suche läuft\u2026"
+msgid "Searching…"
+msgstr "Suche läuft…"
 
 msgid "No results"
 msgstr "Keine Ergebnisse"
@@ -535,8 +538,8 @@ msgstr "Bitte melden Sie sich an, um Ihr Ticket anzusehen."
 msgid "New Ticket"
 msgstr "Neues Ticket"
 
-msgid "Welcome to Taskify \u2013 Your Customer Account"
-msgstr "Willkommen bei Taskify \u2013 Ihr Kundenkonto"
+msgid "Welcome to Taskify – Your Customer Account"
+msgstr "Willkommen bei Taskify – Ihr Kundenkonto"
 
 #, python-format
 msgid "Customer \"%(name)s\" created."
