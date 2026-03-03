@@ -450,6 +450,28 @@ msgstr "Diese Woche gelöst"
 msgid "No tickets"
 msgstr "Keine Tickets"
 
+msgid "Awaiting your reply"
+msgstr "Ihre Antwort ausstehend"
+
+msgid "Support replied — awaiting your response"
+msgstr "Support hat geantwortet – Ihre Antwort steht aus"
+
+msgid "You haven't submitted any tickets yet."
+msgstr "Sie haben noch keine Tickets eingereicht."
+
+msgid "Submit your first ticket"
+msgstr "Erstes Ticket einreichen"
+
+msgid "Replies"
+msgstr "Antworten"
+
+msgid "1 ticket"
+msgstr "1 Ticket"
+
+#, python-format
+msgid "%(n)s tickets"
+msgstr "%(n)s Tickets"
+
 #, python-format
 msgid "%(total)s tickets"
 msgstr "%(total)s Tickets"

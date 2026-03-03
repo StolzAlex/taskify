@@ -439,8 +439,36 @@ def customer_dashboard():
     tickets = Ticket.query.filter(
         Ticket.submitter_email.ilike(customer.email)
     ).order_by(Ticket.updated_at.desc()).all()
+
+    # Per-ticket metadata
+    ticket_meta = {}
+    for t in tickets:
+        visible = t.messages.filter_by(is_customer_visible=True)
+        last_msg = visible.order_by(Message.created_at.desc()).first()
+        ticket_meta[t.id] = {
+            'reply_count':    visible.count(),
+            'awaiting_reply': last_msg is not None and not last_msg.is_customer_reply,
+        }
+
+    stats = {
+        'open':           sum(1 for t in tickets if t.status == 'open'),
+        'in_progress':    sum(1 for t in tickets if t.status == 'in_progress'),
+        'awaiting_reply': sum(1 for t in tickets if ticket_meta[t.id]['awaiting_reply']),
+        'resolved':       sum(1 for t in tickets if t.status == 'resolved'),
+        'closed':         sum(1 for t in tickets if t.status == 'closed'),
+    }
+
+    ticket_ids = [t.id for t in tickets]
+    recent_events = (TicketEvent.query
+                     .filter(
+                         TicketEvent.ticket_id.in_(ticket_ids),
+                         TicketEvent.event_type.in_(['status', 'customer_reply', 'attachment'])
+                     )
+                     .order_by(TicketEvent.created_at.desc())
+                     .limit(15).all()) if ticket_ids else []
+
     return render_template('customer/dashboard.html', customer=customer, tickets=tickets,
-                           status_choices=Ticket.STATUS_CHOICES)
+                           ticket_meta=ticket_meta, stats=stats, recent_events=recent_events)
 
 
 @app.route('/customer/uploads/<int:ticket_id>/<filename>')
