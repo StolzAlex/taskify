@@ -55,70 +55,129 @@
   </div>
 </div>
 
-<!-- Ticket list -->
-<div class="card shadow-sm">
-  <div class="card-header">
-    <h6 class="mb-0">{{ _('Welcome, %(name)s!', name=customer.name) }}</h6>
-  </div>
+<div class="row g-4 align-items-start">
 
-  {% if tickets %}
-  <div class="table-responsive pb-2">
-    <table class="table table-hover table-sm align-middle mb-0">
-      <thead class="table-light">
-        <tr>
-          <th>#</th>
-          <th>{{ _('Subject') }}</th>
-          <th>{{ _('Status') }}</th>
-          <th class="text-center">{{ _('Replies') }}</th>
-          <th>{{ _('Updated') }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for ticket in tickets %}
-        {% set meta = ticket_meta[ticket.id] %}
-        <tr>
-          <td class="text-muted small">{{ ticket.id }}</td>
-          <td>
-            {% if ticket.status in ('resolved', 'closed') %}
-              <span class="text-muted">{{ ticket.subject }}</span>
-            {% else %}
-              <a href="{{ url_for('ticket_status', token=ticket.token) }}"
-                 class="text-decoration-none fw-semibold">
-                {{ ticket.subject }}
-              </a>
-              {% if meta.awaiting_reply %}
-                <span class="badge bg-warning text-dark ms-1" title="{{ _('Support replied — awaiting your response') }}">
-                  <i class="bi bi-chat-dots-fill"></i>
+  <!-- Ticket list -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <h6 class="mb-0">{{ _('Welcome, %(name)s!', name=customer.name) }}</h6>
+      </div>
+
+      {% if tickets %}
+      <div class="table-responsive pb-2">
+        <table class="table table-hover table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>{{ _('Subject') }}</th>
+              <th>{{ _('Status') }}</th>
+              <th class="text-center">{{ _('Replies') }}</th>
+              <th>{{ _('Updated') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ticket in tickets %}
+            {% set meta = ticket_meta[ticket.id] %}
+            <tr>
+              <td class="text-muted small">{{ ticket.id }}</td>
+              <td>
+                {% if ticket.status in ('resolved', 'closed') %}
+                  <span class="text-muted">{{ ticket.subject }}</span>
+                {% else %}
+                  <a href="{{ url_for('ticket_status', token=ticket.token) }}"
+                     class="text-decoration-none fw-semibold">
+                    {{ ticket.subject }}
+                  </a>
+                  {% if meta.awaiting_reply %}
+                    <span class="badge bg-warning text-dark ms-1" title="{{ _('Support replied — awaiting your response') }}">
+                      <i class="bi bi-chat-dots-fill"></i>
+                    </span>
+                  {% endif %}
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge bg-{{ ticket.status_badge }}">
+                  {{ status_label(ticket.status) }}
                 </span>
-              {% endif %}
-            {% endif %}
-          </td>
-          <td>
-            <span class="badge bg-{{ ticket.status_badge }}">
-              {{ status_label(ticket.status) }}
-            </span>
-          </td>
-          <td class="text-center text-muted small">{{ meta.reply_count }}</td>
-          <td class="text-muted small">{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="card-body text-muted text-center">
-    <i class="bi bi-inbox me-2"></i>{{ _("You haven't submitted any tickets yet.") }}
-    <a href="{{ url_for('submit') }}" class="ms-1">{{ _('Submit your first ticket') }}</a>
-  </div>
-  {% endif %}
+              </td>
+              <td class="text-center text-muted small">{{ meta.reply_count }}</td>
+              <td class="text-muted small">{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-muted text-center">
+        <i class="bi bi-inbox me-2"></i>{{ _("You haven't submitted any tickets yet.") }}
+        <a href="{{ url_for('submit') }}" class="ms-1">{{ _('Submit your first ticket') }}</a>
+      </div>
+      {% endif %}
 
-  <div class="card-footer small text-muted py-2">
-    {% set total = tickets | length %}
-    {% if total == 1 %}
-      {{ _('1 ticket') }}
-    {% else %}
-      {{ _('%(n)s tickets', n=total) }}
-    {% endif %}
-  </div>
-</div>
+      <div class="card-footer small text-muted py-2">
+        {% set total = tickets | length %}
+        {% if total == 1 %}
+          {{ _('1 ticket') }}
+        {% else %}
+          {{ _('%(n)s tickets', n=total) }}
+        {% endif %}
+      </div>
+    </div>
+  </div><!-- /col-lg-8 -->
+
+  <!-- Recent activity feed -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-clock-history me-1"></i>{{ _('Recent Activity') }}</h6>
+      </div>
+      {% if recent_events %}
+      <ul class="list-group list-group-flush small">
+        {% for ev in recent_events %}
+        <li class="list-group-item py-2 px-3">
+          <div class="d-flex align-items-start gap-2">
+            {% if ev.event_type == 'status' %}
+              <i class="bi bi-arrow-repeat text-warning mt-1 flex-shrink-0"></i>
+            {% elif ev.event_type == 'customer_reply' %}
+              <i class="bi bi-person-exclamation text-warning mt-1 flex-shrink-0"></i>
+            {% elif ev.event_type == 'attachment' %}
+              <i class="bi bi-paperclip text-muted mt-1 flex-shrink-0"></i>
+            {% endif %}
+            <div class="flex-grow-1 overflow-hidden">
+              <div>
+                {% if ev.event_type == 'status' %}
+                  {{ _('Status changed') }}
+                  <span class="badge bg-secondary">{{ status_label(ev.from_value) }}</span>→<span class="badge bg-{{ {'open':'secondary','in_progress':'primary','resolved':'success','closed':'dark'}.get(ev.to_value,'secondary') }}">{{ status_label(ev.to_value) }}</span>
+                {% elif ev.event_type == 'customer_reply' %}
+                  {{ _('You replied') }}
+                {% elif ev.event_type == 'attachment' %}
+                  {{ _('File attached') }}: <em>{{ ev.to_value }}</em>
+                {% endif %}
+              </div>
+              <div class="text-muted d-flex justify-content-between mt-1">
+                {% if ev.ticket.status not in ('resolved', 'closed') %}
+                  <a href="{{ url_for('ticket_status', token=ev.ticket.token) }}"
+                     class="text-decoration-none text-truncate me-2">
+                    #{{ ev.ticket_id }} {{ ev.ticket.subject }}
+                  </a>
+                {% else %}
+                  <span class="text-truncate me-2">#{{ ev.ticket_id }} {{ ev.ticket.subject }}</span>
+                {% endif %}
+                <span class="flex-shrink-0">{{ ev.created_at.strftime('%d.%m. %H:%M') }}</span>
+              </div>
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body text-muted text-center small">
+        <i class="bi bi-clock-history me-1"></i>{{ _('No activity yet.') }}
+      </div>
+      {% endif %}
+    </div>
+  </div><!-- /col-lg-4 -->
+
+</div><!-- /row -->
 {% endblock %}

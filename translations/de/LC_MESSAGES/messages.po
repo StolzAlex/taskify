@@ -453,6 +453,15 @@ msgstr "Keine Tickets"
 msgid "Awaiting your reply"
 msgstr "Ihre Antwort ausstehend"
 
+msgid "Status changed"
+msgstr "Status geändert"
+
+msgid "You replied"
+msgstr "Sie haben geantwortet"
+
+msgid "File attached"
+msgstr "Datei angehängt"
+
 msgid "Support replied — awaiting your response"
 msgstr "Support hat geantwortet – Ihre Antwort steht aus"
 
