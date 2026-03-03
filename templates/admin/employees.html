@@ -14,7 +14,7 @@
       <div class="card-body">
         <form method="post">
           <div class="mb-3">
-            <label for="username" class="form-label small fw-semibold">{{ _('Username') }}</label>
+            <label for="username" class="form-label small fw-semibold">{{ _('Name') }}</label>
             <input type="text" class="form-control form-control-sm" id="username" name="username"
                    required value="{{ request.form.username or '' }}">
           </div>
@@ -54,7 +54,7 @@
         <table class="table table-hover mb-0">
           <thead class="table-light">
             <tr>
-              <th>{{ _('Username') }}</th>
+              <th>{{ _('Name') }}</th>
               <th>{{ _('Email') }}</th>
               <th>{{ _('Role') }}</th>
               <th>{{ _('GitHub') }}</th>

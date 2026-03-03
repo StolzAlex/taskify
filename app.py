@@ -120,6 +120,8 @@ def inject_globals():
         'get_locale': get_locale,
         'current_customer': get_current_customer(),
         'github_configured': bool(app.config.get('GITHUB_CLIENT_ID')),
+        'github_token_configured': bool(app.config.get('GITHUB_TOKEN')),
+        'github_org': app.config.get('GITHUB_ORG', ''),
         'github_ref_label': github_ref_label,
     }
 
@@ -495,7 +497,14 @@ def delete_customer(cust_id):
 @login_required
 def dashboard():
     is_privileged = current_user.is_admin or current_user.is_manager
-    view = request.args.get('view', 'all' if is_privileged else 'mine')
+    default_view = 'all' if is_privileged else 'mine'
+    if 'view' in request.args:
+        view = request.args['view'] if request.args['view'] in ('mine', 'all') else default_view
+        if view != current_user.get_pref('dashboard_view'):
+            current_user.set_pref('dashboard_view', view)
+            db.session.commit()
+    else:
+        view = current_user.get_pref('dashboard_view', default_view)
     status_filter = request.args.get('status', '')
 
     query = Ticket.query
@@ -511,10 +520,36 @@ def dashboard():
                            status_choices=Ticket.STATUS_CHOICES)
 
 
+def _sync_github_issue(ticket):
+    """If ticket links to a GitHub issue, close the ticket when the issue is closed."""
+    m = re.match(r'https://github\.com/([^/]+/[^/]+)/issues/(\d+)', ticket.github_pr_url or '')
+    if not m:
+        return
+    headers = {'Accept': 'application/vnd.github+json'}
+    token = app.config.get('GITHUB_TOKEN', '').strip()
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+    try:
+        resp = http_requests.get(
+            f'https://api.github.com/repos/{m.group(1)}/issues/{m.group(2)}',
+            headers=headers, timeout=5,
+        )
+    except Exception:
+        return
+    if not resp.ok:
+        return
+    if resp.json().get('state') == 'closed' and ticket.status not in ('closed', 'resolved'):
+        ticket.status = 'closed'
+        ticket.updated_at = datetime.utcnow()
+        db.session.commit()
+        flash(_('GitHub issue was closed — ticket status updated to Closed.'), 'info')
+
+
 @app.route('/tickets/<int:ticket_id>')
 @login_required
 def ticket_detail(ticket_id):
     ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    _sync_github_issue(ticket)
     employees = Employee.query.filter_by(is_active=True).all()
     return render_template('ticket.html', ticket=ticket, employees=employees,
                            status_choices=Ticket.STATUS_CHOICES)
@@ -632,6 +667,7 @@ def set_github_pr(ticket_id):
         flash(_('Invalid GitHub PR URL.'), 'danger')
         return redirect(url_for('ticket_detail', ticket_id=ticket_id))
     ticket.github_pr_url = pr_url or None
+    ticket.github_pr_title = request.form.get('github_pr_title', '').strip() or None
     db.session.commit()
     flash(_('GitHub link updated.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
@@ -642,35 +678,129 @@ def set_github_pr(ticket_id):
 def github_search(ticket_id):
     q = request.args.get('q', '').strip()
     if len(q) < 2:
-        return jsonify([])
-    auth = None
-    if app.config.get('GITHUB_CLIENT_ID') and app.config.get('GITHUB_CLIENT_SECRET'):
-        auth = (app.config['GITHUB_CLIENT_ID'], app.config['GITHUB_CLIENT_SECRET'])
+        return jsonify({'items': []})
+    org = app.config.get('GITHUB_ORG', '').strip()
+    repo_prefix = re.match(r'^([\w.\-]+):\s*(.*)', q, re.DOTALL)
+    if repo_prefix:
+        repo_name, rest = repo_prefix.group(1), repo_prefix.group(2).strip()
+        full_repo = f'{org}/{repo_name}' if org else repo_name
+        base_q = f'repo:{full_repo} {rest}'.strip()
+    else:
+        base_q = f'org:{org} {q}' if org else q
+
+    headers = {'Accept': 'application/vnd.github+json'}
+    token = app.config.get('GITHUB_TOKEN', '').strip()
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+
+    results = []
+    for type_filter in ('is:pull-request', 'is:issue'):
+        try:
+            resp = http_requests.get(
+                'https://api.github.com/search/issues',
+                params={'q': f'{base_q} {type_filter}', 'per_page': 4,
+                        'sort': 'created', 'order': 'desc'},
+                headers=headers,
+                timeout=10,
+            )
+        except Exception:
+            return jsonify({'error': 'network'})
+        if not resp.ok:
+            try:
+                detail = resp.json().get('message', resp.text[:120])
+            except Exception:
+                detail = resp.text[:120]
+            app.logger.warning('GitHub search %s: %s', resp.status_code, detail)
+            return jsonify({'error': detail})
+        for item in resp.json().get('items', []):
+            repo = '/'.join(item['repository_url'].split('/')[-2:])
+            results.append({
+                'number': item['number'],
+                'title': item['title'],
+                'url': item['html_url'],
+                'state': item['state'],
+                'is_pr': 'pull_request' in item,
+                'repo': repo,
+            })
+    return jsonify({'items': results})
+
+
+@app.route('/tickets/<int:ticket_id>/github_repos')
+@login_required
+def github_repos(ticket_id):
+    org = app.config.get('GITHUB_ORG', '').strip()
+    if not org:
+        return jsonify({'error': 'GITHUB_ORG is not configured.'})
+    headers = {'Accept': 'application/vnd.github+json'}
+    token = app.config.get('GITHUB_TOKEN', '').strip()
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
     try:
         resp = http_requests.get(
-            'https://api.github.com/search/issues',
-            params={'q': q, 'per_page': 8},
-            headers={'Accept': 'application/vnd.github+json'},
-            auth=auth,
+            f'https://api.github.com/orgs/{org}/repos',
+            params={'per_page': 100, 'sort': 'updated', 'type': 'all'},
+            headers=headers,
             timeout=10,
         )
     except Exception:
-        return jsonify([])
+        return jsonify({'error': 'network'})
     if not resp.ok:
-        return jsonify([])
-    results = []
-    for item in resp.json().get('items', []):
-        is_pr = 'pull_request' in item
-        repo = '/'.join(item['repository_url'].split('/')[-2:])
-        results.append({
-            'number': item['number'],
-            'title': item['title'],
-            'url': item['html_url'],
-            'state': item['state'],
-            'is_pr': is_pr,
-            'repo': repo,
-        })
-    return jsonify(results)
+        try:
+            detail = resp.json().get('message', resp.text[:120])
+        except Exception:
+            detail = resp.text[:120]
+        return jsonify({'error': detail})
+    repos = [{'name': r['name'], 'full_name': r['full_name']}
+             for r in resp.json() if not r.get('archived')]
+    return jsonify({'repos': repos})
+
+
+@app.route('/tickets/<int:ticket_id>/github_create_issue', methods=['POST'])
+@login_required
+def github_create_issue(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    repo_full_name = request.form.get('repo', '').strip()
+    if not repo_full_name or '/' not in repo_full_name:
+        flash(_('Please select a repository.'), 'danger')
+        return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+    headers = {'Accept': 'application/vnd.github+json'}
+    token = app.config.get('GITHUB_TOKEN', '').strip()
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+    plain_body = re.sub(r'<[^>]+>', '', ticket.body).strip()
+    issue_body = (f"{plain_body}\n\n---\n"
+                  f"*Submitted by: {ticket.submitter_email}*  \n"
+                  f"*Taskify Ticket #{ticket.id}*")
+    payload = {
+        'title': ticket.subject,
+        'body': issue_body,
+        'labels': ['enhancement', 'patch'],
+    }
+    if ticket.assignee and ticket.assignee.github_login:
+        payload['assignees'] = [ticket.assignee.github_login]
+    try:
+        resp = http_requests.post(
+            f'https://api.github.com/repos/{repo_full_name}/issues',
+            json=payload,
+            headers=headers,
+            timeout=10,
+        )
+    except Exception:
+        flash(_('GitHub API request failed.'), 'danger')
+        return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+    if not resp.ok:
+        try:
+            detail = resp.json().get('message', resp.text[:120])
+        except Exception:
+            detail = resp.text[:120]
+        flash(f'GitHub: {detail}', 'danger')
+        return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+    issue = resp.json()
+    ticket.github_pr_url = issue['html_url']
+    ticket.github_pr_title = issue['title']
+    db.session.commit()
+    flash(_('GitHub issue created and linked.'), 'success')
+    return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 
 
 # ---------------------------------------------------------------------------

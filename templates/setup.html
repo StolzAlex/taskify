@@ -12,7 +12,7 @@
         <p class="text-muted text-center small mb-4">{{ _('Create the initial admin account.') }}</p>
         <form method="post" novalidate>
           <div class="mb-3">
-            <label for="username" class="form-label">{{ _('Username') }}</label>
+            <label for="username" class="form-label">{{ _('Name') }}</label>
             <input type="text" class="form-control" id="username" name="username"
                    required autofocus value="{{ request.form.username or '' }}">
           </div>

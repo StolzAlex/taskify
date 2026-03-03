@@ -61,7 +61,7 @@
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="small fw-semibold">
-              <i class="bi bi-person-circle me-1"></i>{{ msg.author.username }}
+              <i class="bi bi-person-circle me-1"></i>{{ msg.author.username if msg.author else '[deleted]' }}
             </span>
             <div class="d-flex align-items-center gap-2">
               {% if msg.is_customer_visible %}
@@ -211,17 +211,21 @@
         {# Hidden form used for both linking and unlinking #}
         <form method="post" action="{{ url_for('set_github_pr', ticket_id=ticket.id) }}" id="ghForm">
           <input type="hidden" name="github_pr_url" id="ghUrl" value="">
+          <input type="hidden" name="github_pr_title" id="ghTitle" value="">
         </form>
 
         {# Current link #}
         {% if ticket.github_pr_url %}
-        <div class="d-flex align-items-center gap-2 mb-3 p-2 bg-light rounded">
-          <i class="bi bi-github flex-shrink-0"></i>
+        <div class="d-flex align-items-start gap-2 mb-3 p-2 bg-light rounded">
+          <i class="bi bi-github flex-shrink-0 mt-1"></i>
           <a href="{{ ticket.github_pr_url }}" target="_blank" rel="noopener"
-             class="small text-break flex-grow-1">
-            {{ github_ref_label(ticket.github_pr_url) }}
+             class="flex-grow-1 text-break text-decoration-none">
+            {% if ticket.github_pr_title %}
+            <div class="small fw-semibold text-dark">{{ ticket.github_pr_title }}</div>
+            {% endif %}
+            <div class="small text-muted">{{ github_ref_label(ticket.github_pr_url) }}</div>
           </a>
-          <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0 py-0 px-1"
+          <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0 py-0 px-1 mt-1"
                   onclick="ghClear()" title="{{ _('Unlink') }}">
             <i class="bi bi-x-lg"></i>
           </button>
@@ -233,7 +237,7 @@
           <div class="input-group input-group-sm">
             <span class="input-group-text"><i class="bi bi-search"></i></span>
             <input type="text" id="ghSearch" class="form-control"
-                   placeholder="{{ _('Search PRs and issues\u2026') }}"
+                   placeholder="{{ _('repo: query  \u2014  or search all of %(org)s\u2026', org=github_org) if github_org else _('Search PRs and issues\u2026') }}"
                    autocomplete="off">
           </div>
           <div id="ghDropdown"
@@ -244,6 +248,32 @@
 
       </div>
     </div>
+
+    <!-- Create GitHub Issue -->
+    {% if github_token_configured and github_org %}
+    <div class="card shadow-sm mb-3">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           role="button" data-bs-toggle="collapse" data-bs-target="#ghCreatePanel"
+           aria-expanded="false" style="cursor:pointer;">
+        <h6 class="mb-0"><i class="bi bi-github me-1"></i>{{ _('Create GitHub Issue') }}</h6>
+        <i class="bi bi-chevron-down small text-muted"></i>
+      </div>
+      <div class="collapse" id="ghCreatePanel">
+        <div class="card-body">
+          <form method="post" action="{{ url_for('github_create_issue', ticket_id=ticket.id) }}">
+            <div class="mb-2">
+              <select name="repo" id="ghRepoSelect" class="form-select form-select-sm" required>
+                <option value="">{{ _('Loading repos\u2026') }}</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-dark btn-sm w-100">
+              <i class="bi bi-plus-circle me-1"></i>{{ _('Create Issue') }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Ticket info -->
     <div class="card shadow-sm">
@@ -331,13 +361,17 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  const ghTitle = document.getElementById('ghTitle');
+
   function ghClear() {
     ghUrl.value = '';
+    ghTitle.value = '';
     ghForm.submit();
   }
 
-  function ghSelect(url) {
+  function ghSelect(url, title) {
     ghUrl.value = url;
+    ghTitle.value = title || '';
     ghForm.submit();
   }
 
@@ -353,7 +387,9 @@
       const r = await fetch(
         `/tickets/{{ ticket.id }}/github_search?q=${encodeURIComponent(q)}`
       );
-      const items = await r.json();
+      const data = await r.json();
+      if (data.error) { ghShowMsg(data.error, 'danger'); return; }
+      const items = data.items ?? data;
       if (!items.length) { ghShowMsg('{{ _("No results") }}', 'muted'); return; }
 
       ghDropdown.innerHTML = items.map(item => {
@@ -363,7 +399,7 @@
         const title     = esc(item.title.length > 72
                             ? item.title.slice(0, 72) + '\u2026' : item.title);
         return `<button type="button" class="dropdown-item py-2 border-bottom"
-                        onclick="ghSelect('${esc(item.url)}')">
+                        onclick="ghSelect('${esc(item.url)}','${esc(item.title)}')">
           <div class="d-flex align-items-center gap-1 mb-1">
             <span class="badge bg-${typeCls}">${typeLabel}</span>
             <span class="badge bg-${stateCls}">${esc(item.state)}</span>
@@ -384,6 +420,31 @@
     if (q.length < 2) { ghDropdown.style.display = 'none'; return; }
     ghTimer = setTimeout(() => ghDoSearch(q), 350);
   });
+
+  // ── GitHub repo picker ───────────────────────────────────────────────────
+  const ghCreatePanel = document.getElementById('ghCreatePanel');
+  const ghRepoSelect  = document.getElementById('ghRepoSelect');
+  let ghReposLoaded = false;
+
+  if (ghCreatePanel) {
+    ghCreatePanel.addEventListener('show.bs.collapse', async function () {
+      if (ghReposLoaded) return;
+      try {
+        const r = await fetch(`/tickets/{{ ticket.id }}/github_repos`);
+        const data = await r.json();
+        if (data.error) {
+          ghRepoSelect.innerHTML = `<option value="">${esc(data.error)}</option>`;
+          return;
+        }
+        ghRepoSelect.innerHTML =
+          `<option value="">— {{ _('Select repo') }} —</option>` +
+          data.repos.map(r => `<option value="${esc(r.full_name)}">${esc(r.name)}</option>`).join('');
+        ghReposLoaded = true;
+      } catch {
+        ghRepoSelect.innerHTML = `<option value="">{{ _('Search failed') }}</option>`;
+      }
+    });
+  }
 
   document.addEventListener('click', function (e) {
     if (!ghSearch.contains(e.target) && !ghDropdown.contains(e.target)) {

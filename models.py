@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
@@ -20,9 +21,24 @@ class Employee(UserMixin, db.Model):
     github_id = db.Column(db.String(50), unique=True, nullable=True)
     github_login = db.Column(db.String(100), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    preferences = db.Column(db.Text, nullable=True)
 
     messages = db.relationship('Message', backref='author', lazy='dynamic')
     assignments = db.relationship('Assignment', backref='employee', lazy='dynamic')
+
+    def get_pref(self, key, default=None):
+        try:
+            return json.loads(self.preferences or '{}').get(key, default)
+        except Exception:
+            return default
+
+    def set_pref(self, key, value):
+        try:
+            prefs = json.loads(self.preferences or '{}')
+        except Exception:
+            prefs = {}
+        prefs[key] = value
+        self.preferences = json.dumps(prefs)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -66,6 +82,7 @@ class Ticket(db.Model):
     body = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(20), nullable=False, default='open')
     github_pr_url = db.Column(db.String(500), nullable=True)
+    github_pr_title = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

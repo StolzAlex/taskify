@@ -432,8 +432,33 @@ msgstr "GitHub-Verknüpfung"
 msgid "GitHub link updated."
 msgstr "GitHub-Verknüpfung aktualisiert."
 
+msgid "GitHub issue was closed \u2014 ticket status updated to Closed."
+msgstr "GitHub-Issue wurde geschlossen \u2014 Ticket-Status auf Geschlossen aktualisiert."
+
+msgid "Create GitHub Issue"
+msgstr "GitHub-Issue erstellen"
+
+msgid "Loading repos\u2026"
+msgstr "Repos werden geladen\u2026"
+
+msgid "Select repo"
+msgstr "Repo auswählen"
+
+msgid "Create Issue"
+msgstr "Issue erstellen"
+
+msgid "Please select a repository."
+msgstr "Bitte wählen Sie ein Repository aus."
+
+msgid "GitHub issue created and linked."
+msgstr "GitHub-Issue erstellt und verknüpft."
+
 msgid "Search PRs and issues\u2026"
 msgstr "PRs und Issues suchen\u2026"
+
+#, python-format
+msgid "repo: query  \u2014  or search all of %(org)s\u2026"
+msgstr "repo: Suchbegriff  \u2014  oder alles in %(org)s durchsuchen\u2026"
 
 msgid "Searching\u2026"
 msgstr "Suche läuft\u2026"
