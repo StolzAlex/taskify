@@ -8,11 +8,12 @@ A lightweight support ticket web app. Customers submit tickets via a public form
 
 | Layer | Choice |
 |---|---|
-| Backend | Python 3, Flask, Flask-SQLAlchemy, Flask-Login, Flask-Mail, Flask-Babel |
+| Backend | Python 3, Flask, Flask-SQLAlchemy, Flask-Login, Flask-Mail, Flask-Babel, Authlib |
 | Database | SQLite (single file, zero config) |
 | UI | Bootstrap 5 + Bootstrap Icons, Quill.js rich-text editor (all CDN) |
 | Templates | Jinja2 (server-side, no build step) |
 | i18n | gettext/pybabel — English and German included |
+| Auth | Password-based (employees + customers) + GitHub OAuth SSO (employees) |
 
 ---
 
@@ -72,6 +73,8 @@ All settings are controlled via environment variables. The defaults work out of 
 | `MAIL_DEFAULT_SENDER` | `noreply@taskify.local` | From address |
 | `MAIL_SUPPRESS_SEND` | `false` | Set to `true` to silently drop all emails |
 | `BABEL_DEFAULT_LOCALE` | `en` | Default UI language (`en` or `de`) |
+| `GITHUB_CLIENT_ID` | _(none)_ | GitHub OAuth App client ID (optional) |
+| `GITHUB_CLIENT_SECRET` | _(none)_ | GitHub OAuth App client secret (optional) |
 
 ### Example: AWS SES via SMTP
 
@@ -89,34 +92,74 @@ SES SMTP credentials are generated in the AWS console under **SES → SMTP Setti
 
 > **Note:** SES sandbox mode only delivers to verified email addresses. Request production access to send to any address.
 
+### GitHub OAuth SSO (optional)
+
+1. Create a GitHub OAuth App at **Settings → Developer settings → OAuth Apps → New OAuth App**.
+2. Set the **Authorization callback URL** to `https://yourdomain.com/auth/github/callback`.
+3. Export the credentials:
+   ```bash
+   export GITHUB_CLIENT_ID=your_client_id
+   export GITHUB_CLIENT_SECRET=your_client_secret
+   ```
+4. Restart the app. A **Login with GitHub** button appears on the employee login page.
+
+Employees link their GitHub account from `/admin/employees`. Once linked, they can sign in via GitHub without a password.
+
 ---
 
 ## Usage
 
-### For customers
+### For customers (anonymous)
 
 1. Visit **`/`** — fill in email, subject, and description to open a ticket.
 2. A confirmation email is sent with a private link: **`/status/<token>`**.
 3. Use that link to track status, read replies from support, and send follow-up messages.
 4. Replies are disabled once a ticket is `Resolved` or `Closed`.
+5. The public link is deactivated (HTTP 410) for resolved/closed tickets. Only logged-in customer account holders can still view their own closed tickets.
 
 Employee names are never shown to customers.
 
+### For customers (with a customer account)
+
+Managers can create customer accounts at `/manager/customers`. The customer receives a welcome email with login credentials.
+
+1. Log in at **`/customer/login`**.
+2. **My Tickets** dashboard shows all tickets submitted with your email address.
+3. Resolved/closed tickets are shown as plain text (no active link) in the list.
+4. Attachments from employee messages are visible on the `/status/<token>` page when logged in.
+
 ### For employees
 
-1. Log in at **`/login`**.
-2. The **Dashboard** lists all tickets, filterable by status and assignee.
+1. Log in at **`/login`** (password or GitHub).
+2. The **Dashboard** lists tickets, with a **My Tickets / All Tickets** toggle.
+   - Admin and manager accounts default to *All Tickets*.
+   - Staff accounts default to *My Tickets* (assigned to them).
+   - Filter by status using the dropdown (auto-submits).
 3. On a ticket detail page you can:
-   - **Add a message** using the Quill rich-text editor. Check *Visible to customer* to send it as an email reply.
+   - **Add a message** using the Quill rich-text editor. Optionally attach a file inline. Check *Visible to customer* to send it as an email reply.
    - **Change status** — triggers an email notification to the submitter.
    - **Assign** the ticket to an active employee.
-   - **Upload attachments** (max 16 MB per file). Attachments are only accessible to logged-in employees.
+   - **Link a GitHub PR** — paste a `https://github.com/…/pull/…` URL in the sidebar card.
+
+### For managers
+
+Managers have access to **`/manager/customers`** in addition to the employee dashboard:
+- Create customer accounts (sends a welcome email with credentials).
+- Activate or deactivate customer accounts.
 
 ### For admins
 
-Admins have access to **`/admin/employees`** to:
-- Create new employee accounts (optionally with admin rights).
+Admins have access to **`/admin/employees`**:
+- Create new employee accounts with optional **Admin** or **Manager** roles.
 - Activate or deactivate existing accounts.
+
+**Role summary:**
+
+| Role | Dashboard | Manage customers | Manage employees |
+|---|---|---|---|
+| Staff | My Tickets (default) | — | — |
+| Manager | All Tickets (default) | ✓ | — |
+| Admin | All Tickets (default) | ✓ | ✓ |
 
 ---
 
@@ -168,13 +211,19 @@ taskify/
 │   ├── base.html               # Bootstrap layout, navbar, flash messages
 │   ├── submit.html             # Public: submit ticket
 │   ├── ticket_status.html      # Public: track ticket + customer replies
-│   ├── login.html              # Employee login
+│   ├── ticket_closed.html      # Public: 410 page for closed/resolved tickets
+│   ├── login.html              # Employee login (+ GitHub SSO button)
 │   ├── setup.html              # First-run admin setup
-│   ├── dashboard.html          # Employee: ticket list with filters
-│   ├── ticket.html             # Employee: ticket detail, messages, attachments
+│   ├── dashboard.html          # Employee: ticket list with My/All toggle
+│   ├── ticket.html             # Employee: ticket detail, messages, GitHub PR
 │   ├── error.html              # 403 / 404 error page
-│   └── admin/
-│       └── employees.html      # Admin: manage employees
+│   ├── admin/
+│   │   └── employees.html      # Admin: manage employees + GitHub status
+│   ├── customer/
+│   │   ├── login.html          # Customer portal login
+│   │   └── dashboard.html      # Customer: ticket list
+│   └── manager/
+│       └── customers.html      # Manager: create and manage customer accounts
 ├── static/
 │   └── style.css               # Custom CSS overrides
 └── uploads/                    # Uploaded attachments (gitignored)
@@ -185,12 +234,17 @@ taskify/
 ## Data Model
 
 ```
-Employee   — id, username, email, password_hash, is_admin, is_active, created_at
-Ticket     — id, token (UUID), submitter_email, subject, body, status, created_at, updated_at
+Employee   — id, username, email, password_hash (nullable), is_admin, is_manager,
+             is_active, github_id (unique), github_login, created_at
+Customer   — id, email (unique), name, password_hash, is_active,
+             created_by_id FK → employees, created_at
+Ticket     — id, token (UUID), submitter_email, subject, body, status,
+             github_pr_url, created_at, updated_at
 Assignment — ticket_id FK, employee_id FK          [current assignee, one per ticket]
 Message    — ticket_id FK, employee_id FK (null for customer replies),
              body (HTML), is_customer_visible, is_customer_reply, created_at
-Attachment — ticket_id FK, filename (UUID on disk), original_filename, size, created_at
+Attachment — ticket_id FK, message_id FK (null for ticket-level), filename (UUID on disk),
+             original_filename, size, created_at
 ```
 
 **Ticket statuses:** `open` → `in_progress` → `resolved` → `closed`
@@ -205,6 +259,34 @@ Attachment — ticket_id FK, filename (UUID on disk), original_filename, size, c
 | Status changed | Submitter — new status |
 | Employee adds customer-visible message | Submitter — message content |
 | Customer replies on status page | Assignee (or all active employees if unassigned) |
+| Manager creates customer account | Customer — welcome email with login credentials |
+
+---
+
+## Migrating an existing database
+
+If you have an existing `instance/taskify.db`, run the following SQL before restarting:
+
+```sql
+ALTER TABLE employees ADD COLUMN is_manager BOOLEAN NOT NULL DEFAULT 0;
+ALTER TABLE employees ADD COLUMN github_id  VARCHAR(50);
+ALTER TABLE employees ADD COLUMN github_login VARCHAR(100);
+ALTER TABLE tickets   ADD COLUMN github_pr_url VARCHAR(500);
+
+-- employees.password_hash is already nullable in SQLite (no migration needed)
+
+CREATE TABLE customers (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    email         VARCHAR(120) UNIQUE NOT NULL,
+    name          VARCHAR(120) NOT NULL,
+    password_hash VARCHAR(256) NOT NULL,
+    is_active     BOOLEAN NOT NULL DEFAULT 1,
+    created_by_id INTEGER REFERENCES employees(id),
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+A fresh install (`db.create_all()` on startup) handles all of this automatically.
 
 ---
 
@@ -214,5 +296,6 @@ Attachment — ticket_id FK, filename (UUID on disk), original_filename, size, c
 - [ ] Configure real SMTP credentials
 - [ ] Run behind a reverse proxy (nginx, Caddy) with HTTPS
 - [ ] Use a production WSGI server: `gunicorn app:app`
+- [ ] Set GitHub OAuth callback URL to the HTTPS domain before going live
 - [ ] Restrict access to the `uploads/` directory at the web server level (already gated in app by login)
 - [ ] Back up `instance/taskify.db` and `uploads/` regularly

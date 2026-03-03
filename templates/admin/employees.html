@@ -28,10 +28,15 @@
             <input type="password" class="form-control form-control-sm" id="password" name="password"
                    required autocomplete="new-password">
           </div>
-          <div class="mb-3 form-check">
+          <div class="mb-2 form-check">
             <input type="checkbox" class="form-check-input" id="is_admin" name="is_admin"
                    {{ 'checked' if request.form.is_admin }}>
             <label class="form-check-label small" for="is_admin">{{ _('Admin privileges') }}</label>
+          </div>
+          <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="is_manager" name="is_manager"
+                   {{ 'checked' if request.form.is_manager }}>
+            <label class="form-check-label small" for="is_manager">{{ _('Manager privileges') }}</label>
           </div>
           <button type="submit" class="btn btn-primary btn-sm w-100">
             <i class="bi bi-person-plus me-1"></i>{{ _('Create') }}
@@ -52,6 +57,7 @@
               <th>{{ _('Username') }}</th>
               <th>{{ _('Email') }}</th>
               <th>{{ _('Role') }}</th>
+              <th>{{ _('GitHub') }}</th>
               <th>{{ _('Status') }}</th>
               <th>{{ _('Created') }}</th>
               <th></th>
@@ -65,8 +71,23 @@
               <td>
                 {% if emp.is_admin %}
                   <span class="badge bg-danger">{{ _('Admin') }}</span>
+                {% elif emp.is_manager %}
+                  <span class="badge bg-warning text-dark">{{ _('Manager') }}</span>
                 {% else %}
                   <span class="badge bg-secondary">{{ _('Staff') }}</span>
+                {% endif %}
+              </td>
+              <td class="small">
+                {% if emp.github_login %}
+                  <span class="badge bg-dark">
+                    <i class="bi bi-github me-1"></i>{{ emp.github_login }}
+                  </span>
+                {% elif emp.id == current_user.id %}
+                  <a href="{{ url_for('auth_github') }}" class="btn btn-outline-dark btn-sm py-0 px-1">
+                    <i class="bi bi-github me-1"></i>{{ _('Link GitHub') }}
+                  </a>
+                {% else %}
+                  <span class="text-muted">—</span>
                 {% endif %}
               </td>
               <td>
@@ -77,7 +98,7 @@
                 {% endif %}
               </td>
               <td class="text-muted small">{{ emp.created_at.strftime('%Y-%m-%d') }}</td>
-              <td>
+              <td class="text-nowrap">
                 {% if emp.id != current_user.id %}
                 <form method="post" action="{{ url_for('toggle_employee', emp_id=emp.id) }}"
                       class="d-inline"
@@ -88,6 +109,13 @@
                     {% else %}
                       <i class="bi bi-person-check me-1"></i>{{ _('Activate') }}
                     {% endif %}
+                  </button>
+                </form>
+                <form method="post" action="{{ url_for('delete_employee', emp_id=emp.id) }}"
+                      class="d-inline"
+                      onsubmit="return confirm('{{ _('Permanently delete this employee? This cannot be undone.') }}')">
+                  <button type="submit" class="btn btn-sm btn-outline-danger ms-1">
+                    <i class="bi bi-trash"></i>
                   </button>
                 </form>
                 {% else %}

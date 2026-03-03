@@ -31,6 +31,19 @@
             </button>
           </div>
         </form>
+
+        {% if github_configured %}
+        <hr>
+        <div class="d-grid">
+          <a href="{{ url_for('auth_github') }}" class="btn btn-outline-dark">
+            <i class="bi bi-github me-1"></i>{{ _('Login with GitHub') }}
+          </a>
+        </div>
+        {% endif %}
+
+        <p class="text-center text-muted small mt-3 mb-0">
+          <a href="{{ url_for('customer_login') }}">{{ _('Customer Login') }}</a>
+        </p>
       </div>
     </div>
   </div>

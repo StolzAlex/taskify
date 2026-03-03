@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('Customer Login') }} – Taskify{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-sm-8 col-md-5 col-lg-4">
+    <div class="card shadow-sm mt-4">
+      <div class="card-body p-4">
+        <h4 class="card-title mb-4 text-center">
+          <i class="bi bi-person-badge me-1"></i>{{ _('Customer Login') }}
+        </h4>
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="email" class="form-label">{{ _('Email') }}</label>
+            <input type="email" class="form-control" id="email" name="email"
+                   autocomplete="email" autofocus required
+                   value="{{ request.form.email or '' }}">
+          </div>
+          <div class="mb-4">
+            <label for="password" class="form-label">{{ _('Password') }}</label>
+            <input type="password" class="form-control" id="password" name="password"
+                   autocomplete="current-password" required>
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-box-arrow-in-right me-1"></i>{{ _('Log In') }}
+            </button>
+          </div>
+        </form>
+        <p class="text-center text-muted small mt-3 mb-0">
+          <a href="{{ url_for('login') }}">{{ _('Employee Login') }}</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

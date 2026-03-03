@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('Ticket Closed') }} – Taskify{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-sm-8 col-md-6 col-lg-5">
+    <div class="card shadow-sm mt-5 text-center">
+      <div class="card-body p-5">
+        <div class="mb-4">
+          <i class="bi bi-lock-fill text-secondary" style="font-size: 3rem;"></i>
+        </div>
+        <h4 class="card-title mb-2">{{ _('Ticket Closed') }}</h4>
+        <p class="text-muted mb-4">
+          {{ _('This ticket is no longer available.') }}<br>
+          <span class="small">
+            {{ _('The public link for this ticket has been deactivated.') }}
+          </span>
+        </p>
+        <div class="d-grid gap-2">
+          <a href="{{ url_for('submit') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>{{ _('Submit a new ticket') }}
+          </a>
+          {% if not current_customer %}
+          <a href="{{ url_for('customer_login') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-person-badge me-1"></i>{{ _('Log in to your customer account') }}
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

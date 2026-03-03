@@ -4,6 +4,8 @@ import uuid
 from datetime import datetime
 from functools import wraps
 
+import requests as http_requests
+from authlib.integrations.flask_client import OAuth
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, abort, send_from_directory, session)
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -13,7 +15,7 @@ from markupsafe import escape
 from werkzeug.utils import secure_filename
 
 from config import Config
-from models import db, Employee, Ticket, Assignment, Message, Attachment
+from models import db, Employee, Customer, Ticket, Assignment, Message, Attachment
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -34,6 +36,17 @@ def get_locale_selector():
 
 babel = Babel(app, locale_selector=get_locale_selector)
 
+oauth = OAuth(app)
+github_oauth = oauth.register(
+    name='github',
+    client_id=app.config['GITHUB_CLIENT_ID'],
+    client_secret=app.config['GITHUB_CLIENT_SECRET'],
+    access_token_url='https://github.com/login/oauth/access_token',
+    authorize_url='https://github.com/login/oauth/authorize',
+    api_base_url='https://api.github.com/',
+    client_kwargs={'scope': 'read:user user:email'},
+)
+
 
 # ---------------------------------------------------------------------------
 # Status label helper (translatable)
@@ -49,23 +62,24 @@ def status_label(status):
     return labels.get(status, status)
 
 
-@app.context_processor
-def inject_globals():
-    return {
-        'now': datetime.utcnow(),
-        'status_label': status_label,
-        'get_locale': get_locale,
-    }
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    return db.session.get(Employee, int(user_id))
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def get_current_customer():
+    cid = session.get('customer_id')
+    return db.session.get(Customer, cid) if cid else None
+
+
+def customer_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('customer_id'):
+            flash(_('Please log in to your customer account.'), 'warning')
+            return redirect(url_for('customer_login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated
+
 
 def admin_required(f):
     @wraps(f)
@@ -75,6 +89,35 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
+def manager_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated or not (current_user.is_admin or current_user.is_manager):
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.context_processor
+def inject_globals():
+    return {
+        'now': datetime.utcnow(),
+        'status_label': status_label,
+        'get_locale': get_locale,
+        'current_customer': get_current_customer(),
+        'github_configured': bool(app.config.get('GITHUB_CLIENT_ID')),
+    }
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(Employee, int(user_id))
+
+
+# ---------------------------------------------------------------------------
+# Email helpers
+# ---------------------------------------------------------------------------
 
 def send_email(subject, recipients, body_text, body_html=None):
     try:
@@ -138,6 +181,23 @@ def notify_assignee_customer_reply(ticket):
         )
 
 
+def send_customer_welcome_email(customer, plain_password):
+    login_url = url_for('customer_login', _external=True)
+    body = (
+        f"Welcome to Taskify!\n\n"
+        f"Your customer account has been created.\n\n"
+        f"Email: {customer.email}\n"
+        f"Password: {plain_password}\n\n"
+        f"Login at: {login_url}\n\n"
+        f"Please change your password after first login."
+    )
+    send_email(
+        subject=_('Welcome to Taskify \u2013 Your Customer Account'),
+        recipients=[customer.email],
+        body_text=body,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Language switcher
 # ---------------------------------------------------------------------------
@@ -180,13 +240,17 @@ def setup():
 
 @app.route('/', methods=['GET', 'POST'])
 def submit():
+    customer = get_current_customer()
     if request.method == 'POST':
-        email = request.form.get('email', '').strip()
+        if customer:
+            email = customer.email
+        else:
+            email = request.form.get('email', '').strip()
         subject = request.form.get('subject', '').strip()
         body = request.form.get('body', '').strip()
         if not email or not subject or not body:
             flash(_('All fields are required.'), 'danger')
-            return render_template('submit.html')
+            return render_template('submit.html', customer=customer)
         ticket = Ticket(submitter_email=email, subject=subject, body=body)
         db.session.add(ticket)
         db.session.commit()
@@ -199,16 +263,21 @@ def submit():
             'success'
         )
         return redirect(url_for('submit'))
-    return render_template('submit.html')
+    return render_template('submit.html', customer=customer)
 
 
 @app.route('/status/<token>')
 def ticket_status(token):
     ticket = Ticket.query.filter_by(token=token).first_or_404()
+    customer = get_current_customer()
+    if ticket.status in ('resolved', 'closed'):
+        if not (customer and customer.email.lower() == ticket.submitter_email.lower()):
+            return render_template('ticket_closed.html', ticket=ticket), 410
     thread = ticket.messages.filter(
         db.or_(Message.is_customer_visible == True, Message.is_customer_reply == True)
     ).all()
-    return render_template('ticket_status.html', ticket=ticket, messages=thread)
+    return render_template('ticket_status.html', ticket=ticket, messages=thread,
+                           current_customer=customer)
 
 
 @app.route('/status/<token>/reply', methods=['POST'])
@@ -230,7 +299,7 @@ def customer_reply(token):
 
 
 # ---------------------------------------------------------------------------
-# Auth
+# Employee auth
 # ---------------------------------------------------------------------------
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -243,6 +312,7 @@ def login():
         emp = Employee.query.filter_by(username=username).first()
         if emp and emp.is_active and emp.check_password(password):
             login_user(emp, remember=request.form.get('remember') == 'on')
+            session.pop('customer_id', None)
             next_page = request.args.get('next')
             return redirect(next_page or url_for('dashboard'))
         flash(_('Invalid credentials or account disabled.'), 'danger')
@@ -257,27 +327,186 @@ def logout():
 
 
 # ---------------------------------------------------------------------------
+# GitHub OAuth
+# ---------------------------------------------------------------------------
+
+@app.route('/auth/github')
+def auth_github():
+    if not app.config.get('GITHUB_CLIENT_ID'):
+        flash(_('GitHub OAuth is not configured.'), 'danger')
+        return redirect(url_for('login'))
+    callback_url = url_for('auth_github_callback', _external=True)
+    return github_oauth.authorize_redirect(callback_url)
+
+
+@app.route('/auth/github/callback')
+def auth_github_callback():
+    try:
+        token = github_oauth.authorize_access_token()
+    except Exception:
+        flash(_('GitHub authentication failed.'), 'danger')
+        return redirect(url_for('login'))
+
+    access_token = token.get('access_token')
+    resp = http_requests.get(
+        'https://api.github.com/user',
+        headers={'Authorization': f'Bearer {access_token}', 'Accept': 'application/json'},
+        timeout=10,
+    )
+    if not resp.ok:
+        flash(_('GitHub authentication failed.'), 'danger')
+        return redirect(url_for('login'))
+
+    profile = resp.json()
+    github_id = str(profile.get('id', ''))
+    github_login = profile.get('login', '')
+
+    if current_user.is_authenticated:
+        # Link GitHub to current employee account
+        existing = Employee.query.filter_by(github_id=github_id).first()
+        if existing and existing.id != current_user.id:
+            flash(_('This GitHub account is already linked to another employee.'), 'danger')
+            return redirect(url_for('admin_employees'))
+        current_user.github_id = github_id
+        current_user.github_login = github_login
+        db.session.commit()
+        flash(_('GitHub account linked successfully.'), 'success')
+        return redirect(url_for('admin_employees'))
+    else:
+        # Sign in via GitHub
+        emp = Employee.query.filter_by(github_id=github_id).first()
+        if emp and emp.is_active:
+            login_user(emp)
+            session.pop('customer_id', None)
+            return redirect(url_for('dashboard'))
+        flash(_('No employee account linked to this GitHub account.'), 'danger')
+        return redirect(url_for('login'))
+
+
+# ---------------------------------------------------------------------------
+# Customer auth + portal
+# ---------------------------------------------------------------------------
+
+@app.route('/customer/login', methods=['GET', 'POST'])
+def customer_login():
+    if session.get('customer_id'):
+        return redirect(url_for('customer_dashboard'))
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        customer = Customer.query.filter(Customer.email.ilike(email)).first()
+        if customer and customer.is_active and customer.check_password(password):
+            session['customer_id'] = customer.id
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('customer_dashboard'))
+        flash(_('Invalid credentials or account disabled.'), 'danger')
+    return render_template('customer/login.html')
+
+
+@app.route('/customer/logout')
+def customer_logout():
+    session.pop('customer_id', None)
+    return redirect(url_for('submit'))
+
+
+@app.route('/customer/dashboard')
+@customer_required
+def customer_dashboard():
+    customer = get_current_customer()
+    tickets = Ticket.query.filter(
+        Ticket.submitter_email.ilike(customer.email)
+    ).order_by(Ticket.updated_at.desc()).all()
+    return render_template('customer/dashboard.html', customer=customer, tickets=tickets,
+                           status_choices=Ticket.STATUS_CHOICES)
+
+
+@app.route('/customer/uploads/<int:ticket_id>/<filename>')
+@customer_required
+def serve_attachment_customer(ticket_id, filename):
+    customer = get_current_customer()
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    if ticket.submitter_email.lower() != customer.email.lower():
+        abort(403)
+    att = Attachment.query.filter_by(ticket_id=ticket_id, filename=filename).first_or_404()
+    upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket_id))
+    return send_from_directory(upload_dir, filename, download_name=att.original_filename)
+
+
+# ---------------------------------------------------------------------------
+# Manager routes
+# ---------------------------------------------------------------------------
+
+@app.route('/manager/customers', methods=['GET', 'POST'])
+@login_required
+@manager_required
+def manager_customers():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        if not name or not email or not password:
+            flash(_('All fields are required.'), 'danger')
+        elif Customer.query.filter(Customer.email.ilike(email)).first():
+            flash(_('Email already in use.'), 'danger')
+        else:
+            customer = Customer(name=name, email=email, created_by_id=current_user.id)
+            customer.set_password(password)
+            db.session.add(customer)
+            db.session.commit()
+            send_customer_welcome_email(customer, password)
+            flash(_('Customer "%(name)s" created.', name=name), 'success')
+        return redirect(url_for('manager_customers'))
+    customers = Customer.query.order_by(Customer.created_at.desc()).all()
+    return render_template('manager/customers.html', customers=customers)
+
+
+@app.route('/manager/customers/<int:cust_id>/toggle', methods=['POST'])
+@login_required
+@manager_required
+def toggle_customer(cust_id):
+    customer = db.session.get(Customer, cust_id) or abort(404)
+    customer.is_active = not customer.is_active
+    db.session.commit()
+    if customer.is_active:
+        flash(_('Customer "%(name)s" activated.', name=customer.name), 'success')
+    else:
+        flash(_('Customer "%(name)s" deactivated.', name=customer.name), 'success')
+    return redirect(url_for('manager_customers'))
+
+
+@app.route('/manager/customers/<int:cust_id>/delete', methods=['POST'])
+@login_required
+@manager_required
+def delete_customer(cust_id):
+    customer = db.session.get(Customer, cust_id) or abort(404)
+    name = customer.name
+    db.session.delete(customer)
+    db.session.commit()
+    flash(_('Customer "%(name)s" deleted.', name=name), 'success')
+    return redirect(url_for('manager_customers'))
+
+
+# ---------------------------------------------------------------------------
 # Employee routes
 # ---------------------------------------------------------------------------
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    is_privileged = current_user.is_admin or current_user.is_manager
+    view = request.args.get('view', 'all' if is_privileged else 'mine')
     status_filter = request.args.get('status', '')
-    assignee_filter = request.args.get('assignee', '')
 
     query = Ticket.query
     if status_filter:
         query = query.filter(Ticket.status == status_filter)
-    if assignee_filter == 'me':
+    if view == 'mine':
         query = query.join(Assignment).filter(Assignment.employee_id == current_user.id)
-    elif assignee_filter == 'unassigned':
-        query = query.filter(~Ticket.assignment.has())
 
     tickets = query.order_by(Ticket.updated_at.desc()).all()
-    employees = Employee.query.filter_by(is_active=True).all()
-    return render_template('dashboard.html', tickets=tickets, employees=employees,
-                           status_filter=status_filter, assignee_filter=assignee_filter,
+    return render_template('dashboard.html', tickets=tickets,
+                           status_filter=status_filter, view=view,
+                           is_privileged=is_privileged,
                            status_choices=Ticket.STATUS_CHOICES)
 
 
@@ -303,6 +532,29 @@ def add_message(ticket_id):
                   body=body, is_customer_visible=is_visible)
     db.session.add(msg)
     ticket.updated_at = datetime.utcnow()
+    db.session.flush()  # get msg.id before file save
+
+    f = request.files.get('file')
+    if f and f.filename:
+        try:
+            original_name = secure_filename(f.filename)
+            ext = os.path.splitext(original_name)[1]
+            stored_name = f'{uuid.uuid4().hex}{ext}'
+            upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket_id))
+            os.makedirs(upload_dir, exist_ok=True)
+            filepath = os.path.join(upload_dir, stored_name)
+            f.save(filepath)
+            size = os.path.getsize(filepath)
+            attachment = Attachment(ticket_id=ticket.id, message_id=msg.id,
+                                    filename=stored_name, original_filename=original_name,
+                                    size=size)
+            db.session.add(attachment)
+        except Exception as e:
+            db.session.rollback()
+            app.logger.warning(f'Inline file upload failed: {e}')
+            flash(_('File upload failed.'), 'danger')
+            return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+
     db.session.commit()
     if is_visible:
         plain = re.sub(r'<[^>]+>', '', body)
@@ -370,8 +622,22 @@ def assign_ticket(ticket_id):
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 
 
+@app.route('/tickets/<int:ticket_id>/github_pr', methods=['POST'])
+@login_required
+def set_github_pr(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    pr_url = request.form.get('github_pr_url', '').strip()
+    if pr_url and not pr_url.startswith('https://github.com/'):
+        flash(_('Invalid GitHub PR URL.'), 'danger')
+        return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+    ticket.github_pr_url = pr_url or None
+    db.session.commit()
+    flash(_('GitHub PR URL updated.'), 'success')
+    return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+
+
 # ---------------------------------------------------------------------------
-# File uploads
+# File uploads (employee)
 # ---------------------------------------------------------------------------
 
 @app.route('/tickets/<int:ticket_id>/attachments', methods=['POST'])
@@ -382,7 +648,6 @@ def upload_attachment(ticket_id):
     if not f or not f.filename:
         flash(_('No file selected.'), 'danger')
         return redirect(url_for('ticket_detail', ticket_id=ticket_id))
-    # Resolve the target message (must belong to this ticket)
     message_id = request.form.get('message_id', type=int)
     if message_id:
         msg = db.session.get(Message, message_id)
@@ -425,6 +690,7 @@ def admin_employees():
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
         is_admin = request.form.get('is_admin') == 'on'
+        is_manager = request.form.get('is_manager') == 'on'
         if not username or not email or not password:
             flash(_('All fields are required.'), 'danger')
         elif Employee.query.filter_by(username=username).first():
@@ -432,7 +698,8 @@ def admin_employees():
         elif Employee.query.filter_by(email=email).first():
             flash(_('Email already in use.'), 'danger')
         else:
-            emp = Employee(username=username, email=email, is_admin=is_admin, is_active=True)
+            emp = Employee(username=username, email=email,
+                           is_admin=is_admin, is_manager=is_manager, is_active=True)
             emp.set_password(password)
             db.session.add(emp)
             db.session.commit()
@@ -456,6 +723,27 @@ def toggle_employee(emp_id):
         flash(_('Employee "%(name)s" activated.', name=emp.username), 'success')
     else:
         flash(_('Employee "%(name)s" deactivated.', name=emp.username), 'success')
+    return redirect(url_for('admin_employees'))
+
+
+@app.route('/admin/employees/<int:emp_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_employee(emp_id):
+    emp = db.session.get(Employee, emp_id) or abort(404)
+    if emp.id == current_user.id:
+        flash(_('You cannot delete your own account.'), 'danger')
+        return redirect(url_for('admin_employees'))
+    username = emp.username
+    # Detach authored messages (keep them, just unlink the author)
+    Message.query.filter_by(employee_id=emp.id).update({'employee_id': None})
+    # Remove ticket assignments
+    Assignment.query.filter_by(employee_id=emp.id).delete()
+    # Detach created customers
+    Customer.query.filter_by(created_by_id=emp.id).update({'created_by_id': None})
+    db.session.delete(emp)
+    db.session.commit()
+    flash(_('Employee "%(name)s" deleted.', name=username), 'success')
     return redirect(url_for('admin_employees'))
 
 

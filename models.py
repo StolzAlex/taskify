@@ -13,9 +13,12 @@ class Employee(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
+    password_hash = db.Column(db.String(256), nullable=True)  # nullable for GitHub-only accounts
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    is_manager = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    github_id = db.Column(db.String(50), unique=True, nullable=True)
+    github_login = db.Column(db.String(100), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     messages = db.relationship('Message', backref='author', lazy='dynamic')
@@ -25,10 +28,32 @@ class Employee(UserMixin, db.Model):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
+        if self.password_hash is None:
+            return False
         return check_password_hash(self.password_hash, password)
 
     def get_id(self):
         return str(self.id)
+
+
+class Customer(db.Model):
+    __tablename__ = 'customers'
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    created_by = db.relationship('Employee', backref='created_customers')
+
+    def set_password(self, p):
+        self.password_hash = generate_password_hash(p)
+
+    def check_password(self, p):
+        return check_password_hash(self.password_hash, p)
 
 
 class Ticket(db.Model):
@@ -40,6 +65,7 @@ class Ticket(db.Model):
     subject = db.Column(db.String(200), nullable=False)
     body = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(20), nullable=False, default='open')
+    github_pr_url = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

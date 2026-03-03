@@ -371,3 +371,135 @@ msgstr "Sie"
 
 msgid "Attach"
 msgstr "Anhängen"
+
+msgid "Manager privileges"
+msgstr "Manager-Rechte"
+
+msgid "Manager"
+msgstr "Manager"
+
+msgid "Customers"
+msgstr "Kunden"
+
+msgid "Customer Login"
+msgstr "Kunden-Anmeldung"
+
+msgid "My Tickets"
+msgstr "Meine Tickets"
+
+msgid "All Tickets"
+msgstr "Alle Tickets"
+
+msgid "Login with GitHub"
+msgstr "Mit GitHub anmelden"
+
+msgid "GitHub account linked successfully."
+msgstr "GitHub-Konto erfolgreich verknüpft."
+
+msgid "This GitHub account is already linked to another employee."
+msgstr "Dieses GitHub-Konto ist bereits mit einem anderen Mitarbeiter verknüpft."
+
+msgid "No employee account linked to this GitHub account."
+msgstr "Kein Mitarbeiterkonto mit diesem GitHub-Konto verknüpft."
+
+msgid "GitHub authentication failed."
+msgstr "GitHub-Authentifizierung fehlgeschlagen."
+
+msgid "GitHub OAuth is not configured."
+msgstr "GitHub OAuth ist nicht konfiguriert."
+
+msgid "GitHub PR URL updated."
+msgstr "GitHub-PR-URL aktualisiert."
+
+msgid "Invalid GitHub PR URL."
+msgstr "Ungültige GitHub-PR-URL."
+
+msgid "GitHub PR"
+msgstr "GitHub PR"
+
+msgid "Set PR URL"
+msgstr "PR-URL setzen"
+
+msgid "No PR linked"
+msgstr "Kein PR verknüpft"
+
+msgid "Attach file"
+msgstr "Datei anhängen"
+
+msgid "File upload failed."
+msgstr "Datei-Upload fehlgeschlagen."
+
+msgid "Ticket Closed"
+msgstr "Ticket geschlossen"
+
+msgid "This ticket is no longer available."
+msgstr "Dieses Ticket ist nicht mehr verfügbar."
+
+msgid "The public link for this ticket has been deactivated."
+msgstr "Der öffentliche Link für dieses Ticket wurde deaktiviert."
+
+msgid "Submit a new ticket"
+msgstr "Neues Ticket einreichen"
+
+msgid "Log in to your customer account"
+msgstr "Beim Kundenkonto anmelden"
+
+msgid "Please log in to your customer account."
+msgstr "Bitte melden Sie sich bei Ihrem Kundenkonto an."
+
+msgid "Welcome to Taskify \u2013 Your Customer Account"
+msgstr "Willkommen bei Taskify \u2013 Ihr Kundenkonto"
+
+#, python-format
+msgid "Customer \"%(name)s\" created."
+msgstr "Kunde \"%(name)s\" erstellt."
+
+#, python-format
+msgid "Customer \"%(name)s\" activated."
+msgstr "Kunde \"%(name)s\" aktiviert."
+
+#, python-format
+msgid "Customer \"%(name)s\" deactivated."
+msgstr "Kunde \"%(name)s\" deaktiviert."
+
+msgid "Create Customer"
+msgstr "Kunden erstellen"
+
+msgid "All Customers"
+msgstr "Alle Kunden"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Created by"
+msgstr "Erstellt von"
+
+msgid "No customers yet."
+msgstr "Noch keine Kunden."
+
+#, python-format
+msgid "Welcome, %(name)s!"
+msgstr "Willkommen, %(name)s!"
+
+msgid "Link GitHub"
+msgstr "GitHub verknüpfen"
+
+msgid "GitHub"
+msgstr "GitHub"
+
+msgid "You cannot delete your own account."
+msgstr "Sie können Ihr eigenes Konto nicht löschen."
+
+msgid "Permanently delete this employee? This cannot be undone."
+msgstr "Diesen Mitarbeiter dauerhaft löschen? Dies kann nicht rückgängig gemacht werden."
+
+msgid "Permanently delete this customer? This cannot be undone."
+msgstr "Diesen Kunden dauerhaft löschen? Dies kann nicht rückgängig gemacht werden."
+
+#, python-format
+msgid "Employee \"%(name)s\" deleted."
+msgstr "Mitarbeiter \"%(name)s\" gelöscht."
+
+#, python-format
+msgid "Customer \"%(name)s\" deleted."
+msgstr "Kunde \"%(name)s\" gelöscht."
