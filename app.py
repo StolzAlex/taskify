@@ -444,7 +444,12 @@ def customer_dashboard():
     ticket_meta = {}
     for t in tickets:
         visible = t.messages.filter_by(is_customer_visible=True)
-        last_msg = visible.order_by(Message.created_at.desc()).first()
+        last_msg = (Message.query
+                    .filter(Message.ticket_id == t.id,
+                            db.or_(Message.is_customer_visible == True,
+                                   Message.is_customer_reply == True))
+                    .order_by(Message.created_at.desc())
+                    .first())
         ticket_meta[t.id] = {
             'reply_count':    visible.count(),
             'awaiting_reply': last_msg is not None and not last_msg.is_customer_reply,
