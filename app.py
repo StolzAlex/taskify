@@ -495,12 +495,13 @@ def manager_customers():
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
+        company = request.form.get('company', '').strip() or None
         if not name or not email or not password:
             flash(_('All fields are required.'), 'danger')
         elif Customer.query.filter(Customer.email.ilike(email)).first():
             flash(_('Email already in use.'), 'danger')
         else:
-            customer = Customer(name=name, email=email, created_by_id=current_user.id)
+            customer = Customer(name=name, email=email, company=company, created_by_id=current_user.id)
             customer.set_password(password)
             db.session.add(customer)
             db.session.commit()
@@ -553,9 +554,10 @@ def dashboard():
             db.session.commit()
     else:
         view = current_user.get_pref('dashboard_view', default_view)
-    status_filter     = request.args.get('status', '')
-    unassigned_filter = request.args.get('unassigned', '') == '1'
+    status_filter        = request.args.get('status', '')
+    unassigned_filter    = request.args.get('unassigned', '') == '1'
     resolved_week_filter = request.args.get('resolved_week', '') == '1'
+    company_filter       = request.args.get('company', '')
 
     query = Ticket.query
     if status_filter:
@@ -571,6 +573,10 @@ def dashboard():
             Ticket.status.in_(['resolved', 'closed']),
             Ticket.updated_at >= week_ago_filter
         )
+    if company_filter:
+        company_emails = db.session.query(db.func.lower(Customer.email)).filter_by(
+            company=company_filter)
+        query = query.filter(db.func.lower(Ticket.submitter_email).in_(company_emails))
     if view == 'mine':
         query = query.join(Assignment).filter(Assignment.employee_id == current_user.id)
 
@@ -579,6 +585,18 @@ def dashboard():
     pagination = query.order_by(Ticket.updated_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False)
     tickets = pagination.items
+
+    # Build customer lookup for submitter column
+    submitter_emails = [t.submitter_email.lower() for t in tickets]
+    if submitter_emails:
+        customer_map = {c.email.lower(): c for c in Customer.query.filter(
+            db.func.lower(Customer.email).in_(submitter_emails)).all()}
+    else:
+        customer_map = {}
+
+    # All distinct companies for filter dropdown
+    companies = sorted({c.company for c in Customer.query.filter(
+        Customer.company.isnot(None)).all()})
 
     recent_events = (TicketEvent.query
                      .order_by(TicketEvent.created_at.desc())
@@ -608,6 +626,9 @@ def dashboard():
                            status_filter=status_filter,
                            unassigned_filter=unassigned_filter,
                            resolved_week_filter=resolved_week_filter,
+                           company_filter=company_filter,
+                           companies=companies,
+                           customer_map=customer_map,
                            view=view, is_privileged=is_privileged,
                            status_choices=Ticket.STATUS_CHOICES,
                            recent_events=recent_events,
@@ -871,6 +892,15 @@ def github_repos(ticket_id):
     return jsonify({'repos': repos})
 
 
+@app.route('/tickets/<int:ticket_id>/internal_title', methods=['POST'])
+@login_required
+def set_internal_title(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    ticket.internal_title = request.form.get('internal_title', '').strip() or None
+    db.session.commit()
+    return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+
+
 @app.route('/tickets/<int:ticket_id>/github_create_issue', methods=['POST'])
 @login_required
 def github_create_issue(ticket_id):
@@ -888,7 +918,7 @@ def github_create_issue(ticket_id):
                   f"*Submitted by: {ticket.submitter_email}*  \n"
                   f"*Taskify Ticket #{ticket.id}*")
     payload = {
-        'title': ticket.subject,
+        'title': ticket.internal_title or ticket.subject,
         'body': issue_body,
         'labels': ['enhancement', 'patch'],
     }
@@ -1113,8 +1143,10 @@ def edit_customer(cust_id):
     if Customer.query.filter(Customer.email == email, Customer.id != customer.id).first():
         flash(_('Email already in use.'), 'danger')
         return redirect(url_for('manager_customers'))
-    customer.name  = name
-    customer.email = email
+    company = request.form.get('company', '').strip() or None
+    customer.name    = name
+    customer.email   = email
+    customer.company = company
     if password:
         customer.set_password(password)
     db.session.commit()

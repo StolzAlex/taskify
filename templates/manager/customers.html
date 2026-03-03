@@ -24,6 +24,11 @@
                    required value="{{ request.form.email or '' }}">
           </div>
           <div class="mb-3">
+            <label for="company" class="form-label small fw-semibold">{{ _('Company') }}</label>
+            <input type="text" class="form-control form-control-sm" id="company" name="company"
+                   value="{{ request.form.company or '' }}">
+          </div>
+          <div class="mb-3">
             <label for="password" class="form-label small fw-semibold">{{ _('Password') }}</label>
             <input type="password" class="form-control form-control-sm" id="password" name="password"
                    required autocomplete="new-password">
@@ -47,6 +52,7 @@
             <tr>
               <th>{{ _('Name') }}</th>
               <th>{{ _('Email') }}</th>
+              <th>{{ _('Company') }}</th>
               <th>{{ _('Status') }}</th>
               <th>{{ _('Created') }}</th>
               <th>{{ _('Created by') }}</th>
@@ -58,6 +64,7 @@
             <tr class="{{ 'table-danger' if not cust.is_active else '' }}">
               <td class="fw-semibold">{{ cust.name }}</td>
               <td class="text-muted small">{{ cust.email }}</td>
+              <td class="text-muted small">{{ cust.company or '—' }}</td>
               <td>
                 {% if cust.is_active %}
                   <span class="badge bg-success">{{ _('Active') }}</span>
@@ -71,7 +78,7 @@
               </td>
               <td class="text-nowrap">
                 <button type="button" class="btn btn-sm btn-outline-secondary"
-                        onclick="openEditUser('{{ url_for('edit_customer', cust_id=cust.id) }}', '{{ cust.name }}', '{{ cust.email }}')"
+                        onclick="openEditUser('{{ url_for('edit_customer', cust_id=cust.id) }}', '{{ cust.name|e }}', '{{ cust.email|e }}', '{{ (cust.company or '')|e }}')"
                         title="{{ _('Edit') }}">
                   <i class="bi bi-pencil"></i>
                 </button>
@@ -129,6 +136,10 @@
             <label class="form-label small fw-semibold">{{ _('Email') }}</label>
             <input type="email" name="email" id="editEmail" class="form-control form-control-sm" required>
           </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">{{ _('Company') }}</label>
+            <input type="text" name="company" id="editCompany" class="form-control form-control-sm">
+          </div>
           <div class="mb-1">
             <label class="form-label small fw-semibold">{{ _('New Password') }}</label>
             <input type="password" name="password" class="form-control form-control-sm"
@@ -147,10 +158,11 @@
 
 {% block scripts %}
 <script>
-function openEditUser(action, name, email) {
+function openEditUser(action, name, email, company) {
   document.getElementById('editUserForm').action = action;
   document.getElementById('editName').value = name;
   document.getElementById('editEmail').value = email;
+  document.getElementById('editCompany').value = company || '';
   document.querySelector('#editUserModal input[name=password]').value = '';
   new bootstrap.Modal(document.getElementById('editUserModal')).show();
 }

@@ -73,11 +73,11 @@
       <div class="card-header">
         <form method="get" class="d-flex flex-wrap align-items-center gap-2">
           <div class="btn-group btn-group-sm" role="group">
-            <a href="{{ url_for('dashboard', view='mine', status=status_filter) }}"
+            <a href="{{ url_for('dashboard', view='mine', status=status_filter, company=company_filter) }}"
                class="btn {{ 'btn-primary' if view == 'mine' else 'btn-outline-primary' }}">
               <i class="bi bi-person me-1"></i>{{ _('My Tickets') }}
             </a>
-            <a href="{{ url_for('dashboard', view='all', status=status_filter) }}"
+            <a href="{{ url_for('dashboard', view='all', status=status_filter, company=company_filter) }}"
                class="btn {{ 'btn-primary' if view == 'all' else 'btn-outline-primary' }}">
               <i class="bi bi-grid me-1"></i>{{ _('All Tickets') }}
             </a>
@@ -92,7 +92,16 @@
             </option>
             {% endfor %}
           </select>
-          {% if status_filter or unassigned_filter or resolved_week_filter %}
+          {% if companies %}
+          <select name="company" class="form-select form-select-sm w-auto"
+                  onchange="this.form.submit()">
+            <option value="">{{ _('All Companies') }}</option>
+            {% for co in companies %}
+            <option value="{{ co }}" {{ 'selected' if company_filter == co }}>{{ co }}</option>
+            {% endfor %}
+          </select>
+          {% endif %}
+          {% if status_filter or unassigned_filter or resolved_week_filter or company_filter %}
           <a href="{{ url_for('dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
           </a>
@@ -122,7 +131,15 @@
                   {{ ticket.subject }}
                 </a>
               </td>
-              <td class="text-muted small">{{ ticket.submitter_email }}</td>
+              <td class="small">
+                {% set cust = customer_map.get(ticket.submitter_email.lower()) %}
+                {% if cust and cust.company %}
+                  <div class="fw-semibold text-dark">{{ cust.company }}</div>
+                  <div class="text-muted">{{ ticket.submitter_email }}</div>
+                {% else %}
+                  <span class="text-muted">{{ ticket.submitter_email }}</span>
+                {% endif %}
+              </td>
               <td>
                 <span class="badge bg-{{ ticket.status_badge }}">
                   {{ status_label(ticket.status) }}
@@ -164,19 +181,19 @@
         <nav>
           <ul class="pagination pagination-sm mb-0">
             <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
-              <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', page=pagination.prev_num) }}">‹</a>
+              <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', company=company_filter, page=pagination.prev_num) }}">‹</a>
             </li>
             {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
               {% if p %}
               <li class="page-item {{ 'active' if p == pagination.page }}">
-                <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', page=p) }}">{{ p }}</a>
+                <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', company=company_filter, page=p) }}">{{ p }}</a>
               </li>
               {% else %}
               <li class="page-item disabled"><span class="page-link">…</span></li>
               {% endif %}
             {% endfor %}
             <li class="page-item {{ 'disabled' if not pagination.has_next }}">
-              <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', page=pagination.next_num) }}">›</a>
+              <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', company=company_filter, page=pagination.next_num) }}">›</a>
             </li>
           </ul>
         </nav>

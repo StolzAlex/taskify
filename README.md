@@ -218,20 +218,21 @@ Managers create customer accounts at `/manager/customers`. The customer receives
    - Admin and manager accounts default to *All Tickets*.
    - Staff accounts default to *My Tickets* (tickets assigned to them).
    - The chosen view is **saved per user** in the database and restored on next login.
-   - Filter by status using the dropdown (auto-submits on change).
+   - Filter by status or company using the dropdowns (auto-submit on change). The company dropdown appears automatically when any customer accounts have a company set. The submitter column shows the company name when known.
 3. On a ticket detail page you can:
    - **Add a message** using the Quill rich-text editor. Optionally attach a file inline. Check *Visible to customer* to send it as an email reply.
    - **Change status** — triggers an email notification to the submitter.
    - **Assign** the ticket to an active employee.
+   - **Set an internal title** — optional free-text title visible only to employees. When set, it is used as the GitHub issue title instead of the customer-facing subject.
    - **Link a GitHub PR or Issue** — search via the sidebar card; supports `reponame: query` prefix.
-   - **Create a GitHub Issue** — select a repo and click Create; the issue is linked automatically.
+   - **Create a GitHub Issue** — select a repo and click Create; the issue is linked automatically. Uses the internal title if set, otherwise falls back to the ticket subject.
    - If the linked GitHub issue is closed, the ticket status is synced to *Closed* on next page load.
 
 ### For managers
 
 Managers have access to **`/manager/customers`**:
-- Create customer accounts (sends a welcome email with credentials).
-- Edit a customer's name, email address, or password (pencil button).
+- Create customer accounts (sends a welcome email with credentials). An optional **Company** name can be set on each account.
+- Edit a customer's name, email address, company, or password (pencil button).
 - Activate/deactivate or delete customer accounts.
 
 ### For admins
@@ -324,7 +325,7 @@ taskify/
 Employee   — id, username, email, password_hash (nullable), is_admin, is_manager,
              is_active, github_id (unique), github_login, preferences (JSON),
              created_at
-Customer   — id, email (unique), name, password_hash, is_active,
+Customer   — id, email (unique), name, company (optional), password_hash, is_active,
              created_by_id FK → employees, created_at
 Ticket     — id, token (UUID), submitter_email, subject, body, status,
              github_pr_url, github_pr_title, created_at, updated_at
@@ -387,6 +388,12 @@ CREATE TABLE IF NOT EXISTS ticket_events (
     to_value    VARCHAR(500),
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Added later: company field for customers
+ALTER TABLE customers ADD COLUMN company VARCHAR(120);
+
+-- Added later: employee-assigned internal title for tickets
+ALTER TABLE tickets ADD COLUMN internal_title VARCHAR(200);
 ```
 
 ---

@@ -696,3 +696,15 @@ msgstr "Mitarbeiter \"%(name)s\" aktualisiert."
 #, python-format
 msgid "Customer \"%(name)s\" updated."
 msgstr "Kunde \"%(name)s\" aktualisiert."
+
+msgid "Company"
+msgstr "Unternehmen"
+
+msgid "All Companies"
+msgstr "Alle Unternehmen"
+
+msgid "Internal Title"
+msgstr "Interner Titel"
+
+msgid "Optional — used as GitHub issue title"
+msgstr "Optional – wird als GitHub-Issue-Titel verwendet"
