@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('Ticket #%(id)s', id=ticket.id) }} – Taskify{% endblock %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">{{ _('Dashboard') }}</a></li>
+    <li class="breadcrumb-item active">{{ _('Ticket #%(id)s', id=ticket.id) }}</li>
+  </ol>
+</nav>
+
+<div class="row g-4">
+  <!-- Left: ticket detail + messages -->
+  <div class="col-lg-8">
+
+    <!-- Ticket header -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">{{ ticket.subject }}</h5>
+        <span class="badge bg-{{ ticket.status_badge }} fs-6">
+          {{ status_label(ticket.status) }}
+        </span>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-2">
+          <i class="bi bi-envelope me-1"></i>{{ ticket.submitter_email }}
+          &nbsp;&middot;&nbsp;
+          <i class="bi bi-clock me-1"></i>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}
+          &nbsp;&middot;&nbsp;
+          <i class="bi bi-hash me-1"></i>{{ _('Token') }}: <code>{{ ticket.token }}</code>
+        </p>
+        <hr>
+        <div class="ticket-body">{{ ticket.body|safe }}</div>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    {% set all_messages = ticket.messages.all() %}
+    {% if all_messages %}
+    <h6 class="text-muted mb-3">{{ _('Messages') }} ({{ all_messages|length }})</h6>
+    {% for msg in all_messages %}
+      {% if msg.is_customer_reply %}
+      <div class="card mb-3 shadow-sm border-start border-warning border-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="small fw-semibold">
+              <i class="bi bi-person me-1"></i>{{ _('Customer') }}
+              <span class="text-muted fw-normal ms-1">{{ ticket.submitter_email }}</span>
+            </span>
+            <span class="text-muted small">{{ msg.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+          </div>
+          <div class="message-body">{{ msg.body|safe }}</div>
+        </div>
+      </div>
+      {% else %}
+      <div class="card mb-3 shadow-sm {% if msg.is_customer_visible %}border-start border-success border-3{% else %}border-start border-secondary border-3{% endif %}">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="small fw-semibold">
+              <i class="bi bi-person-circle me-1"></i>{{ msg.author.username }}
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              {% if msg.is_customer_visible %}
+              <span class="badge bg-success">
+                <i class="bi bi-eye me-1"></i>{{ _('Visible to customer') }}
+              </span>
+              {% else %}
+              <span class="badge bg-secondary">
+                <i class="bi bi-eye-slash me-1"></i>{{ _('Internal') }}
+              </span>
+              {% endif %}
+              <span class="text-muted small">{{ msg.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+              {% if msg.edited_at %}
+              <span class="text-muted small fst-italic">({{ _('edited') }} {{ msg.edited_at.strftime('%Y-%m-%d %H:%M') }})</span>
+              {% endif %}
+              {% if msg.employee_id == current_user.id %}
+              <button type="button" class="btn btn-link btn-sm p-0 text-muted"
+                      onclick="startEdit({{ msg.id }})"
+                      id="editBtn-{{ msg.id }}"
+                      title="{{ _('Edit') }}">
+                <i class="bi bi-pencil"></i>
+              </button>
+              {% endif %}
+            </div>
+          </div>
+          <!-- View mode -->
+          <div class="message-body" id="msgBody-{{ msg.id }}">{{ msg.body|safe }}</div>
+          <!-- Edit mode -->
+          <div id="editPanel-{{ msg.id }}" class="d-none mt-2">
+            <form method="post"
+                  action="{{ url_for('edit_message', ticket_id=ticket.id, message_id=msg.id) }}"
+                  id="editForm-{{ msg.id }}">
+              <div id="editQuill-{{ msg.id }}" style="min-height: 100px;"></div>
+              <input type="hidden" name="body" id="editBodyInput-{{ msg.id }}">
+              <div class="d-flex gap-2 mt-2">
+                <button type="submit" class="btn btn-primary btn-sm">
+                  <i class="bi bi-check-lg me-1"></i>{{ _('Save') }}
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="cancelEdit({{ msg.id }})">
+                  {{ _('Cancel') }}
+                </button>
+              </div>
+            </form>
+          </div>
+          <!-- Attachments -->
+          {% set msg_attachments = msg.attachments.all() %}
+          {% if msg_attachments %}
+          <div class="mt-2 pt-2 border-top">
+            {% for att in msg_attachments %}
+            <span class="me-3 small">
+              <i class="bi bi-file-earmark me-1 text-muted"></i>
+              <a href="{{ url_for('serve_attachment', ticket_id=ticket.id, filename=att.filename) }}">{{ att.original_filename }}</a>
+              <span class="text-muted">({{ (att.size / 1024) | round(1) }} KB)</span>
+            </span>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <!-- Upload form -->
+          <form method="post" action="{{ url_for('upload_attachment', ticket_id=ticket.id) }}"
+                enctype="multipart/form-data" class="d-flex gap-2 align-items-center mt-2">
+            <input type="hidden" name="message_id" value="{{ msg.id }}">
+            <input type="file" name="file" class="form-control form-control-sm">
+            <button type="submit" class="btn btn-outline-secondary btn-sm text-nowrap">
+              <i class="bi bi-paperclip me-1"></i>{{ _('Attach') }}
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+    {% endif %}
+
+    <!-- Add message -->
+    <div class="card shadow-sm mt-4">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-chat-left-text me-1"></i>{{ _('Add Message') }}</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('add_message', ticket_id=ticket.id) }}" id="msgForm">
+          <div id="quill-editor" style="min-height: 120px;" class="mb-2"></div>
+          <input type="hidden" name="body" id="msgBody">
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="customer_visible"
+                     name="is_customer_visible">
+              <label class="form-check-label small" for="customer_visible">
+                <i class="bi bi-eye me-1 text-success"></i>{{ _('Visible to customer (sends email)') }}
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm" id="msgSubmit">
+              <i class="bi bi-send me-1"></i>{{ _('Send') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right: sidebar controls -->
+  <div class="col-lg-4">
+
+    <!-- Status -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header"><h6 class="mb-0"><i class="bi bi-arrow-repeat me-1"></i>{{ _('Change Status') }}</h6></div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('change_status', ticket_id=ticket.id) }}">
+          <select name="status" class="form-select form-select-sm mb-2">
+            {% for s in status_choices %}
+            <option value="{{ s }}" {{ 'selected' if ticket.status == s }}>
+              {{ status_label(s) }}
+            </option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-warning btn-sm w-100">
+            <i class="bi bi-check2-circle me-1"></i>{{ _('Update Status') }}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Assignment -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header"><h6 class="mb-0"><i class="bi bi-person-check me-1"></i>{{ _('Assignee') }}</h6></div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('assign_ticket', ticket_id=ticket.id) }}">
+          <select name="employee_id" class="form-select form-select-sm mb-2">
+            <option value="">— {{ _('Unassigned') }} —</option>
+            {% for emp in employees %}
+            <option value="{{ emp.id }}"
+              {{ 'selected' if ticket.assignee and ticket.assignee.id == emp.id }}>
+              {{ emp.username }}{% if emp.is_admin %} ({{ _('admin') }}){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+            <i class="bi bi-person-plus me-1"></i>{{ _('Assign') }}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Ticket info -->
+    <div class="card shadow-sm">
+      <div class="card-header"><h6 class="mb-0"><i class="bi bi-info-circle me-1"></i>{{ _('Info') }}</h6></div>
+      <div class="card-body small text-muted">
+        <p class="mb-1"><strong>{{ _('ID') }}:</strong> #{{ ticket.id }}</p>
+        <p class="mb-1"><strong>{{ _('Created') }}:</strong> {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p class="mb-1"><strong>{{ _('Updated') }}:</strong> {{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p class="mb-0">
+          <strong>{{ _('Public link') }}:</strong><br>
+          <a href="{{ url_for('ticket_status', token=ticket.token) }}" target="_blank" class="text-break">
+            /status/{{ ticket.token }}
+          </a>
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script>
+  const TOOLBAR = [
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+    ['link', 'blockquote', 'code-block'],
+    ['clean']
+  ];
+
+  // New-message editor
+  const quill = new Quill('#quill-editor', {
+    theme: 'snow',
+    placeholder: '{{ _("Write your message\u2026") }}',
+    modules: { toolbar: TOOLBAR }
+  });
+
+  document.getElementById('msgForm').addEventListener('submit', function () {
+    document.getElementById('msgBody').value = quill.root.innerHTML;
+  });
+
+  // Per-message inline edit editors
+  const editQuills = {};
+
+  function startEdit(msgId) {
+    const bodyEl   = document.getElementById('msgBody-'    + msgId);
+    const panelEl  = document.getElementById('editPanel-'  + msgId);
+    const btnEl    = document.getElementById('editBtn-'    + msgId);
+
+    bodyEl.classList.add('d-none');
+    panelEl.classList.remove('d-none');
+    btnEl.classList.add('d-none');
+
+    if (!editQuills[msgId]) {
+      const q = new Quill('#editQuill-' + msgId, {
+        theme: 'snow',
+        modules: { toolbar: TOOLBAR }
+      });
+      q.root.innerHTML = bodyEl.innerHTML;
+      editQuills[msgId] = q;
+
+      document.getElementById('editForm-' + msgId).addEventListener('submit', function () {
+        document.getElementById('editBodyInput-' + msgId).value = editQuills[msgId].root.innerHTML;
+      });
+    }
+  }
+
+  function cancelEdit(msgId) {
+    document.getElementById('msgBody-'   + msgId).classList.remove('d-none');
+    document.getElementById('editPanel-' + msgId).classList.add('d-none');
+    document.getElementById('editBtn-'   + msgId).classList.remove('d-none');
+  }
+</script>
+{% endblock %}

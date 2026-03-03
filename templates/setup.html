@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('First-Run Setup') }} – Taskify{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-sm-8 col-md-5 col-lg-4">
+    <div class="card shadow-sm mt-4">
+      <div class="card-body p-4">
+        <h4 class="card-title mb-1 text-center">
+          <i class="bi bi-gear me-1"></i>{{ _('First-Run Setup') }}
+        </h4>
+        <p class="text-muted text-center small mb-4">{{ _('Create the initial admin account.') }}</p>
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="username" class="form-label">{{ _('Username') }}</label>
+            <input type="text" class="form-control" id="username" name="username"
+                   required autofocus value="{{ request.form.username or '' }}">
+          </div>
+          <div class="mb-3">
+            <label for="email" class="form-label">{{ _('Email') }}</label>
+            <input type="email" class="form-control" id="email" name="email"
+                   required value="{{ request.form.email or '' }}">
+          </div>
+          <div class="mb-3">
+            <label for="password" class="form-label">{{ _('Password') }}</label>
+            <input type="password" class="form-control" id="password" name="password"
+                   required autocomplete="new-password">
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-check-circle me-1"></i>{{ _('Create Admin Account') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

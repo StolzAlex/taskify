@@ -1,0 +1,74 @@
+/* Taskify – minimal custom overrides */
+
+body {
+  background-color: #f8f9fa;
+}
+
+.navbar-brand {
+  font-size: 1.3rem;
+  letter-spacing: -0.5px;
+}
+
+.ticket-body,
+.message-body {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.ticket-body p:last-child,
+.message-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* Quill editor border to match Bootstrap */
+.ql-toolbar.ql-snow {
+  border-color: #dee2e6;
+  border-radius: 0.375rem 0.375rem 0 0;
+  background: #fff;
+}
+
+.ql-container.ql-snow {
+  border-color: #dee2e6;
+  border-radius: 0 0 0.375rem 0.375rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.ql-editor {
+  min-height: 120px;
+}
+
+/* Validation state for Quill editors */
+.ql-editor.is-invalid,
+.ql-container.ql-snow:has(.ql-editor.is-invalid) {
+  border-color: #dc3545;
+}
+
+.ql-toolbar.ql-snow:has(+ .ql-container .ql-editor.is-invalid) {
+  border-color: #dc3545;
+}
+
+/* Timeline spacing */
+.timeline .card {
+  transition: box-shadow 0.15s ease;
+}
+
+.timeline .card:hover {
+  box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,.1) !important;
+}
+
+/* Compact table */
+.table td, .table th {
+  vertical-align: middle;
+}
+
+/* Status badges a touch larger in headings */
+.card-header .badge {
+  font-size: 0.8rem;
+}
+
+/* Footer */
+footer {
+  font-size: 0.85rem;
+}

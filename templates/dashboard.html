@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('Dashboard') }} – Taskify{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">{{ _('Tickets') }}</h1>
+  <a href="{{ url_for('submit') }}" class="btn btn-outline-primary btn-sm">
+    <i class="bi bi-plus-lg me-1"></i>{{ _('New Ticket') }}
+  </a>
+</div>
+
+<!-- Filters -->
+<form method="get" class="row g-2 mb-4">
+  <div class="col-auto">
+    <select name="status" class="form-select form-select-sm">
+      <option value="">{{ _('All Statuses') }}</option>
+      {% for s in status_choices %}
+      <option value="{{ s }}" {{ 'selected' if status_filter == s }}>
+        {{ status_label(s) }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <select name="assignee" class="form-select form-select-sm">
+      <option value="">{{ _('All Assignees') }}</option>
+      <option value="me" {{ 'selected' if assignee_filter == 'me' }}>{{ _('Assigned to me') }}</option>
+      <option value="unassigned" {{ 'selected' if assignee_filter == 'unassigned' }}>{{ _('Unassigned') }}</option>
+    </select>
+  </div>
+  <div class="col-auto">
+    <button type="submit" class="btn btn-secondary btn-sm">
+      <i class="bi bi-funnel me-1"></i>{{ _('Filter') }}
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm ms-1">
+      <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
+    </a>
+  </div>
+</form>
+
+{% if tickets %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>#</th>
+        <th>{{ _('Subject') }}</th>
+        <th>{{ _('Submitter') }}</th>
+        <th>{{ _('Status') }}</th>
+        <th>{{ _('Assignee') }}</th>
+        <th>{{ _('Updated') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ticket in tickets %}
+      <tr>
+        <td class="text-muted small">{{ ticket.id }}</td>
+        <td>
+          <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" class="text-decoration-none fw-semibold">
+            {{ ticket.subject }}
+          </a>
+        </td>
+        <td class="text-muted small">{{ ticket.submitter_email }}</td>
+        <td>
+          <span class="badge bg-{{ ticket.status_badge }}">
+            {{ status_label(ticket.status) }}
+          </span>
+        </td>
+        <td class="small">
+          {% if ticket.assignee %}
+            <i class="bi bi-person-check me-1 text-success"></i>{{ ticket.assignee.username }}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td class="text-muted small">{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-secondary">
+  <i class="bi bi-inbox me-2"></i>{{ _('No tickets match your filters.') }}
+</div>
+{% endif %}
+{% endblock %}

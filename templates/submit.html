@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('Submit a Ticket') }} – Taskify{% endblock %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <h1 class="mb-1">{{ _('Submit a Support Ticket') }}</h1>
+    <p class="text-muted mb-4">{{ _("Fill in the form below and we'll get back to you by email.") }}</p>
+
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <form method="post" novalidate id="submitForm">
+          <div class="mb-3">
+            <label for="email" class="form-label fw-semibold">{{ _('Your Email') }} <span class="text-danger">*</span></label>
+            <input type="email" class="form-control" id="email" name="email" required
+                   placeholder="{{ _('you@example.com') }}" value="{{ request.form.email or '' }}">
+          </div>
+          <div class="mb-3">
+            <label for="subject" class="form-label fw-semibold">{{ _('Subject') }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="subject" name="subject" required
+                   maxlength="200" placeholder="{{ _('Brief description of your issue') }}"
+                   value="{{ request.form.subject or '' }}">
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-semibold">{{ _('Description') }} <span class="text-danger">*</span></label>
+            <div id="quill-editor" style="min-height: 160px;">{{ request.form.body or '' }}</div>
+            <input type="hidden" name="body" id="body">
+          </div>
+          <button type="submit" class="btn btn-primary px-4">
+            <i class="bi bi-send me-1"></i>{{ _('Submit Ticket') }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script>
+  const quill = new Quill('#quill-editor', {
+    theme: 'snow',
+    placeholder: '{{ _("Please describe your issue in detail\u2026") }}',
+    modules: {
+      toolbar: [
+        ['bold', 'italic', 'underline'],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        ['link', 'blockquote'],
+        ['clean']
+      ]
+    }
+  });
+
+  document.getElementById('submitForm').addEventListener('submit', function (e) {
+    const body = quill.root.innerHTML;
+    if (quill.getText().trim().length === 0) {
+      e.preventDefault();
+      quill.root.classList.add('is-invalid');
+      return;
+    }
+    document.getElementById('body').value = body;
+  });
+
+  quill.on('text-change', function () {
+    quill.root.classList.remove('is-invalid');
+  });
+</script>
+{% endblock %}

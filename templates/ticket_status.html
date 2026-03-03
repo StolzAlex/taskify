@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('Ticket #%(id)s Status', id=ticket.id) }} – Taskify{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <nav aria-label="breadcrumb" class="mb-3">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('submit') }}">{{ _('Submit') }}</a></li>
+        <li class="breadcrumb-item active">{{ _('Ticket #%(id)s', id=ticket.id) }}</li>
+      </ol>
+    </nav>
+
+    <!-- Ticket header -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">{{ ticket.subject }}</h5>
+        <span class="badge bg-{{ ticket.status_badge }} fs-6">
+          {{ status_label(ticket.status) }}
+        </span>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-2">
+          <i class="bi bi-envelope me-1"></i>{{ ticket.submitter_email }}
+          &nbsp;&middot;&nbsp;
+          <i class="bi bi-clock me-1"></i>{{ _('Submitted') }} {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}
+        </p>
+        <hr>
+        <div class="ticket-body">{{ ticket.body|safe }}</div>
+      </div>
+    </div>
+
+    <!-- Conversation thread -->
+    {% if messages %}
+    <h5 class="mb-3">{{ _('Conversation') }}</h5>
+    <div class="timeline">
+      {% for msg in messages %}
+        {% if msg.is_customer_reply %}
+        <div class="card mb-3 border-start border-warning border-3 shadow-sm">
+          <div class="card-body">
+            <p class="text-muted small mb-2">
+              <i class="bi bi-person me-1"></i><strong>{{ _('You') }}</strong>
+              &nbsp;&middot;&nbsp;
+              <i class="bi bi-clock me-1"></i>{{ msg.created_at.strftime('%Y-%m-%d %H:%M') }}
+            </p>
+            <div class="message-body">{{ msg.body|safe }}</div>
+          </div>
+        </div>
+        {% else %}
+        <div class="card mb-3 border-start border-primary border-3 shadow-sm">
+          <div class="card-body">
+            <p class="text-muted small mb-2">
+              <i class="bi bi-headset me-1"></i><strong>{{ _('Support Team') }}</strong>
+              &nbsp;&middot;&nbsp;
+              <i class="bi bi-clock me-1"></i>{{ msg.created_at.strftime('%Y-%m-%d %H:%M') }}
+            </p>
+            <div class="message-body">{{ msg.body|safe }}</div>
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info mb-4">
+      <i class="bi bi-info-circle me-2"></i>{{ _("No updates yet. We'll email you when there's activity.") }}
+    </div>
+    {% endif %}
+
+    <!-- Reply form -->
+    {% if ticket.status not in ('resolved', 'closed') %}
+    <div class="card shadow-sm mt-2">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-reply me-1"></i>{{ _('Reply') }}</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('customer_reply', token=ticket.token) }}">
+          <div class="mb-3">
+            <textarea class="form-control" name="body" rows="4"
+                      placeholder="{{ _('Write your reply\u2026') }}" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-send me-1"></i>{{ _('Send Reply') }}
+          </button>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="alert alert-secondary mt-2">
+      <i class="bi bi-lock me-2"></i>{{ _('This ticket is %(status)s \u2014 replies are disabled.', status=status_label(ticket.status)) }}
+    </div>
+    {% endif %}
+
+    <p class="text-muted small mt-4">
+      <i class="bi bi-link-45deg"></i>
+      {{ _('Bookmark this page to check your ticket status anytime.') }}
+    </p>
+  </div>
+</div>
+{% endblock %}

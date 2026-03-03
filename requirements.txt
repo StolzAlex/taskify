@@ -1,0 +1,8 @@
+Flask==3.0.3
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+Flask-Mail==0.10.0
+Werkzeug==3.0.3
+SQLAlchemy==2.0.31
+aiosmtpd==1.4.6
+Flask-Babel==4.0.0

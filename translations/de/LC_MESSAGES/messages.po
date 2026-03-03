@@ -1,0 +1,373 @@
+# German translations for Taskify.
+# Copyright (C) 2026 Taskify
+# This file is distributed under the same license as the Taskify project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Taskify\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-03 12:10+0100\n"
+"PO-Revision-Date: 2026-03-03 12:10+0100\n"
+"Last-Translator: Taskify\n"
+"Language: de\n"
+"Language-Team: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Please log in to access this page."
+msgstr "Bitte melden Sie sich an, um diese Seite aufzurufen."
+
+msgid "Open"
+msgstr "Offen"
+
+msgid "In Progress"
+msgstr "In Bearbeitung"
+
+msgid "Resolved"
+msgstr "Gelöst"
+
+msgid "Closed"
+msgstr "Geschlossen"
+
+msgid "Setup already complete."
+msgstr "Einrichtung bereits abgeschlossen."
+
+msgid "All fields are required."
+msgstr "Alle Felder sind erforderlich."
+
+msgid "Admin account created. Please log in."
+msgstr "Admin-Konto erstellt. Bitte melden Sie sich an."
+
+#, python-format
+msgid "Your ticket has been submitted! Track it at <a href=\"%(url)s\">/status/%(token)s…</a>"
+msgstr "Ihr Ticket wurde eingereicht! Verfolgen Sie es unter <a href=\"%(url)s\">/status/%(token)s…</a>"
+
+msgid "Reply cannot be empty."
+msgstr "Die Antwort darf nicht leer sein."
+
+msgid "Your reply has been sent."
+msgstr "Ihre Antwort wurde gesendet."
+
+msgid "Invalid credentials or account disabled."
+msgstr "Ungültige Anmeldedaten oder Konto deaktiviert."
+
+msgid "Message body cannot be empty."
+msgstr "Der Nachrichtentext darf nicht leer sein."
+
+msgid "Message added."
+msgstr "Nachricht hinzugefügt."
+
+msgid "Message updated."
+msgstr "Nachricht aktualisiert."
+
+msgid "edited"
+msgstr "bearbeitet"
+
+msgid "Save"
+msgstr "Speichern"
+
+msgid "Cancel"
+msgstr "Abbrechen"
+
+msgid "Invalid status."
+msgstr "Ungültiger Status."
+
+#, python-format
+msgid "Status changed to %(status)s."
+msgstr "Status geändert zu %(status)s."
+
+msgid "Invalid employee."
+msgstr "Ungültiger Mitarbeiter."
+
+msgid "Assignment updated."
+msgstr "Zuweisung aktualisiert."
+
+msgid "No file selected."
+msgstr "Keine Datei ausgewählt."
+
+#, python-format
+msgid "File \"%(name)s\" uploaded."
+msgstr "Datei \"%(name)s\" hochgeladen."
+
+msgid "Username already taken."
+msgstr "Benutzername bereits vergeben."
+
+msgid "Email already in use."
+msgstr "E-Mail-Adresse bereits verwendet."
+
+#, python-format
+msgid "Employee \"%(name)s\" created."
+msgstr "Mitarbeiter \"%(name)s\" erstellt."
+
+msgid "You cannot deactivate your own account."
+msgstr "Sie können Ihr eigenes Konto nicht deaktivieren."
+
+#, python-format
+msgid "Employee \"%(name)s\" activated."
+msgstr "Mitarbeiter \"%(name)s\" aktiviert."
+
+#, python-format
+msgid "Employee \"%(name)s\" deactivated."
+msgstr "Mitarbeiter \"%(name)s\" deaktiviert."
+
+msgid "Forbidden"
+msgstr "Zugriff verweigert"
+
+msgid "Page not found"
+msgstr "Seite nicht gefunden"
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Employees"
+msgstr "Mitarbeiter"
+
+msgid "Logout"
+msgstr "Abmelden"
+
+msgid "Employee Login"
+msgstr "Mitarbeiter-Anmeldung"
+
+msgid "Tickets"
+msgstr "Tickets"
+
+msgid "New Ticket"
+msgstr "Neues Ticket"
+
+msgid "All Statuses"
+msgstr "Alle Status"
+
+msgid "All Assignees"
+msgstr "Alle Bearbeiter"
+
+msgid "Assigned to me"
+msgstr "Mir zugewiesen"
+
+msgid "Unassigned"
+msgstr "Nicht zugewiesen"
+
+msgid "Filter"
+msgstr "Filtern"
+
+msgid "Clear"
+msgstr "Zurücksetzen"
+
+msgid "Subject"
+msgstr "Betreff"
+
+msgid "Submitter"
+msgstr "Einsender"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Assignee"
+msgstr "Bearbeiter"
+
+msgid "Updated"
+msgstr "Aktualisiert"
+
+msgid "No tickets match your filters."
+msgstr "Keine Tickets entsprechen Ihren Filtern."
+
+msgid "Go Home"
+msgstr "Zur Startseite"
+
+msgid "Login"
+msgstr "Anmeldung"
+
+msgid "Username"
+msgstr "Benutzername"
+
+msgid "Password"
+msgstr "Passwort"
+
+msgid "Remember me"
+msgstr "Angemeldet bleiben"
+
+msgid "Log In"
+msgstr "Anmelden"
+
+msgid "First-Run Setup"
+msgstr "Ersteinrichtung"
+
+msgid "Create the initial admin account."
+msgstr "Erstellen Sie das erste Administrator-Konto."
+
+msgid "Email"
+msgstr "E-Mail"
+
+msgid "Create Admin Account"
+msgstr "Admin-Konto erstellen"
+
+msgid "Submit a Ticket"
+msgstr "Ticket einreichen"
+
+msgid "Submit a Support Ticket"
+msgstr "Support-Ticket einreichen"
+
+msgid "Fill in the form below and we'll get back to you by email."
+msgstr "Füllen Sie das Formular aus und wir melden uns per E-Mail bei Ihnen."
+
+msgid "Your Email"
+msgstr "Ihre E-Mail-Adresse"
+
+msgid "you@example.com"
+msgstr "sie@beispiel.de"
+
+msgid "Brief description of your issue"
+msgstr "Kurze Beschreibung Ihres Problems"
+
+msgid "Description"
+msgstr "Beschreibung"
+
+msgid "Please describe your issue in detail…"
+msgstr "Bitte beschreiben Sie Ihr Problem ausführlich…"
+
+msgid "Submit Ticket"
+msgstr "Ticket einreichen"
+
+#, python-format
+msgid "Ticket #%(id)s"
+msgstr "Ticket #%(id)s"
+
+msgid "Token"
+msgstr "Token"
+
+msgid "Messages"
+msgstr "Nachrichten"
+
+msgid "Customer"
+msgstr "Kunde"
+
+msgid "Visible to customer"
+msgstr "Für Kunden sichtbar"
+
+msgid "Internal"
+msgstr "Intern"
+
+msgid "Add Message"
+msgstr "Nachricht hinzufügen"
+
+msgid "Visible to customer (sends email)"
+msgstr "Für Kunden sichtbar (sendet E-Mail)"
+
+msgid "Send"
+msgstr "Senden"
+
+msgid "Attachments"
+msgstr "Anhänge"
+
+msgid "No attachments yet."
+msgstr "Noch keine Anhänge."
+
+msgid "Upload"
+msgstr "Hochladen"
+
+msgid "Change Status"
+msgstr "Status ändern"
+
+msgid "Update Status"
+msgstr "Status aktualisieren"
+
+msgid "admin"
+msgstr "Admin"
+
+msgid "Assign"
+msgstr "Zuweisen"
+
+msgid "Info"
+msgstr "Info"
+
+msgid "ID"
+msgstr "ID"
+
+msgid "Created"
+msgstr "Erstellt"
+
+msgid "Public link"
+msgstr "Öffentlicher Link"
+
+msgid "Write your message…"
+msgstr "Nachricht schreiben…"
+
+#, python-format
+msgid "Ticket #%(id)s Status"
+msgstr "Ticket #%(id)s Status"
+
+msgid "Submit"
+msgstr "Einreichen"
+
+msgid "Submitted"
+msgstr "Eingereicht"
+
+msgid "Conversation"
+msgstr "Konversation"
+
+msgid "You"
+msgstr "Sie"
+
+msgid "Support Team"
+msgstr "Support-Team"
+
+msgid "No updates yet. We'll email you when there's activity."
+msgstr "Noch keine Aktualisierungen. Wir benachrichtigen Sie per E-Mail."
+
+msgid "Reply"
+msgstr "Antworten"
+
+msgid "Write your reply…"
+msgstr "Ihre Antwort schreiben…"
+
+msgid "Send Reply"
+msgstr "Antwort senden"
+
+#, python-format
+msgid "This ticket is %(status)s — replies are disabled."
+msgstr "Dieses Ticket ist %(status)s – Antworten sind deaktiviert."
+
+msgid "Bookmark this page to check your ticket status anytime."
+msgstr "Setzen Sie diese Seite als Lesezeichen, um den Status jederzeit zu prüfen."
+
+msgid "Create Employee"
+msgstr "Mitarbeiter erstellen"
+
+msgid "Admin privileges"
+msgstr "Administratorrechte"
+
+msgid "Create"
+msgstr "Erstellen"
+
+msgid "All Employees"
+msgstr "Alle Mitarbeiter"
+
+msgid "Role"
+msgstr "Rolle"
+
+msgid "Admin"
+msgstr "Admin"
+
+msgid "Staff"
+msgstr "Mitarbeiter"
+
+msgid "Active"
+msgstr "Aktiv"
+
+msgid "Inactive"
+msgstr "Inaktiv"
+
+msgid "Are you sure?"
+msgstr "Sind Sie sicher?"
+
+msgid "Deactivate"
+msgstr "Deaktivieren"
+
+msgid "Activate"
+msgstr "Aktivieren"
+
+msgid "you"
+msgstr "Sie"
+
+msgid "Attach"
+msgstr "Anhängen"
