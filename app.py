@@ -18,7 +18,7 @@ from markupsafe import escape
 from werkzeug.utils import secure_filename
 
 from config import Config
-from models import db, Employee, Customer, Ticket, Assignment, Message, Attachment
+from models import db, Employee, Customer, Ticket, Assignment, Message, Attachment, TicketEvent
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -100,6 +100,16 @@ def manager_required(f):
             abort(403)
         return f(*args, **kwargs)
     return decorated
+
+
+def log_event(ticket, event_type, from_value=None, to_value=None, actor_id=None):
+    db.session.add(TicketEvent(
+        ticket_id=ticket.id,
+        employee_id=actor_id,
+        event_type=event_type,
+        from_value=str(from_value) if from_value is not None else None,
+        to_value=str(to_value) if to_value is not None else None,
+    ))
 
 
 def github_ref_label(url):
@@ -319,6 +329,7 @@ def customer_reply(token):
                   is_customer_visible=False, is_customer_reply=True)
     db.session.add(msg)
     ticket.updated_at = datetime.utcnow()
+    log_event(ticket, 'customer_reply')
     db.session.commit()
     notify_assignee_customer_reply(ticket)
     flash(_('Your reply has been sent.'), 'success')
@@ -547,11 +558,20 @@ def _sync_github_issue(ticket):
         return
     if not resp.ok:
         return
-    if resp.json().get('state') == 'closed' and ticket.status not in ('closed', 'resolved'):
+    gh_state = resp.json().get('state')
+    if gh_state == 'closed' and ticket.status not in ('closed', 'resolved'):
+        old = ticket.status
         ticket.status = 'closed'
         ticket.updated_at = datetime.utcnow()
+        log_event(ticket, 'status', from_value=old, to_value='closed')
         db.session.commit()
         flash(_('GitHub issue was closed — ticket status updated to Closed.'), 'info')
+    elif gh_state == 'open' and ticket.status == 'closed':
+        ticket.status = 'open'
+        ticket.updated_at = datetime.utcnow()
+        log_event(ticket, 'status', from_value='closed', to_value='open')
+        db.session.commit()
+        flash(_('GitHub issue was reopened — ticket status updated to Open.'), 'info')
 
 
 @app.route('/tickets/<int:ticket_id>')
@@ -560,8 +580,9 @@ def ticket_detail(ticket_id):
     ticket = db.session.get(Ticket, ticket_id) or abort(404)
     _sync_github_issue(ticket)
     employees = Employee.query.filter_by(is_active=True).all()
+    events = ticket.events.all()
     return render_template('ticket.html', ticket=ticket, employees=employees,
-                           status_choices=Ticket.STATUS_CHOICES)
+                           status_choices=Ticket.STATUS_CHOICES, events=events)
 
 
 @app.route('/tickets/<int:ticket_id>/message', methods=['POST'])
@@ -594,6 +615,8 @@ def add_message(ticket_id):
                                     filename=stored_name, original_filename=original_name,
                                     size=size)
             db.session.add(attachment)
+            log_event(ticket, 'attachment', to_value=original_name,
+                      actor_id=current_user.id)
         except Exception as e:
             db.session.rollback()
             app.logger.warning(f'Inline file upload failed: {e}')
@@ -634,8 +657,11 @@ def change_status(ticket_id):
     if new_status not in Ticket.STATUS_CHOICES:
         flash(_('Invalid status.'), 'danger')
         return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+    old_status = ticket.status
     ticket.status = new_status
     ticket.updated_at = datetime.utcnow()
+    log_event(ticket, 'status', from_value=old_status, to_value=new_status,
+              actor_id=current_user.id)
     db.session.commit()
     notify_submitter_update(ticket)
     flash(_('Status changed to %(status)s.', status=status_label(new_status)), 'success')
@@ -646,6 +672,7 @@ def change_status(ticket_id):
 @login_required
 def assign_ticket(ticket_id):
     ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    old_assignee = ticket.assignee.username if ticket.assignee else None
     employee_id = request.form.get('employee_id', type=int)
     if employee_id:
         emp = db.session.get(Employee, employee_id)
@@ -658,9 +685,13 @@ def assign_ticket(ticket_id):
         else:
             assignment = Assignment(ticket_id=ticket.id, employee_id=employee_id)
             db.session.add(assignment)
+        new_assignee = emp.username
     else:
         if ticket.assignment:
             db.session.delete(ticket.assignment)
+        new_assignee = None
+    log_event(ticket, 'assignment', from_value=old_assignee, to_value=new_assignee,
+              actor_id=current_user.id)
     ticket.updated_at = datetime.utcnow()
     db.session.commit()
     flash(_('Assignment updated.'), 'success')
@@ -677,6 +708,8 @@ def set_github_pr(ticket_id):
         return redirect(url_for('ticket_detail', ticket_id=ticket_id))
     ticket.github_pr_url = pr_url or None
     ticket.github_pr_title = request.form.get('github_pr_title', '').strip() or None
+    log_event(ticket, 'github_link', to_value=ticket.github_pr_title or pr_url or None,
+              actor_id=current_user.id)
     db.session.commit()
     flash(_('GitHub link updated.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
@@ -807,6 +840,8 @@ def github_create_issue(ticket_id):
     issue = resp.json()
     ticket.github_pr_url = issue['html_url']
     ticket.github_pr_title = issue['title']
+    log_event(ticket, 'github_issue_created', to_value=issue['title'],
+              actor_id=current_user.id)
     db.session.commit()
     flash(_('GitHub issue created and linked.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
@@ -954,6 +989,63 @@ def link_github(emp_id):
     db.session.commit()
     flash(_('GitHub account "%(gh)s" linked to "%(emp)s".', gh=github_login, emp=emp.username), 'success')
     return redirect(url_for('admin_employees'))
+
+
+@app.route('/admin/employees/<int:emp_id>/edit', methods=['POST'])
+@login_required
+def edit_employee(emp_id):
+    if not (current_user.is_admin or current_user.is_manager):
+        abort(403)
+    emp = db.session.get(Employee, emp_id) or abort(404)
+    if emp.id != current_user.id:
+        # Editing someone else: admins can edit managers/staff; managers can edit staff only
+        if emp.is_admin:
+            abort(403)
+        if current_user.is_manager and not current_user.is_admin and emp.is_manager:
+            abort(403)
+    username = request.form.get('username', '').strip()
+    email    = request.form.get('email', '').strip().lower()
+    password = request.form.get('password', '').strip()
+    if not username or not email:
+        flash(_('Name and email are required.'), 'danger')
+        return redirect(url_for('admin_employees'))
+    # Uniqueness checks (exclude self)
+    if Employee.query.filter(Employee.username == username, Employee.id != emp.id).first():
+        flash(_('Username already taken.'), 'danger')
+        return redirect(url_for('admin_employees'))
+    if Employee.query.filter(Employee.email == email, Employee.id != emp.id).first():
+        flash(_('Email already in use.'), 'danger')
+        return redirect(url_for('admin_employees'))
+    emp.username = username
+    emp.email    = email
+    if password:
+        emp.set_password(password)
+    db.session.commit()
+    flash(_('Employee "%(name)s" updated.', name=emp.username), 'success')
+    return redirect(url_for('admin_employees'))
+
+
+@app.route('/manager/customers/<int:cust_id>/edit', methods=['POST'])
+@login_required
+@manager_required
+def edit_customer(cust_id):
+    customer = db.session.get(Customer, cust_id) or abort(404)
+    name     = request.form.get('name', '').strip()
+    email    = request.form.get('email', '').strip().lower()
+    password = request.form.get('password', '').strip()
+    if not name or not email:
+        flash(_('Name and email are required.'), 'danger')
+        return redirect(url_for('manager_customers'))
+    if Customer.query.filter(Customer.email == email, Customer.id != customer.id).first():
+        flash(_('Email already in use.'), 'danger')
+        return redirect(url_for('manager_customers'))
+    customer.name  = name
+    customer.email = email
+    if password:
+        customer.set_password(password)
+    db.session.commit()
+    flash(_('Customer "%(name)s" updated.', name=customer.name), 'success')
+    return redirect(url_for('manager_customers'))
 
 
 @app.route('/admin/employees/<int:emp_id>/delete', methods=['POST'])

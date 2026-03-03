@@ -231,22 +231,26 @@ Managers create customer accounts at `/manager/customers`. The customer receives
 
 Managers have access to **`/manager/customers`**:
 - Create customer accounts (sends a welcome email with credentials).
+- Edit a customer's name, email address, or password (pencil button).
 - Activate/deactivate or delete customer accounts.
 
 ### For admins
 
 Admins have access to **`/admin/employees`**:
 - Create new employee accounts with optional **Admin** or **Manager** roles.
+- Edit an employee's name, email address, or password (pencil button).
 - Activate/deactivate or delete employee accounts.
 - Link or unlink GitHub accounts for any employee.
+
+**Editing privileges:** Admins can edit managers and staff, but not other admins. Managers can edit staff only. Password fields are optional — leave blank to keep the current password.
 
 **Role summary:**
 
 | Role | Dashboard default | Manage customers | Manage employees |
 |---|---|---|---|
 | Staff | My Tickets | — | — |
-| Manager | All Tickets | ✓ | — |
-| Admin | All Tickets | ✓ | ✓ |
+| Manager | All Tickets | Create, edit, activate/deactivate, delete | — |
+| Admin | All Tickets | ✓ (via manager page) | Create, edit, activate/deactivate, delete |
 
 ---
 
@@ -372,6 +376,17 @@ CREATE TABLE IF NOT EXISTS customers (
 -- Added later: GitHub issue title cache and user preferences
 ALTER TABLE tickets   ADD COLUMN github_pr_title VARCHAR(500);
 ALTER TABLE employees ADD COLUMN preferences      TEXT;
+
+-- Added later: ticket activity / audit log
+CREATE TABLE IF NOT EXISTS ticket_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id   INTEGER NOT NULL REFERENCES tickets(id),
+    employee_id INTEGER REFERENCES employees(id),
+    event_type  VARCHAR(50)  NOT NULL,
+    from_value  VARCHAR(500),
+    to_value    VARCHAR(500),
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ---

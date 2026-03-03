@@ -126,6 +126,76 @@
     {% endfor %}
     {% endif %}
 
+    <!-- Activity log -->
+    {% if events %}
+    <div class="card shadow-sm mt-4">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           role="button" data-bs-toggle="collapse" data-bs-target="#activityPanel"
+           aria-expanded="false" style="cursor:pointer;">
+        <h6 class="mb-0"><i class="bi bi-clock-history me-1"></i>{{ _('Activity') }}</h6>
+        <i class="bi bi-chevron-down small text-muted"></i>
+      </div>
+      <div class="collapse" id="activityPanel">
+        <ul class="list-group list-group-flush small">
+          {% for ev in events %}
+          <li class="list-group-item py-2 px-3 d-flex align-items-start gap-2">
+            {% if ev.event_type == 'status' %}
+              <i class="bi bi-arrow-repeat text-warning mt-1 flex-shrink-0"></i>
+              <span class="flex-grow-1">
+                {% if ev.actor %}
+                  <strong>{{ ev.actor.username }}</strong>
+                {% else %}
+                  <strong>{{ _('System') }}</strong>
+                {% endif %}
+                {{ _('changed status') }}
+                <span class="badge bg-secondary">{{ status_label(ev.from_value) }}</span>
+                → <span class="badge bg-{{ {'open':'secondary','in_progress':'primary','resolved':'success','closed':'dark'}.get(ev.to_value,'secondary') }}">{{ status_label(ev.to_value) }}</span>
+              </span>
+            {% elif ev.event_type == 'assignment' %}
+              <i class="bi bi-person-check text-primary mt-1 flex-shrink-0"></i>
+              <span class="flex-grow-1">
+                <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                {% if ev.to_value %}
+                  {{ _('assigned to') }} <strong>{{ ev.to_value }}</strong>
+                {% else %}
+                  {{ _('removed assignment') }}
+                  {% if ev.from_value %}({{ _('was') }} {{ ev.from_value }}){% endif %}
+                {% endif %}
+              </span>
+            {% elif ev.event_type == 'github_link' %}
+              <i class="bi bi-github mt-1 flex-shrink-0"></i>
+              <span class="flex-grow-1">
+                <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                {% if ev.to_value %}
+                  {{ _('linked') }} <em>{{ ev.to_value }}</em>
+                {% else %}
+                  {{ _('removed GitHub link') }}
+                {% endif %}
+              </span>
+            {% elif ev.event_type == 'github_issue_created' %}
+              <i class="bi bi-github text-success mt-1 flex-shrink-0"></i>
+              <span class="flex-grow-1">
+                <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                {{ _('created GitHub issue') }} <em>{{ ev.to_value }}</em>
+              </span>
+            {% elif ev.event_type == 'attachment' %}
+              <i class="bi bi-paperclip text-muted mt-1 flex-shrink-0"></i>
+              <span class="flex-grow-1">
+                <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                {{ _('attached') }} <em>{{ ev.to_value }}</em>
+              </span>
+            {% elif ev.event_type == 'customer_reply' %}
+              <i class="bi bi-person-exclamation text-warning mt-1 flex-shrink-0"></i>
+              <span class="flex-grow-1 text-muted">{{ _('Customer replied') }}</span>
+            {% endif %}
+            <span class="text-muted flex-shrink-0">{{ ev.created_at.strftime('%d.%m. %H:%M') }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Add message -->
     <div class="card shadow-sm mt-4">
       <div class="card-header">

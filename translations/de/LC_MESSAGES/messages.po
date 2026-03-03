@@ -435,6 +435,42 @@ msgstr "GitHub-Verknüpfung aktualisiert."
 msgid "GitHub issue was closed \u2014 ticket status updated to Closed."
 msgstr "GitHub-Issue wurde geschlossen \u2014 Ticket-Status auf Geschlossen aktualisiert."
 
+msgid "GitHub issue was reopened \u2014 ticket status updated to Open."
+msgstr "GitHub-Issue wurde wiedere\u00f6ffnet \u2014 Ticket-Status auf Offen aktualisiert."
+
+msgid "Activity"
+msgstr "Aktivit\u00e4t"
+
+msgid "System"
+msgstr "System"
+
+msgid "changed status"
+msgstr "Status ge\u00e4ndert"
+
+msgid "assigned to"
+msgstr "zugewiesen an"
+
+msgid "removed assignment"
+msgstr "Zuweisung entfernt"
+
+msgid "was"
+msgstr "war"
+
+msgid "linked"
+msgstr "verkn\u00fcpft"
+
+msgid "removed GitHub link"
+msgstr "GitHub-Verkn\u00fcpfung entfernt"
+
+msgid "created GitHub issue"
+msgstr "GitHub-Issue erstellt"
+
+msgid "attached"
+msgstr "angeh\u00e4ngt"
+
+msgid "Customer replied"
+msgstr "Kunde hat geantwortet"
+
 msgid "Create GitHub Issue"
 msgstr "GitHub-Issue erstellen"
 
@@ -583,3 +619,29 @@ msgstr "Mitarbeiter \"%(name)s\" gelöscht."
 #, python-format
 msgid "Customer \"%(name)s\" deleted."
 msgstr "Kunde \"%(name)s\" gelöscht."
+
+msgid "Edit Employee"
+msgstr "Mitarbeiter bearbeiten"
+
+msgid "Edit Customer"
+msgstr "Kunden bearbeiten"
+
+msgid "Edit"
+msgstr "Bearbeiten"
+
+msgid "New Password"
+msgstr "Neues Passwort"
+
+msgid "Leave blank to keep current"
+msgstr "Leer lassen, um das aktuelle Passwort beizubehalten"
+
+msgid "Name and email are required."
+msgstr "Name und E-Mail-Adresse sind erforderlich."
+
+#, python-format
+msgid "Employee \"%(name)s\" updated."
+msgstr "Mitarbeiter \"%(name)s\" aktualisiert."
+
+#, python-format
+msgid "Customer \"%(name)s\" updated."
+msgstr "Kunde \"%(name)s\" aktualisiert."

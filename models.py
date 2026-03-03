@@ -89,6 +89,8 @@ class Ticket(db.Model):
     messages = db.relationship('Message', backref='ticket', lazy='dynamic', order_by='Message.created_at')
     attachments = db.relationship('Attachment', backref='ticket', lazy='dynamic')
     assignment = db.relationship('Assignment', backref='ticket', uselist=False)
+    events = db.relationship('TicketEvent', backref='ticket', lazy='dynamic',
+                             order_by='TicketEvent.created_at')
 
     STATUS_CHOICES = ['open', 'in_progress', 'resolved', 'closed']
 
@@ -131,6 +133,20 @@ class Message(db.Model):
     edited_at = db.Column(db.DateTime, nullable=True)
 
     attachments = db.relationship('Attachment', backref='message', lazy='dynamic')
+
+
+class TicketEvent(db.Model):
+    __tablename__ = 'ticket_events'
+
+    id          = db.Column(db.Integer, primary_key=True)
+    ticket_id   = db.Column(db.Integer, db.ForeignKey('tickets.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True)
+    event_type  = db.Column(db.String(50),  nullable=False)  # status|assignment|github_link|attachment|customer_reply
+    from_value  = db.Column(db.String(500), nullable=True)
+    to_value    = db.Column(db.String(500), nullable=True)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    actor = db.relationship('Employee')
 
 
 class Attachment(db.Model):
