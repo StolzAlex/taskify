@@ -242,7 +242,9 @@ def setup():
 def submit():
     customer = get_current_customer()
     if request.method == 'POST':
-        if customer:
+        if current_user.is_authenticated:
+            email = current_user.email
+        elif customer:
             email = customer.email
         else:
             email = request.form.get('email', '').strip()
@@ -309,19 +311,17 @@ def login():
     if session.get('customer_id'):
         return redirect(url_for('customer_dashboard'))
     if request.method == 'POST':
-        identifier = request.form.get('identifier', '').strip()
+        email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
-        # Try employee by username, then by email
-        emp = Employee.query.filter_by(username=identifier).first()
-        if not emp:
-            emp = Employee.query.filter(Employee.email.ilike(identifier)).first()
+        # Try employee by email
+        emp = Employee.query.filter(Employee.email.ilike(email)).first()
         if emp and emp.is_active and emp.check_password(password):
             login_user(emp, remember=request.form.get('remember') == 'on')
             session.pop('customer_id', None)
             next_page = request.args.get('next')
             return redirect(next_page or url_for('dashboard'))
         # Try customer by email
-        customer = Customer.query.filter(Customer.email.ilike(identifier)).first()
+        customer = Customer.query.filter(Customer.email.ilike(email)).first()
         if customer and customer.is_active and customer.check_password(password):
             session['customer_id'] = customer.id
             next_page = request.args.get('next')

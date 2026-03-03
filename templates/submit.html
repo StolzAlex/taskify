@@ -14,10 +14,13 @@
     <div class="card shadow-sm">
       <div class="card-body p-4">
         <form method="post" novalidate id="submitForm">
+          {% set prefill_email = current_user.email if current_user.is_authenticated else (current_customer.email if current_customer else '') %}
           <div class="mb-3">
             <label for="email" class="form-label fw-semibold">{{ _('Your Email') }} <span class="text-danger">*</span></label>
             <input type="email" class="form-control" id="email" name="email" required
-                   placeholder="{{ _('you@example.com') }}" value="{{ request.form.email or '' }}">
+                   placeholder="{{ _('you@example.com') }}"
+                   value="{{ prefill_email or request.form.email or '' }}"
+                   {{ 'readonly' if prefill_email }}>
           </div>
           <div class="mb-3">
             <label for="subject" class="form-label fw-semibold">{{ _('Subject') }} <span class="text-danger">*</span></label>
