@@ -447,6 +447,17 @@ msgstr "Letzte Aktivitäten"
 msgid "Resolved this week"
 msgstr "Diese Woche gelöst"
 
+msgid "No tickets"
+msgstr "Keine Tickets"
+
+#, python-format
+msgid "%(total)s tickets"
+msgstr "%(total)s Tickets"
+
+#, python-format
+msgid "%(first)s–%(last)s of %(total)s tickets"
+msgstr "%(first)s–%(last)s von %(total)s Tickets"
+
 msgid "No activity yet."
 msgstr "Noch keine Aktivität."
 

@@ -13,7 +13,7 @@
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-4 col-xl">
     <a href="{{ url_for('dashboard', view='all', status='open') }}" class="text-decoration-none">
-      <div class="card shadow-sm h-100 border-warning border-opacity-75">
+      <div class="card shadow-sm h-100 border-warning border-opacity-75 {{ 'bg-warning bg-opacity-10' if status_filter == 'open' and not unassigned_filter and not resolved_week_filter }}">
         <div class="card-body text-center py-3">
           <div class="fs-2 fw-bold text-warning">{{ stats.open }}</div>
           <div class="small text-muted">{{ _('Open') }}</div>
@@ -23,7 +23,7 @@
   </div>
   <div class="col-6 col-md-4 col-xl">
     <a href="{{ url_for('dashboard', view='all', status='in_progress') }}" class="text-decoration-none">
-      <div class="card shadow-sm h-100 border-primary border-opacity-75">
+      <div class="card shadow-sm h-100 border-primary border-opacity-75 {{ 'bg-primary bg-opacity-10' if status_filter == 'in_progress' and not unassigned_filter and not resolved_week_filter }}">
         <div class="card-body text-center py-3">
           <div class="fs-2 fw-bold text-primary">{{ stats.in_progress }}</div>
           <div class="small text-muted">{{ _('In Progress') }}</div>
@@ -32,24 +32,28 @@
     </a>
   </div>
   <div class="col-6 col-md-4 col-xl">
-    <div class="card shadow-sm h-100 border-danger border-opacity-75">
-      <div class="card-body text-center py-3">
-        <div class="fs-2 fw-bold {{ 'text-danger' if stats.unassigned else 'text-muted' }}">{{ stats.unassigned }}</div>
-        <div class="small text-muted">{{ _('Unassigned') }}</div>
+    <a href="{{ url_for('dashboard', view='all', unassigned='1') }}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 border-danger border-opacity-75 {{ 'bg-danger bg-opacity-10' if unassigned_filter }}">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold {{ 'text-danger' if stats.unassigned else 'text-muted' }}">{{ stats.unassigned }}</div>
+          <div class="small text-muted">{{ _('Unassigned') }}</div>
+        </div>
       </div>
-    </div>
+    </a>
   </div>
   <div class="col-6 col-md-4 col-xl">
-    <div class="card shadow-sm h-100 border-success border-opacity-75">
-      <div class="card-body text-center py-3">
-        <div class="fs-2 fw-bold text-success">{{ stats.resolved_week }}</div>
-        <div class="small text-muted">{{ _('Resolved this week') }}</div>
+    <a href="{{ url_for('dashboard', view='all', resolved_week='1') }}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 border-success border-opacity-75 {{ 'bg-success bg-opacity-10' if resolved_week_filter }}">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold text-success">{{ stats.resolved_week }}</div>
+          <div class="small text-muted">{{ _('Resolved this week') }}</div>
+        </div>
       </div>
-    </div>
+    </a>
   </div>
   <div class="col-6 col-md-4 col-xl">
     <a href="{{ url_for('dashboard', view='mine') }}" class="text-decoration-none">
-      <div class="card shadow-sm h-100 border-info border-opacity-75">
+      <div class="card shadow-sm h-100 border-info border-opacity-75 {{ 'bg-info bg-opacity-10' if view == 'mine' and not status_filter and not unassigned_filter and not resolved_week_filter }}">
         <div class="card-body text-center py-3">
           <div class="fs-2 fw-bold text-info">{{ stats.mine }}</div>
           <div class="small text-muted">{{ _('Assigned to me') }}</div>
@@ -88,7 +92,7 @@
             </option>
             {% endfor %}
           </select>
-          {% if status_filter %}
+          {% if status_filter or unassigned_filter or resolved_week_filter %}
           <a href="{{ url_for('dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
           </a>
@@ -97,7 +101,7 @@
       </div>
 
       {% if tickets %}
-      <div class="table-responsive">
+      <div class="table-responsive pb-2">
         <table class="table table-hover table-sm align-middle mb-0">
           <thead class="table-light">
             <tr>
@@ -142,6 +146,42 @@
         <i class="bi bi-inbox me-2"></i>{{ _('No tickets match your filters.') }}
       </div>
       {% endif %}
+
+      <!-- Footer: total + pagination -->
+      <div class="card-footer d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
+        <span class="small text-muted">
+          {% set first = (pagination.page - 1) * per_page + 1 %}
+          {% set last  = [pagination.page * per_page, pagination.total] | min %}
+          {% if pagination.total == 0 %}
+            {{ _('No tickets') }}
+          {% elif pagination.pages == 1 %}
+            {{ _('%(total)s tickets', total=pagination.total) }}
+          {% else %}
+            {{ _('%(first)s–%(last)s of %(total)s tickets', first=first, last=last, total=pagination.total) }}
+          {% endif %}
+        </span>
+        {% if pagination.pages > 1 %}
+        <nav>
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+              <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', page=pagination.prev_num) }}">‹</a>
+            </li>
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if p %}
+              <li class="page-item {{ 'active' if p == pagination.page }}">
+                <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', page=p) }}">{{ p }}</a>
+              </li>
+              {% else %}
+              <li class="page-item disabled"><span class="page-link">…</span></li>
+              {% endif %}
+            {% endfor %}
+            <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+              <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', page=pagination.next_num) }}">›</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+      </div>
 
     </div>
   </div><!-- /col-lg-8 -->

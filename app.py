@@ -525,15 +525,33 @@ def dashboard():
             db.session.commit()
     else:
         view = current_user.get_pref('dashboard_view', default_view)
-    status_filter = request.args.get('status', '')
+    status_filter     = request.args.get('status', '')
+    unassigned_filter = request.args.get('unassigned', '') == '1'
+    resolved_week_filter = request.args.get('resolved_week', '') == '1'
 
     query = Ticket.query
     if status_filter:
         query = query.filter(Ticket.status == status_filter)
+    if unassigned_filter:
+        query = query.filter(
+            Ticket.status.in_(['open', 'in_progress']),
+            ~Ticket.id.in_(db.session.query(Assignment.ticket_id))
+        )
+    if resolved_week_filter:
+        week_ago_filter = datetime.utcnow() - timedelta(days=7)
+        query = query.filter(
+            Ticket.status.in_(['resolved', 'closed']),
+            Ticket.updated_at >= week_ago_filter
+        )
     if view == 'mine':
         query = query.join(Assignment).filter(Assignment.employee_id == current_user.id)
 
-    tickets = query.order_by(Ticket.updated_at.desc()).all()
+    page     = request.args.get('page', 1, type=int)
+    per_page = 25
+    pagination = query.order_by(Ticket.updated_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False)
+    tickets = pagination.items
+
     recent_events = (TicketEvent.query
                      .order_by(TicketEvent.created_at.desc())
                      .limit(20).all())
@@ -558,8 +576,11 @@ def dashboard():
     }
 
     return render_template('dashboard.html', tickets=tickets,
-                           status_filter=status_filter, view=view,
-                           is_privileged=is_privileged,
+                           pagination=pagination, per_page=per_page,
+                           status_filter=status_filter,
+                           unassigned_filter=unassigned_filter,
+                           resolved_week_filter=resolved_week_filter,
+                           view=view, is_privileged=is_privileged,
                            status_choices=Ticket.STATUS_CHOICES,
                            recent_events=recent_events,
                            stats=stats)
