@@ -1,7 +1,7 @@
 import os
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 
 from dotenv import load_dotenv
@@ -537,11 +537,32 @@ def dashboard():
     recent_events = (TicketEvent.query
                      .order_by(TicketEvent.created_at.desc())
                      .limit(20).all())
+
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    active_statuses = ['open', 'in_progress']
+    stats = {
+        'open':           Ticket.query.filter_by(status='open').count(),
+        'in_progress':    Ticket.query.filter_by(status='in_progress').count(),
+        'unassigned':     Ticket.query.filter(
+                              Ticket.status.in_(active_statuses),
+                              ~Ticket.id.in_(db.session.query(Assignment.ticket_id))
+                          ).count(),
+        'resolved_week':  Ticket.query.filter(
+                              Ticket.status.in_(['resolved', 'closed']),
+                              Ticket.updated_at >= week_ago
+                          ).count(),
+        'mine':           Ticket.query.join(Assignment).filter(
+                              Assignment.employee_id == current_user.id,
+                              Ticket.status.in_(active_statuses)
+                          ).count(),
+    }
+
     return render_template('dashboard.html', tickets=tickets,
                            status_filter=status_filter, view=view,
                            is_privileged=is_privileged,
                            status_choices=Ticket.STATUS_CHOICES,
-                           recent_events=recent_events)
+                           recent_events=recent_events,
+                           stats=stats)
 
 
 def _sync_github_issue(ticket):

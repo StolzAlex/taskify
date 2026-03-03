@@ -9,6 +9,56 @@
   </a>
 </div>
 
+<!-- Stats row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-4 col-xl">
+    <a href="{{ url_for('dashboard', view='all', status='open') }}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 border-warning border-opacity-75">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold text-warning">{{ stats.open }}</div>
+          <div class="small text-muted">{{ _('Open') }}</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl">
+    <a href="{{ url_for('dashboard', view='all', status='in_progress') }}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 border-primary border-opacity-75">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold text-primary">{{ stats.in_progress }}</div>
+          <div class="small text-muted">{{ _('In Progress') }}</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl">
+    <div class="card shadow-sm h-100 border-danger border-opacity-75">
+      <div class="card-body text-center py-3">
+        <div class="fs-2 fw-bold {{ 'text-danger' if stats.unassigned else 'text-muted' }}">{{ stats.unassigned }}</div>
+        <div class="small text-muted">{{ _('Unassigned') }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-xl">
+    <div class="card shadow-sm h-100 border-success border-opacity-75">
+      <div class="card-body text-center py-3">
+        <div class="fs-2 fw-bold text-success">{{ stats.resolved_week }}</div>
+        <div class="small text-muted">{{ _('Resolved this week') }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-xl">
+    <a href="{{ url_for('dashboard', view='mine') }}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 border-info border-opacity-75">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold text-info">{{ stats.mine }}</div>
+          <div class="small text-muted">{{ _('Assigned to me') }}</div>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
 <div class="row g-4 align-items-start">
 
   <!-- Ticket list -->
