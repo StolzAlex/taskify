@@ -203,27 +203,45 @@
       </div>
     </div>
 
-    <!-- GitHub PR -->
+    <!-- GitHub Link -->
     <div class="card shadow-sm mb-3">
-      <div class="card-header"><h6 class="mb-0"><i class="bi bi-github me-1"></i>{{ _('GitHub PR') }}</h6></div>
+      <div class="card-header"><h6 class="mb-0"><i class="bi bi-github me-1"></i>{{ _('GitHub Link') }}</h6></div>
       <div class="card-body">
-        {% if ticket.github_pr_url %}
-        <p class="small mb-2">
-          <a href="{{ ticket.github_pr_url }}" target="_blank" rel="noopener" class="text-break">
-            <i class="bi bi-box-arrow-up-right me-1"></i>{{ ticket.github_pr_url }}
-          </a>
-        </p>
-        {% else %}
-        <p class="small text-muted mb-2">{{ _('No PR linked') }}</p>
-        {% endif %}
-        <form method="post" action="{{ url_for('set_github_pr', ticket_id=ticket.id) }}">
-          <input type="url" class="form-control form-control-sm mb-2" name="github_pr_url"
-                 placeholder="https://github.com/owner/repo/pull/123"
-                 value="{{ ticket.github_pr_url or '' }}">
-          <button type="submit" class="btn btn-outline-dark btn-sm w-100">
-            <i class="bi bi-github me-1"></i>{{ _('Set PR URL') }}
-          </button>
+
+        {# Hidden form used for both linking and unlinking #}
+        <form method="post" action="{{ url_for('set_github_pr', ticket_id=ticket.id) }}" id="ghForm">
+          <input type="hidden" name="github_pr_url" id="ghUrl" value="">
         </form>
+
+        {# Current link #}
+        {% if ticket.github_pr_url %}
+        <div class="d-flex align-items-center gap-2 mb-3 p-2 bg-light rounded">
+          <i class="bi bi-github flex-shrink-0"></i>
+          <a href="{{ ticket.github_pr_url }}" target="_blank" rel="noopener"
+             class="small text-break flex-grow-1">
+            {{ github_ref_label(ticket.github_pr_url) }}
+          </a>
+          <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0 py-0 px-1"
+                  onclick="ghClear()" title="{{ _('Unlink') }}">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        {% endif %}
+
+        {# Search box #}
+        <div class="position-relative">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="ghSearch" class="form-control"
+                   placeholder="{{ _('Search PRs and issues\u2026') }}"
+                   autocomplete="off">
+          </div>
+          <div id="ghDropdown"
+               class="dropdown-menu w-100 p-0 shadow-sm"
+               style="display:none; max-height:320px; overflow-y:auto;">
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -299,5 +317,78 @@
     document.getElementById('editPanel-' + msgId).classList.add('d-none');
     document.getElementById('editBtn-'   + msgId).classList.remove('d-none');
   }
+
+  // ── GitHub search picker ──────────────────────────────────────────────────
+  const ghSearch   = document.getElementById('ghSearch');
+  const ghDropdown = document.getElementById('ghDropdown');
+  const ghUrl      = document.getElementById('ghUrl');
+  const ghForm     = document.getElementById('ghForm');
+  let ghTimer;
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function ghClear() {
+    ghUrl.value = '';
+    ghForm.submit();
+  }
+
+  function ghSelect(url) {
+    ghUrl.value = url;
+    ghForm.submit();
+  }
+
+  function ghShowMsg(msg, cls) {
+    ghDropdown.innerHTML =
+      `<div class="dropdown-item text-${cls} py-2 small">${esc(msg)}</div>`;
+    ghDropdown.style.display = 'block';
+  }
+
+  async function ghDoSearch(q) {
+    ghShowMsg('{{ _("Searching\u2026") }}', 'muted');
+    try {
+      const r = await fetch(
+        `/tickets/{{ ticket.id }}/github_search?q=${encodeURIComponent(q)}`
+      );
+      const items = await r.json();
+      if (!items.length) { ghShowMsg('{{ _("No results") }}', 'muted'); return; }
+
+      ghDropdown.innerHTML = items.map(item => {
+        const typeLabel = item.is_pr ? 'PR' : 'Issue';
+        const typeCls   = item.is_pr ? 'primary' : 'warning text-dark';
+        const stateCls  = item.state === 'open' ? 'success' : 'secondary';
+        const title     = esc(item.title.length > 72
+                            ? item.title.slice(0, 72) + '\u2026' : item.title);
+        return `<button type="button" class="dropdown-item py-2 border-bottom"
+                        onclick="ghSelect('${esc(item.url)}')">
+          <div class="d-flex align-items-center gap-1 mb-1">
+            <span class="badge bg-${typeCls}">${typeLabel}</span>
+            <span class="badge bg-${stateCls}">${esc(item.state)}</span>
+            <span class="text-muted small">${esc(item.repo)}#${item.number}</span>
+          </div>
+          <div class="small">${title}</div>
+        </button>`;
+      }).join('');
+      ghDropdown.style.display = 'block';
+    } catch {
+      ghShowMsg('{{ _("Search failed") }}', 'danger');
+    }
+  }
+
+  ghSearch.addEventListener('input', function () {
+    clearTimeout(ghTimer);
+    const q = this.value.trim();
+    if (q.length < 2) { ghDropdown.style.display = 'none'; return; }
+    ghTimer = setTimeout(() => ghDoSearch(q), 350);
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!ghSearch.contains(e.target) && !ghDropdown.contains(e.target)) {
+      ghDropdown.style.display = 'none';
+    }
+  });
 </script>
 {% endblock %}

@@ -4,10 +4,13 @@ import uuid
 from datetime import datetime
 from functools import wraps
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import requests as http_requests
 from authlib.integrations.flask_client import OAuth
 from flask import (Flask, render_template, request, redirect, url_for,
-                   flash, abort, send_from_directory, session)
+                   flash, abort, send_from_directory, session, jsonify)
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message as MailMessage
 from flask_babel import Babel, gettext as _, lazy_gettext as _l, get_locale
@@ -99,6 +102,16 @@ def manager_required(f):
     return decorated
 
 
+def github_ref_label(url):
+    """Convert https://github.com/owner/repo/pull/123 → owner/repo#123"""
+    if not url:
+        return ''
+    m = re.match(r'https://github\.com/([^/]+/[^/]+)/(pull|issues)/(\d+)', url)
+    if m:
+        return f'{m.group(1)} #{m.group(3)}'
+    return url
+
+
 @app.context_processor
 def inject_globals():
     return {
@@ -107,6 +120,7 @@ def inject_globals():
         'get_locale': get_locale,
         'current_customer': get_current_customer(),
         'github_configured': bool(app.config.get('GITHUB_CLIENT_ID')),
+        'github_ref_label': github_ref_label,
     }
 
 
@@ -370,28 +384,15 @@ def auth_github_callback():
 
     profile = resp.json()
     github_id = str(profile.get('id', ''))
-    github_login = profile.get('login', '')
 
-    if current_user.is_authenticated:
-        # Link GitHub to current employee account
-        existing = Employee.query.filter_by(github_id=github_id).first()
-        if existing and existing.id != current_user.id:
-            flash(_('This GitHub account is already linked to another employee.'), 'danger')
-            return redirect(url_for('admin_employees'))
-        current_user.github_id = github_id
-        current_user.github_login = github_login
-        db.session.commit()
-        flash(_('GitHub account linked successfully.'), 'success')
-        return redirect(url_for('admin_employees'))
-    else:
-        # Sign in via GitHub
-        emp = Employee.query.filter_by(github_id=github_id).first()
-        if emp and emp.is_active:
-            login_user(emp)
-            session.pop('customer_id', None)
-            return redirect(url_for('dashboard'))
-        flash(_('No employee account linked to this GitHub account.'), 'danger')
-        return redirect(url_for('login'))
+    # Sign in via GitHub (linking is managed by admins via /admin/employees)
+    emp = Employee.query.filter_by(github_id=github_id).first()
+    if emp and emp.is_active:
+        login_user(emp)
+        session.pop('customer_id', None)
+        return redirect(url_for('dashboard'))
+    flash(_('No employee account linked to this GitHub account.'), 'danger')
+    return redirect(url_for('login'))
 
 
 # ---------------------------------------------------------------------------
@@ -632,8 +633,44 @@ def set_github_pr(ticket_id):
         return redirect(url_for('ticket_detail', ticket_id=ticket_id))
     ticket.github_pr_url = pr_url or None
     db.session.commit()
-    flash(_('GitHub PR URL updated.'), 'success')
+    flash(_('GitHub link updated.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+
+
+@app.route('/tickets/<int:ticket_id>/github_search')
+@login_required
+def github_search(ticket_id):
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify([])
+    auth = None
+    if app.config.get('GITHUB_CLIENT_ID') and app.config.get('GITHUB_CLIENT_SECRET'):
+        auth = (app.config['GITHUB_CLIENT_ID'], app.config['GITHUB_CLIENT_SECRET'])
+    try:
+        resp = http_requests.get(
+            'https://api.github.com/search/issues',
+            params={'q': q, 'per_page': 8},
+            headers={'Accept': 'application/vnd.github+json'},
+            auth=auth,
+            timeout=10,
+        )
+    except Exception:
+        return jsonify([])
+    if not resp.ok:
+        return jsonify([])
+    results = []
+    for item in resp.json().get('items', []):
+        is_pr = 'pull_request' in item
+        repo = '/'.join(item['repository_url'].split('/')[-2:])
+        results.append({
+            'number': item['number'],
+            'title': item['title'],
+            'url': item['html_url'],
+            'state': item['state'],
+            'is_pr': is_pr,
+            'repo': repo,
+        })
+    return jsonify(results)
 
 
 # ---------------------------------------------------------------------------
@@ -723,6 +760,60 @@ def toggle_employee(emp_id):
         flash(_('Employee "%(name)s" activated.', name=emp.username), 'success')
     else:
         flash(_('Employee "%(name)s" deactivated.', name=emp.username), 'success')
+    return redirect(url_for('admin_employees'))
+
+
+@app.route('/admin/employees/<int:emp_id>/link_github', methods=['POST'])
+@login_required
+@admin_required
+def link_github(emp_id):
+    emp = db.session.get(Employee, emp_id) or abort(404)
+    username = request.form.get('github_username', '').strip()
+
+    if not username:
+        emp.github_id = None
+        emp.github_login = None
+        db.session.commit()
+        flash(_('GitHub link removed for "%(name)s".', name=emp.username), 'success')
+        return redirect(url_for('admin_employees'))
+
+    # Resolve username via GitHub API
+    auth = None
+    if app.config.get('GITHUB_CLIENT_ID') and app.config.get('GITHUB_CLIENT_SECRET'):
+        auth = (app.config['GITHUB_CLIENT_ID'], app.config['GITHUB_CLIENT_SECRET'])
+    try:
+        resp = http_requests.get(
+            f'https://api.github.com/users/{username}',
+            headers={'Accept': 'application/json'},
+            auth=auth,
+            timeout=10,
+        )
+    except Exception:
+        flash(_('GitHub API request failed.'), 'danger')
+        return redirect(url_for('admin_employees'))
+
+    if resp.status_code == 404:
+        flash(_('GitHub user "%(name)s" not found.', name=username), 'danger')
+        return redirect(url_for('admin_employees'))
+    if not resp.ok:
+        flash(_('GitHub API request failed.'), 'danger')
+        return redirect(url_for('admin_employees'))
+
+    profile = resp.json()
+    github_id = str(profile['id'])
+    github_login = profile['login']
+
+    conflict = Employee.query.filter(
+        Employee.github_id == github_id, Employee.id != emp.id
+    ).first()
+    if conflict:
+        flash(_('This GitHub account is already linked to "%(name)s".', name=conflict.username), 'danger')
+        return redirect(url_for('admin_employees'))
+
+    emp.github_id = github_id
+    emp.github_login = github_login
+    db.session.commit()
+    flash(_('GitHub account "%(gh)s" linked to "%(emp)s".', gh=github_login, emp=emp.username), 'success')
     return redirect(url_for('admin_employees'))
 
 

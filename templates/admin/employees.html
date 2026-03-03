@@ -77,18 +77,29 @@
                   <span class="badge bg-secondary">{{ _('Staff') }}</span>
                 {% endif %}
               </td>
-              <td class="small">
-                {% if emp.github_login %}
-                  <span class="badge bg-dark">
-                    <i class="bi bi-github me-1"></i>{{ emp.github_login }}
-                  </span>
-                {% elif emp.id == current_user.id %}
-                  <a href="{{ url_for('auth_github') }}" class="btn btn-outline-dark btn-sm py-0 px-1">
-                    <i class="bi bi-github me-1"></i>{{ _('Link GitHub') }}
-                  </a>
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
+              <td>
+                <form method="post" action="{{ url_for('link_github', emp_id=emp.id) }}"
+                      class="d-flex align-items-center gap-1"
+                      {% if emp.github_login %}onsubmit="return confirm('{{ _('Are you sure?') }}')"{% endif %}>
+                  {% if emp.github_login %}
+                    <span class="badge bg-dark me-1">
+                      <i class="bi bi-github me-1"></i>{{ emp.github_login }}
+                    </span>
+                    <input type="hidden" name="github_username" value="">
+                    <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1"
+                            title="{{ _('Unlink') }}">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  {% else %}
+                    <input type="text" name="github_username"
+                           class="form-control form-control-sm"
+                           style="width:130px"
+                           placeholder="{{ _('GitHub username') }}">
+                    <button type="submit" class="btn btn-outline-dark btn-sm text-nowrap">
+                      <i class="bi bi-search me-1"></i>{{ _('Link') }}
+                    </button>
+                  {% endif %}
+                </form>
               </td>
               <td>
                 {% if emp.is_active %}

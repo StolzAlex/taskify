@@ -426,6 +426,24 @@ msgstr "PR-URL setzen"
 msgid "No PR linked"
 msgstr "Kein PR verknüpft"
 
+msgid "GitHub Link"
+msgstr "GitHub-Verknüpfung"
+
+msgid "GitHub link updated."
+msgstr "GitHub-Verknüpfung aktualisiert."
+
+msgid "Search PRs and issues\u2026"
+msgstr "PRs und Issues suchen\u2026"
+
+msgid "Searching\u2026"
+msgstr "Suche läuft\u2026"
+
+msgid "No results"
+msgstr "Keine Ergebnisse"
+
+msgid "Search failed"
+msgstr "Suche fehlgeschlagen"
+
 msgid "Attach file"
 msgstr "Datei anhängen"
 
@@ -486,6 +504,34 @@ msgstr "Willkommen, %(name)s!"
 
 msgid "Link GitHub"
 msgstr "GitHub verknüpfen"
+
+msgid "GitHub username"
+msgstr "GitHub-Benutzername"
+
+msgid "Link"
+msgstr "Verknüpfen"
+
+msgid "Unlink"
+msgstr "Trennen"
+
+msgid "GitHub API request failed."
+msgstr "GitHub-API-Anfrage fehlgeschlagen."
+
+#, python-format
+msgid "GitHub user \"%(name)s\" not found."
+msgstr "GitHub-Benutzer \"%(name)s\" nicht gefunden."
+
+#, python-format
+msgid "GitHub link removed for \"%(name)s\"."
+msgstr "GitHub-Verknüpfung für \"%(name)s\" entfernt."
+
+#, python-format
+msgid "This GitHub account is already linked to \"%(name)s\"."
+msgstr "Dieses GitHub-Konto ist bereits mit \"%(name)s\" verknüpft."
+
+#, python-format
+msgid "GitHub account \"%(gh)s\" linked to \"%(emp)s\"."
+msgstr "GitHub-Konto \"%(gh)s\" mit \"%(emp)s\" verknüpft."
 
 msgid "GitHub"
 msgstr "GitHub"

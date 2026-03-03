@@ -29,6 +29,10 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 
 # 3. Install dependencies
 pip install -r requirements.txt
+
+# 4. Create your local environment file
+cp .env.example .env
+# then edit .env with your settings
 ```
 
 ---
@@ -53,13 +57,15 @@ Start a local debug SMTP server in a separate terminal — it prints every outgo
 python -m aiosmtpd -n -l localhost:1025
 ```
 
-This is the default configuration. No environment variables needed.
+This matches the default `MAIL_SERVER=localhost` / `MAIL_PORT=1025` in `.env.example`.
 
 ---
 
 ## Configuration
 
-All settings are controlled via environment variables. The defaults work out of the box for local development.
+Settings are loaded from a **`.env` file** in the project root (via `python-dotenv`), with environment variables as fallback. Copy `.env.example` to `.env` and fill in the values you need — everything else uses the defaults shown below.
+
+`.env` is listed in `.gitignore` and must never be committed.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -76,38 +82,52 @@ All settings are controlled via environment variables. The defaults work out of 
 | `GITHUB_CLIENT_ID` | _(none)_ | GitHub OAuth App client ID (optional) |
 | `GITHUB_CLIENT_SECRET` | _(none)_ | GitHub OAuth App client secret (optional) |
 
-### Example: AWS SES via SMTP
+### Example `.env` for production
 
-```bash
-export MAIL_SERVER=email-smtp.us-east-1.amazonaws.com
-export MAIL_PORT=587
-export MAIL_USE_TLS=true
-export MAIL_USERNAME=<SES SMTP username>
-export MAIL_PASSWORD=<SES SMTP password>
-export MAIL_DEFAULT_SENDER=support@yourdomain.com
-python app.py
+```dotenv
+SECRET_KEY=replace-with-64-random-chars
+
+DATABASE_URL=sqlite:///taskify.db
+
+MAIL_SERVER=email-smtp.us-east-1.amazonaws.com
+MAIL_PORT=587
+MAIL_USE_TLS=true
+MAIL_USERNAME=AKIAIOSFODNN7EXAMPLE
+MAIL_PASSWORD=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+MAIL_DEFAULT_SENDER=support@yourdomain.com
+
+GITHUB_CLIENT_ID=your_client_id
+GITHUB_CLIENT_SECRET=your_client_secret
 ```
 
-SES SMTP credentials are generated in the AWS console under **SES → SMTP Settings → Create SMTP credentials**.
-
-> **Note:** SES sandbox mode only delivers to verified email addresses. Request production access to send to any address.
+> **AWS SES note:** SES sandbox mode only delivers to verified addresses. Request production access to send to any address. Credentials are generated under **SES → SMTP Settings → Create SMTP credentials**.
 
 ### GitHub OAuth SSO (optional)
 
-1. Create a GitHub OAuth App at **Settings → Developer settings → OAuth Apps → New OAuth App**.
-2. Set the **Authorization callback URL** to `https://yourdomain.com/auth/github/callback`.
-3. Export the credentials:
-   ```bash
-   export GITHUB_CLIENT_ID=your_client_id
-   export GITHUB_CLIENT_SECRET=your_client_secret
-   ```
-4. Restart the app. A **Login with GitHub** button appears on the employee login page.
+1. Go to **github.com/settings/developers → OAuth Apps → New OAuth App**.
+2. Set the fields:
 
-Employees link their GitHub account from `/admin/employees`. Once linked, they can sign in via GitHub without a password.
+   | Field | Value |
+   |---|---|
+   | Homepage URL | `http://localhost:5000` (dev) / `https://yourdomain.com` (prod) |
+   | Authorization callback URL | `http://localhost:5000/auth/github/callback` |
+
+3. Copy **Client ID** and generate a **Client Secret**, then add them to `.env`:
+   ```dotenv
+   GITHUB_CLIENT_ID=your_client_id
+   GITHUB_CLIENT_SECRET=your_client_secret
+   ```
+4. Restart the app — a **Login with GitHub** button appears on the login page automatically.
+
+Employees link their GitHub account from `/admin/employees`. Once linked, they can sign in via GitHub without a password. Update the callback URL in your GitHub OAuth App settings when you go to production.
 
 ---
 
 ## Usage
+
+### Login
+
+All users — employees and customers — log in at **`/login`** using their **email address** and password, or (employees only) via **GitHub OAuth**.
 
 ### For customers (anonymous)
 
@@ -123,49 +143,52 @@ Employee names are never shown to customers.
 
 Managers can create customer accounts at `/manager/customers`. The customer receives a welcome email with login credentials.
 
-1. Log in at **`/customer/login`**.
-2. **My Tickets** dashboard shows all tickets submitted with your email address.
-3. Resolved/closed tickets are shown as plain text (no active link) in the list.
-4. Attachments from employee messages are visible on the `/status/<token>` page when logged in.
+1. Log in at **`/login`** with your email and password.
+2. When submitting a ticket, your email is pre-filled and locked.
+3. **My Tickets** dashboard shows all tickets submitted with your email address.
+4. Resolved/closed tickets are shown as plain text (no active link) in the list.
+5. Attachments from employee messages are visible on the `/status/<token>` page when logged in.
 
 ### For employees
 
-1. Log in at **`/login`** (password or GitHub).
+1. Log in at **`/login`** with your email (or via GitHub).
 2. The **Dashboard** lists tickets, with a **My Tickets / All Tickets** toggle.
    - Admin and manager accounts default to *All Tickets*.
-   - Staff accounts default to *My Tickets* (assigned to them).
+   - Staff accounts default to *My Tickets* (tickets assigned to them).
    - Filter by status using the dropdown (auto-submits).
 3. On a ticket detail page you can:
    - **Add a message** using the Quill rich-text editor. Optionally attach a file inline. Check *Visible to customer* to send it as an email reply.
    - **Change status** — triggers an email notification to the submitter.
    - **Assign** the ticket to an active employee.
    - **Link a GitHub PR** — paste a `https://github.com/…/pull/…` URL in the sidebar card.
+4. When submitting a new ticket, your email is pre-filled and locked.
 
 ### For managers
 
 Managers have access to **`/manager/customers`** in addition to the employee dashboard:
 - Create customer accounts (sends a welcome email with credentials).
-- Activate or deactivate customer accounts.
+- Activate/deactivate or delete customer accounts.
 
 ### For admins
 
 Admins have access to **`/admin/employees`**:
 - Create new employee accounts with optional **Admin** or **Manager** roles.
-- Activate or deactivate existing accounts.
+- Activate/deactivate or delete employee accounts.
+- Link GitHub accounts (own row only).
 
 **Role summary:**
 
-| Role | Dashboard | Manage customers | Manage employees |
+| Role | Dashboard default | Manage customers | Manage employees |
 |---|---|---|---|
-| Staff | My Tickets (default) | — | — |
-| Manager | All Tickets (default) | ✓ | — |
-| Admin | All Tickets (default) | ✓ | ✓ |
+| Staff | My Tickets | — | — |
+| Manager | All Tickets | ✓ | — |
+| Admin | All Tickets | ✓ | ✓ |
 
 ---
 
 ## Multilanguage
 
-The UI ships in **English** and **German**. Users switch language via the globe icon in the top-right navbar. The choice is stored in the session.
+The UI ships in **English** and **German**. Users switch language via the globe icon in the navbar. The choice is stored in the session.
 
 ### Adding a new language
 
@@ -173,8 +196,7 @@ The UI ships in **English** and **German**. Users switch language via the globe 
 # 1. Initialise the locale (e.g. French)
 pybabel init -i messages.pot -d translations -l fr
 
-# 2. Edit the translations
-#    Fill in msgstr entries in translations/fr/LC_MESSAGES/messages.po
+# 2. Fill in msgstr entries in translations/fr/LC_MESSAGES/messages.po
 
 # 3. Compile
 pybabel compile -d translations
@@ -201,6 +223,8 @@ taskify/
 ├── models.py                   # SQLAlchemy models
 ├── config.py                   # Environment-based configuration
 ├── requirements.txt
+├── .env                        # Local secrets — never commit (gitignored)
+├── .env.example                # Template committed to version control
 ├── babel.cfg                   # pybabel extraction config
 ├── messages.pot                # Translation template (generated)
 ├── translations/
@@ -209,10 +233,10 @@ taskify/
 │       └── messages.mo         # German translations (compiled)
 ├── templates/
 │   ├── base.html               # Bootstrap layout, navbar, flash messages
-│   ├── submit.html             # Public: submit ticket
+│   ├── submit.html             # Public: submit ticket (email pre-filled when logged in)
 │   ├── ticket_status.html      # Public: track ticket + customer replies
 │   ├── ticket_closed.html      # Public: 410 page for closed/resolved tickets
-│   ├── login.html              # Employee login (+ GitHub SSO button)
+│   ├── login.html              # Unified login for employees and customers
 │   ├── setup.html              # First-run admin setup
 │   ├── dashboard.html          # Employee: ticket list with My/All toggle
 │   ├── ticket.html             # Employee: ticket detail, messages, GitHub PR
@@ -220,7 +244,6 @@ taskify/
 │   ├── admin/
 │   │   └── employees.html      # Admin: manage employees + GitHub status
 │   ├── customer/
-│   │   ├── login.html          # Customer portal login
 │   │   └── dashboard.html      # Customer: ticket list
 │   └── manager/
 │       └── customers.html      # Manager: create and manage customer accounts
@@ -292,10 +315,10 @@ A fresh install (`db.create_all()` on startup) handles all of this automatically
 
 ## Production checklist
 
-- [ ] Set a strong random `SECRET_KEY`
-- [ ] Configure real SMTP credentials
+- [ ] Set a strong random `SECRET_KEY` in `.env`
+- [ ] Configure real SMTP credentials in `.env`
 - [ ] Run behind a reverse proxy (nginx, Caddy) with HTTPS
 - [ ] Use a production WSGI server: `gunicorn app:app`
-- [ ] Set GitHub OAuth callback URL to the HTTPS domain before going live
+- [ ] Update the GitHub OAuth App callback URL to the HTTPS domain
 - [ ] Restrict access to the `uploads/` directory at the web server level (already gated in app by login)
 - [ ] Back up `instance/taskify.db` and `uploads/` regularly
