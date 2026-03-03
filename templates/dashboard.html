@@ -63,83 +63,87 @@
 
   <!-- Ticket list -->
   <div class="col-lg-8">
+    <div class="card shadow-sm">
 
-    <!-- View toggle + status filter -->
-    <form method="get" class="d-flex flex-wrap align-items-center gap-2 mb-3">
-      <div class="btn-group btn-group-sm" role="group">
-        <a href="{{ url_for('dashboard', view='mine', status=status_filter) }}"
-           class="btn {{ 'btn-primary' if view == 'mine' else 'btn-outline-primary' }}">
-          <i class="bi bi-person me-1"></i>{{ _('My Tickets') }}
-        </a>
-        <a href="{{ url_for('dashboard', view='all', status=status_filter) }}"
-           class="btn {{ 'btn-primary' if view == 'all' else 'btn-outline-primary' }}">
-          <i class="bi bi-grid me-1"></i>{{ _('All Tickets') }}
-        </a>
+      <!-- View toggle + status filter -->
+      <div class="card-header">
+        <form method="get" class="d-flex flex-wrap align-items-center gap-2">
+          <div class="btn-group btn-group-sm" role="group">
+            <a href="{{ url_for('dashboard', view='mine', status=status_filter) }}"
+               class="btn {{ 'btn-primary' if view == 'mine' else 'btn-outline-primary' }}">
+              <i class="bi bi-person me-1"></i>{{ _('My Tickets') }}
+            </a>
+            <a href="{{ url_for('dashboard', view='all', status=status_filter) }}"
+               class="btn {{ 'btn-primary' if view == 'all' else 'btn-outline-primary' }}">
+              <i class="bi bi-grid me-1"></i>{{ _('All Tickets') }}
+            </a>
+          </div>
+          <input type="hidden" name="view" value="{{ view }}">
+          <select name="status" class="form-select form-select-sm w-auto"
+                  onchange="this.form.submit()">
+            <option value="">{{ _('All Statuses') }}</option>
+            {% for s in status_choices %}
+            <option value="{{ s }}" {{ 'selected' if status_filter == s }}>
+              {{ status_label(s) }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if status_filter %}
+          <a href="{{ url_for('dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
+          </a>
+          {% endif %}
+        </form>
       </div>
-      <input type="hidden" name="view" value="{{ view }}">
-      <select name="status" class="form-select form-select-sm w-auto"
-              onchange="this.form.submit()">
-        <option value="">{{ _('All Statuses') }}</option>
-        {% for s in status_choices %}
-        <option value="{{ s }}" {{ 'selected' if status_filter == s }}>
-          {{ status_label(s) }}
-        </option>
-        {% endfor %}
-      </select>
-      {% if status_filter %}
-      <a href="{{ url_for('dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
-      </a>
+
+      {% if tickets %}
+      <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>{{ _('Subject') }}</th>
+              <th>{{ _('Submitter') }}</th>
+              <th>{{ _('Status') }}</th>
+              <th>{{ _('Assignee') }}</th>
+              <th>{{ _('Updated') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ticket in tickets %}
+            <tr>
+              <td class="text-muted small">{{ ticket.id }}</td>
+              <td>
+                <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" class="text-decoration-none fw-semibold">
+                  {{ ticket.subject }}
+                </a>
+              </td>
+              <td class="text-muted small">{{ ticket.submitter_email }}</td>
+              <td>
+                <span class="badge bg-{{ ticket.status_badge }}">
+                  {{ status_label(ticket.status) }}
+                </span>
+              </td>
+              <td class="small">
+                {% if ticket.assignee %}
+                  <i class="bi bi-person-check me-1 text-success"></i>{{ ticket.assignee.username }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td class="text-muted small">{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-muted text-center">
+        <i class="bi bi-inbox me-2"></i>{{ _('No tickets match your filters.') }}
+      </div>
       {% endif %}
-    </form>
 
-    {% if tickets %}
-    <div class="table-responsive">
-      <table class="table table-hover table-sm align-middle">
-        <thead class="table-light">
-          <tr>
-            <th>#</th>
-            <th>{{ _('Subject') }}</th>
-            <th>{{ _('Submitter') }}</th>
-            <th>{{ _('Status') }}</th>
-            <th>{{ _('Assignee') }}</th>
-            <th>{{ _('Updated') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for ticket in tickets %}
-          <tr>
-            <td class="text-muted small">{{ ticket.id }}</td>
-            <td>
-              <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" class="text-decoration-none fw-semibold">
-                {{ ticket.subject }}
-              </a>
-            </td>
-            <td class="text-muted small">{{ ticket.submitter_email }}</td>
-            <td>
-              <span class="badge bg-{{ ticket.status_badge }}">
-                {{ status_label(ticket.status) }}
-              </span>
-            </td>
-            <td class="small">
-              {% if ticket.assignee %}
-                <i class="bi bi-person-check me-1 text-success"></i>{{ ticket.assignee.username }}
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-            <td class="text-muted small">{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
     </div>
-    {% else %}
-    <div class="alert alert-secondary">
-      <i class="bi bi-inbox me-2"></i>{{ _('No tickets match your filters.') }}
-    </div>
-    {% endif %}
-
   </div><!-- /col-lg-8 -->
 
   <!-- Recent activity feed -->
