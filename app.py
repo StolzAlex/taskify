@@ -534,10 +534,14 @@ def dashboard():
         query = query.join(Assignment).filter(Assignment.employee_id == current_user.id)
 
     tickets = query.order_by(Ticket.updated_at.desc()).all()
+    recent_events = (TicketEvent.query
+                     .order_by(TicketEvent.created_at.desc())
+                     .limit(20).all())
     return render_template('dashboard.html', tickets=tickets,
                            status_filter=status_filter, view=view,
                            is_privileged=is_privileged,
-                           status_choices=Ticket.STATUS_CHOICES)
+                           status_choices=Ticket.STATUS_CHOICES,
+                           recent_events=recent_events)
 
 
 def _sync_github_issue(ticket):

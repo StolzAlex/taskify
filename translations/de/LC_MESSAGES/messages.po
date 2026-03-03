@@ -441,6 +441,9 @@ msgstr "GitHub-Issue wurde wiedereöffnet — Ticket-Status auf Offen aktualisie
 msgid "Activity"
 msgstr "Aktivität"
 
+msgid "Recent Activity"
+msgstr "Letzte Aktivitäten"
+
 msgid "No activity yet."
 msgstr "Noch keine Aktivität."
 

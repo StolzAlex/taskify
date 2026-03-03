@@ -9,79 +9,159 @@
   </a>
 </div>
 
-<!-- View toggle + status filter -->
-<form method="get" class="d-flex flex-wrap align-items-center gap-2 mb-4">
-  <div class="btn-group btn-group-sm" role="group">
-    <a href="{{ url_for('dashboard', view='mine', status=status_filter) }}"
-       class="btn {{ 'btn-primary' if view == 'mine' else 'btn-outline-primary' }}">
-      <i class="bi bi-person me-1"></i>{{ _('My Tickets') }}
-    </a>
-    <a href="{{ url_for('dashboard', view='all', status=status_filter) }}"
-       class="btn {{ 'btn-primary' if view == 'all' else 'btn-outline-primary' }}">
-      <i class="bi bi-grid me-1"></i>{{ _('All Tickets') }}
-    </a>
-  </div>
-  <input type="hidden" name="view" value="{{ view }}">
-  <select name="status" class="form-select form-select-sm w-auto"
-          onchange="this.form.submit()">
-    <option value="">{{ _('All Statuses') }}</option>
-    {% for s in status_choices %}
-    <option value="{{ s }}" {{ 'selected' if status_filter == s }}>
-      {{ status_label(s) }}
-    </option>
-    {% endfor %}
-  </select>
-  {% if status_filter %}
-  <a href="{{ url_for('dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
-  </a>
-  {% endif %}
-</form>
+<div class="row g-4 align-items-start">
 
-{% if tickets %}
-<div class="table-responsive">
-  <table class="table table-hover table-sm align-middle">
-    <thead class="table-light">
-      <tr>
-        <th>#</th>
-        <th>{{ _('Subject') }}</th>
-        <th>{{ _('Submitter') }}</th>
-        <th>{{ _('Status') }}</th>
-        <th>{{ _('Assignee') }}</th>
-        <th>{{ _('Updated') }}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for ticket in tickets %}
-      <tr>
-        <td class="text-muted small">{{ ticket.id }}</td>
-        <td>
-          <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" class="text-decoration-none fw-semibold">
-            {{ ticket.subject }}
-          </a>
-        </td>
-        <td class="text-muted small">{{ ticket.submitter_email }}</td>
-        <td>
-          <span class="badge bg-{{ ticket.status_badge }}">
-            {{ status_label(ticket.status) }}
-          </span>
-        </td>
-        <td class="small">
-          {% if ticket.assignee %}
-            <i class="bi bi-person-check me-1 text-success"></i>{{ ticket.assignee.username }}
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </td>
-        <td class="text-muted small">{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% else %}
-<div class="alert alert-secondary">
-  <i class="bi bi-inbox me-2"></i>{{ _('No tickets match your filters.') }}
-</div>
-{% endif %}
+  <!-- Ticket list -->
+  <div class="col-lg-8">
+
+    <!-- View toggle + status filter -->
+    <form method="get" class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <div class="btn-group btn-group-sm" role="group">
+        <a href="{{ url_for('dashboard', view='mine', status=status_filter) }}"
+           class="btn {{ 'btn-primary' if view == 'mine' else 'btn-outline-primary' }}">
+          <i class="bi bi-person me-1"></i>{{ _('My Tickets') }}
+        </a>
+        <a href="{{ url_for('dashboard', view='all', status=status_filter) }}"
+           class="btn {{ 'btn-primary' if view == 'all' else 'btn-outline-primary' }}">
+          <i class="bi bi-grid me-1"></i>{{ _('All Tickets') }}
+        </a>
+      </div>
+      <input type="hidden" name="view" value="{{ view }}">
+      <select name="status" class="form-select form-select-sm w-auto"
+              onchange="this.form.submit()">
+        <option value="">{{ _('All Statuses') }}</option>
+        {% for s in status_choices %}
+        <option value="{{ s }}" {{ 'selected' if status_filter == s }}>
+          {{ status_label(s) }}
+        </option>
+        {% endfor %}
+      </select>
+      {% if status_filter %}
+      <a href="{{ url_for('dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
+      </a>
+      {% endif %}
+    </form>
+
+    {% if tickets %}
+    <div class="table-responsive">
+      <table class="table table-hover table-sm align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>{{ _('Subject') }}</th>
+            <th>{{ _('Submitter') }}</th>
+            <th>{{ _('Status') }}</th>
+            <th>{{ _('Assignee') }}</th>
+            <th>{{ _('Updated') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ticket in tickets %}
+          <tr>
+            <td class="text-muted small">{{ ticket.id }}</td>
+            <td>
+              <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" class="text-decoration-none fw-semibold">
+                {{ ticket.subject }}
+              </a>
+            </td>
+            <td class="text-muted small">{{ ticket.submitter_email }}</td>
+            <td>
+              <span class="badge bg-{{ ticket.status_badge }}">
+                {{ status_label(ticket.status) }}
+              </span>
+            </td>
+            <td class="small">
+              {% if ticket.assignee %}
+                <i class="bi bi-person-check me-1 text-success"></i>{{ ticket.assignee.username }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-muted small">{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-secondary">
+      <i class="bi bi-inbox me-2"></i>{{ _('No tickets match your filters.') }}
+    </div>
+    {% endif %}
+
+  </div><!-- /col-lg-8 -->
+
+  <!-- Recent activity feed -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-clock-history me-1"></i>{{ _('Recent Activity') }}</h6>
+      </div>
+      {% if recent_events %}
+      <ul class="list-group list-group-flush small">
+        {% for ev in recent_events %}
+        <li class="list-group-item py-2 px-3">
+          <div class="d-flex align-items-start gap-2">
+            {% if ev.event_type == 'status' %}
+              <i class="bi bi-arrow-repeat text-warning mt-1 flex-shrink-0"></i>
+            {% elif ev.event_type == 'assignment' %}
+              <i class="bi bi-person-check text-primary mt-1 flex-shrink-0"></i>
+            {% elif ev.event_type in ('github_link', 'github_issue_created') %}
+              <i class="bi bi-github mt-1 flex-shrink-0"></i>
+            {% elif ev.event_type == 'attachment' %}
+              <i class="bi bi-paperclip text-muted mt-1 flex-shrink-0"></i>
+            {% elif ev.event_type == 'customer_reply' %}
+              <i class="bi bi-person-exclamation text-warning mt-1 flex-shrink-0"></i>
+            {% else %}
+              <i class="bi bi-dot mt-1 flex-shrink-0"></i>
+            {% endif %}
+            <div class="flex-grow-1 overflow-hidden">
+              <div>
+                {% if ev.event_type == 'status' %}
+                  <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                  {{ _('changed status') }}
+                  <span class="badge bg-secondary">{{ status_label(ev.from_value) }}</span>→<span class="badge bg-{{ {'open':'secondary','in_progress':'primary','resolved':'success','closed':'dark'}.get(ev.to_value,'secondary') }}">{{ status_label(ev.to_value) }}</span>
+                {% elif ev.event_type == 'assignment' %}
+                  <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                  {% if ev.to_value %}
+                    {{ _('assigned to') }} <strong>{{ ev.to_value }}</strong>
+                  {% else %}
+                    {{ _('removed assignment') }}
+                  {% endif %}
+                {% elif ev.event_type == 'github_link' %}
+                  <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                  {% if ev.to_value %}{{ _('linked') }} <em class="text-truncate">{{ ev.to_value }}</em>
+                  {% else %}{{ _('removed GitHub link') }}{% endif %}
+                {% elif ev.event_type == 'github_issue_created' %}
+                  <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                  {{ _('created GitHub issue') }}
+                {% elif ev.event_type == 'attachment' %}
+                  <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                  {{ _('attached') }} <em>{{ ev.to_value }}</em>
+                {% elif ev.event_type == 'customer_reply' %}
+                  {{ _('Customer replied') }}
+                {% endif %}
+              </div>
+              <div class="text-muted d-flex justify-content-between mt-1">
+                <a href="{{ url_for('ticket_detail', ticket_id=ev.ticket_id) }}"
+                   class="text-decoration-none text-truncate me-2">
+                  #{{ ev.ticket_id }} {{ ev.ticket.subject }}
+                </a>
+                <span class="flex-shrink-0">{{ ev.created_at.strftime('%d.%m. %H:%M') }}</span>
+              </div>
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body text-muted text-center small">
+        <i class="bi bi-clock-history me-1"></i>{{ _('No activity yet.') }}
+      </div>
+      {% endif %}
+    </div>
+  </div><!-- /col-lg-4 -->
+
+</div><!-- /row -->
 {% endblock %}
