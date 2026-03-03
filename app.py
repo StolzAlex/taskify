@@ -119,6 +119,7 @@ def inject_globals():
         'status_label': status_label,
         'get_locale': get_locale,
         'current_customer': get_current_customer(),
+        'public_tickets': app.config.get('PUBLIC_TICKETS', True),
         'github_configured': bool(app.config.get('GITHUB_CLIENT_ID')),
         'github_token_configured': bool(app.config.get('GITHUB_TOKEN')),
         'github_org': app.config.get('GITHUB_ORG', ''),
@@ -257,6 +258,8 @@ def setup():
 @app.route('/', methods=['GET', 'POST'])
 def submit():
     customer = get_current_customer()
+    if not app.config['PUBLIC_TICKETS'] and not current_user.is_authenticated and not customer:
+        return redirect(url_for('login'))
     if request.method == 'POST':
         if current_user.is_authenticated:
             email = current_user.email
@@ -288,6 +291,9 @@ def submit():
 def ticket_status(token):
     ticket = Ticket.query.filter_by(token=token).first_or_404()
     customer = get_current_customer()
+    if not app.config['PUBLIC_TICKETS'] and not current_user.is_authenticated and not customer:
+        flash(_('Please log in to view your ticket.'), 'warning')
+        return redirect(url_for('login', next=request.url))
     if ticket.status in ('resolved', 'closed'):
         if not (customer and customer.email.lower() == ticket.submitter_email.lower()):
             return render_template('ticket_closed.html', ticket=ticket), 410
@@ -300,6 +306,9 @@ def ticket_status(token):
 
 @app.route('/status/<token>/reply', methods=['POST'])
 def customer_reply(token):
+    customer = get_current_customer()
+    if not app.config['PUBLIC_TICKETS'] and not current_user.is_authenticated and not customer:
+        return redirect(url_for('login'))
     ticket = Ticket.query.filter_by(token=token).first_or_404()
     body = request.form.get('body', '').strip()
     if not body:

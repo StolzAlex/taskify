@@ -13,7 +13,8 @@
 
 <nav class="navbar navbar-expand-md navbar-dark bg-primary">
   <div class="container">
-    <a class="navbar-brand fw-bold" href="{{ url_for('submit') }}">
+    <a class="navbar-brand fw-bold"
+       href="{{ url_for('submit') if (public_tickets or current_user.is_authenticated or current_customer) else url_for('login') }}">
       <i class="bi bi-ticket-perforated-fill me-1"></i>Taskify
     </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navContent">
@@ -47,6 +48,11 @@
             </a>
           </li>
         {% elif current_customer %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('submit') }}">
+              <i class="bi bi-plus-circle me-1"></i>{{ _('New Ticket') }}
+            </a>
+          </li>
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('customer_dashboard') }}">
               <i class="bi bi-ticket me-1"></i>{{ _('My Tickets') }}

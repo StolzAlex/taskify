@@ -19,6 +19,8 @@ class Config:
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
 
+    PUBLIC_TICKETS = os.environ.get('PUBLIC_TICKETS', 'true').lower() == 'true'
+
     GITHUB_CLIENT_ID = os.environ.get('GITHUB_CLIENT_ID', '')
     GITHUB_CLIENT_SECRET = os.environ.get('GITHUB_CLIENT_SECRET', '')
     GITHUB_ORG = os.environ.get('GITHUB_ORG', '')

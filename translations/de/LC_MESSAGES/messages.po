@@ -493,6 +493,12 @@ msgstr "Beim Kundenkonto anmelden"
 msgid "Please log in to your customer account."
 msgstr "Bitte melden Sie sich bei Ihrem Kundenkonto an."
 
+msgid "Please log in to view your ticket."
+msgstr "Bitte melden Sie sich an, um Ihr Ticket anzusehen."
+
+msgid "New Ticket"
+msgstr "Neues Ticket"
+
 msgid "Welcome to Taskify \u2013 Your Customer Account"
 msgstr "Willkommen bei Taskify \u2013 Ihr Kundenkonto"
 
