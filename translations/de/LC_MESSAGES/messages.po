@@ -129,6 +129,9 @@ msgstr "Abmelden"
 msgid "Employee Login"
 msgstr "Mitarbeiter-Anmeldung"
 
+msgid "Username or Email"
+msgstr "Benutzername oder E-Mail"
+
 msgid "Tickets"
 msgstr "Tickets"
 

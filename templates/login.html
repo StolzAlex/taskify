@@ -7,14 +7,14 @@
     <div class="card shadow-sm mt-4">
       <div class="card-body p-4">
         <h4 class="card-title mb-4 text-center">
-          <i class="bi bi-person-lock me-1"></i>{{ _('Employee Login') }}
+          <i class="bi bi-person-lock me-1"></i>{{ _('Login') }}
         </h4>
         <form method="post" novalidate>
           <div class="mb-3">
-            <label for="username" class="form-label">{{ _('Username') }}</label>
-            <input type="text" class="form-control" id="username" name="username"
+            <label for="identifier" class="form-label">{{ _('Username or Email') }}</label>
+            <input type="text" class="form-control" id="identifier" name="identifier"
                    autocomplete="username" autofocus required
-                   value="{{ request.form.username or '' }}">
+                   value="{{ request.form.identifier or '' }}">
           </div>
           <div class="mb-3">
             <label for="password" class="form-label">{{ _('Password') }}</label>
@@ -40,10 +40,6 @@
           </a>
         </div>
         {% endif %}
-
-        <p class="text-center text-muted small mt-3 mb-0">
-          <a href="{{ url_for('customer_login') }}">{{ _('Customer Login') }}</a>
-        </p>
       </div>
     </div>
   </div>

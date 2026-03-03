@@ -76,7 +76,7 @@ def customer_required(f):
     def decorated(*args, **kwargs):
         if not session.get('customer_id'):
             flash(_('Please log in to your customer account.'), 'warning')
-            return redirect(url_for('customer_login', next=request.url))
+            return redirect(url_for('login', next=request.url))
         return f(*args, **kwargs)
     return decorated
 
@@ -306,15 +306,26 @@ def customer_reply(token):
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
+    if session.get('customer_id'):
+        return redirect(url_for('customer_dashboard'))
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
+        identifier = request.form.get('identifier', '').strip()
         password = request.form.get('password', '')
-        emp = Employee.query.filter_by(username=username).first()
+        # Try employee by username, then by email
+        emp = Employee.query.filter_by(username=identifier).first()
+        if not emp:
+            emp = Employee.query.filter(Employee.email.ilike(identifier)).first()
         if emp and emp.is_active and emp.check_password(password):
             login_user(emp, remember=request.form.get('remember') == 'on')
             session.pop('customer_id', None)
             next_page = request.args.get('next')
             return redirect(next_page or url_for('dashboard'))
+        # Try customer by email
+        customer = Customer.query.filter(Customer.email.ilike(identifier)).first()
+        if customer and customer.is_active and customer.check_password(password):
+            session['customer_id'] = customer.id
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('customer_dashboard'))
         flash(_('Invalid credentials or account disabled.'), 'danger')
     return render_template('login.html')
 
@@ -387,20 +398,9 @@ def auth_github_callback():
 # Customer auth + portal
 # ---------------------------------------------------------------------------
 
-@app.route('/customer/login', methods=['GET', 'POST'])
+@app.route('/customer/login')
 def customer_login():
-    if session.get('customer_id'):
-        return redirect(url_for('customer_dashboard'))
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip()
-        password = request.form.get('password', '')
-        customer = Customer.query.filter(Customer.email.ilike(email)).first()
-        if customer and customer.is_active and customer.check_password(password):
-            session['customer_id'] = customer.id
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('customer_dashboard'))
-        flash(_('Invalid credentials or account disabled.'), 'danger')
-    return render_template('customer/login.html')
+    return redirect(url_for('login', **request.args))
 
 
 @app.route('/customer/logout')
