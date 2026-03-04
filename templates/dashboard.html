@@ -68,13 +68,13 @@
         <ul class="nav nav-tabs card-header-tabs px-3 pt-2">
           <li class="nav-item">
             <a class="nav-link {{ 'active' if view == 'all' }}"
-               href="{{ url_for('dashboard', view='all', status=status_filter or None, company=company_filter or None, q=q or None) }}">
+               href="{{ url_for('dashboard', view='all', status=status_filter or None, group=group_filter or None, q=q or None) }}">
               <i class="bi bi-grid me-1"></i>{{ _('All') }}
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link {{ 'active' if view == 'mine' }}"
-               href="{{ url_for('dashboard', view='mine', status=status_filter or None, company=company_filter or None, q=q or None) }}">
+               href="{{ url_for('dashboard', view='mine', status=status_filter or None, group=group_filter or None, q=q or None) }}">
               <i class="bi bi-person me-1"></i>{{ _('Mine') }}
               {% if stats.mine %}
               <span class="badge rounded-pill bg-info ms-1">{{ stats.mine }}</span>
@@ -83,7 +83,7 @@
           </li>
           <li class="nav-item">
             <a class="nav-link {{ 'active' if view == 'watched' }}"
-               href="{{ url_for('dashboard', view='watched', status=status_filter or None, company=company_filter or None, q=q or None) }}">
+               href="{{ url_for('dashboard', view='watched', status=status_filter or None, group=group_filter or None, q=q or None) }}">
               <i class="bi bi-eye me-1"></i>{{ _('Watched') }}
               {% if stats.watched %}
               <span class="badge rounded-pill bg-secondary ms-1">{{ stats.watched }}</span>
@@ -116,23 +116,23 @@
             {% endfor %}
           </select>
 
-          {% if companies %}
-          <select name="company" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
-            <option value="">{{ _('All Companies') }}</option>
-            {% for co in companies %}
-            <option value="{{ co.name }}" {{ 'selected' if company_filter == co.name }}>{{ co.name }}</option>
+          {% if groups %}
+          <select name="group" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+            <option value="">{{ _('All Groups') }}</option>
+            {% for grp in groups %}
+            <option value="{{ grp.name }}" {{ 'selected' if group_filter == grp.name }}>{{ grp.name }}</option>
             {% endfor %}
           </select>
           {% endif %}
 
-          {% if q or status_filter or unassigned_filter or resolved_week_filter or company_filter %}
+          {% if q or status_filter or unassigned_filter or resolved_week_filter or group_filter %}
           <a href="{{ url_for('dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
           </a>
           {% endif %}
 
           {% if hide_closed %}
-          <a href="{{ url_for('dashboard', view=view, status='closed', company=company_filter or None, q=q or None) }}"
+          <a href="{{ url_for('dashboard', view=view, status='closed', group=group_filter or None, q=q or None) }}"
              class="ms-auto text-muted small text-decoration-none text-nowrap">
             <i class="bi bi-eye-slash me-1"></i>{{ _('Closed hidden') }}
           </a>
@@ -212,7 +212,7 @@
           {{ _('No tickets are currently assigned to you.') }}
         {% elif view == 'watched' %}
           {{ _('You are not watching any tickets yet.') }}
-        {% elif q or status_filter or company_filter or unassigned_filter %}
+        {% elif q or status_filter or group_filter or unassigned_filter %}
           {{ _('No tickets match your filters.') }}
         {% else %}
           {{ _('No open tickets.') }}
@@ -237,19 +237,19 @@
         <nav>
           <ul class="pagination pagination-sm mb-0">
             <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
-              <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, company=company_filter or None, page=pagination.prev_num) }}">‹</a>
+              <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, group=group_filter or None, page=pagination.prev_num) }}">‹</a>
             </li>
             {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
               {% if p %}
               <li class="page-item {{ 'active' if p == pagination.page }}">
-                <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, company=company_filter or None, page=p) }}">{{ p }}</a>
+                <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, group=group_filter or None, page=p) }}">{{ p }}</a>
               </li>
               {% else %}
               <li class="page-item disabled"><span class="page-link">…</span></li>
               {% endif %}
             {% endfor %}
             <li class="page-item {{ 'disabled' if not pagination.has_next }}">
-              <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, company=company_filter or None, page=pagination.next_num) }}">›</a>
+              <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, group=group_filter or None, page=pagination.next_num) }}">›</a>
             </li>
           </ul>
         </nav>

@@ -47,14 +47,14 @@
           </select>
         </div>
 
-        {% if companies %}
+        {% if groups %}
         <div class="col-sm-6 col-md-3">
-          <label class="form-label small text-muted mb-1">{{ _('Company') }}</label>
-          <select name="company" class="form-select form-select-sm">
-            <option value="">{{ _('All companies') }}</option>
-            {% for co in companies %}
-            <option value="{{ co.name }}" {{ 'selected' if company_filter == co.name }}>
-              {{ co.name }}
+          <label class="form-label small text-muted mb-1">{{ _('Group') }}</label>
+          <select name="group" class="form-select form-select-sm">
+            <option value="">{{ _('All groups') }}</option>
+            {% for grp in groups %}
+            <option value="{{ grp.name }}" {{ 'selected' if group_filter == grp.name }}>
+              {{ grp.name }}
             </option>
             {% endfor %}
           </select>
@@ -167,19 +167,19 @@
     <nav>
       <ul class="pagination pagination-sm mb-0">
         <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
-          <a class="page-link" href="{{ url_for('search', q=q, status=status_filter, date_from=date_from, date_to=date_to, assignee=assignee_id, company=company_filter, page=pagination.prev_num) }}">‹</a>
+          <a class="page-link" href="{{ url_for('search', q=q, status=status_filter, date_from=date_from, date_to=date_to, assignee=assignee_id, group=group_filter, page=pagination.prev_num) }}">‹</a>
         </li>
         {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
           {% if p %}
           <li class="page-item {{ 'active' if p == pagination.page }}">
-            <a class="page-link" href="{{ url_for('search', q=q, status=status_filter, date_from=date_from, date_to=date_to, assignee=assignee_id, company=company_filter, page=p) }}">{{ p }}</a>
+            <a class="page-link" href="{{ url_for('search', q=q, status=status_filter, date_from=date_from, date_to=date_to, assignee=assignee_id, group=group_filter, page=p) }}">{{ p }}</a>
           </li>
           {% else %}
           <li class="page-item disabled"><span class="page-link">…</span></li>
           {% endif %}
         {% endfor %}
         <li class="page-item {{ 'disabled' if not pagination.has_next }}">
-          <a class="page-link" href="{{ url_for('search', q=q, status=status_filter, date_from=date_from, date_to=date_to, assignee=assignee_id, company=company_filter, page=pagination.next_num) }}">›</a>
+          <a class="page-link" href="{{ url_for('search', q=q, status=status_filter, date_from=date_from, date_to=date_to, assignee=assignee_id, group=group_filter, page=pagination.next_num) }}">›</a>
         </li>
       </ul>
     </nav>

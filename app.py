@@ -27,7 +27,7 @@ from markupsafe import escape
 from werkzeug.utils import secure_filename
 
 from config import Config
-from models import db, Employee, Customer, Company, Ticket, Assignment, Message, Attachment, TicketEvent, TicketWatch
+from models import db, Employee, Customer, Group, Ticket, Assignment, Message, Attachment, TicketEvent, TicketWatch
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -684,19 +684,19 @@ def serve_attachment_customer(ticket_id, filename):
 # Manager routes
 # ---------------------------------------------------------------------------
 
-def _resolve_companies(company_ids, new_name):
-    """Return a list of Company objects from selected IDs + optional new name."""
-    selected = Company.query.filter(Company.id.in_(company_ids)).all() if company_ids else []
+def _resolve_groups(group_ids, new_name):
+    """Return a list of Group objects from selected IDs + optional new name."""
+    selected = Group.query.filter(Group.id.in_(group_ids)).all() if group_ids else []
     if new_name:
-        existing = Company.query.filter(Company.name.ilike(new_name)).first()
+        existing = Group.query.filter(Group.name.ilike(new_name)).first()
         if existing:
             if existing not in selected:
                 selected.append(existing)
         else:
-            co = Company(name=new_name)
-            db.session.add(co)
+            grp = Group(name=new_name)
+            db.session.add(grp)
             db.session.flush()
-            selected.append(co)
+            selected.append(grp)
     return selected
 
 
@@ -718,18 +718,18 @@ def manager_customers():
         else:
             customer = Customer(name=name, email=email, created_by_id=current_user.id)
             customer.set_password(password)
-            customer.companies = _resolve_companies(
-                request.form.getlist('company_ids', type=int),
-                request.form.get('new_company', '').strip(),
+            customer.groups = _resolve_groups(
+                request.form.getlist('group_ids', type=int),
+                request.form.get('new_group', '').strip(),
             )
             db.session.add(customer)
             db.session.commit()
             send_customer_welcome_email(customer, password)
             flash(_('Customer "%(name)s" created.', name=name), 'success')
         return redirect(url_for('manager_customers'))
-    customers    = Customer.query.order_by(Customer.created_at.desc()).all()
-    all_companies = Company.query.order_by(Company.name).all()
-    return render_template('manager/customers.html', customers=customers, all_companies=all_companies)
+    customers  = Customer.query.order_by(Customer.created_at.desc()).all()
+    all_groups = Group.query.order_by(Group.name).all()
+    return render_template('manager/customers.html', customers=customers, all_groups=all_groups)
 
 
 @app.route('/manager/customers/<int:cust_id>/toggle', methods=['POST'])
@@ -777,7 +777,7 @@ def dashboard():
     status_filter        = request.args.get('status', '')
     unassigned_filter    = request.args.get('unassigned', '') == '1'
     resolved_week_filter = request.args.get('resolved_week', '') == '1'
-    company_filter       = request.args.get('company', '')
+    group_filter         = request.args.get('group', '')
     q                    = request.args.get('q', '').strip()
 
     query = Ticket.query
@@ -807,11 +807,11 @@ def dashboard():
             Ticket.status.in_(['resolved', 'closed']),
             Ticket.updated_at >= week_ago_filter
         )
-    if company_filter:
-        co = Company.query.filter_by(name=company_filter).first()
-        if co:
-            co_emails = [c.email.lower() for c in co.customers]
-            query = query.filter(db.func.lower(Ticket.submitter_email).in_(co_emails))
+    if group_filter:
+        grp = Group.query.filter_by(name=group_filter).first()
+        if grp:
+            grp_emails = [c.email.lower() for c in grp.customers]
+            query = query.filter(db.func.lower(Ticket.submitter_email).in_(grp_emails))
     watched_ids = {w.ticket_id for w in TicketWatch.query.filter_by(employee_id=current_user.id).all()}
 
     # Tickets where the most recent message is a customer reply (needs a response)
@@ -849,8 +849,8 @@ def dashboard():
     else:
         customer_map = {}
 
-    # All companies for filter dropdown
-    companies = Company.query.order_by(Company.name).all()
+    # All groups for filter dropdown
+    groups = Group.query.order_by(Group.name).all()
 
     if view == 'mine':
         my_ticket_ids = db.session.query(Assignment.ticket_id).filter(
@@ -907,8 +907,8 @@ def dashboard():
                            status_filter=status_filter,
                            unassigned_filter=unassigned_filter,
                            resolved_week_filter=resolved_week_filter,
-                           company_filter=company_filter,
-                           companies=companies,
+                           group_filter=group_filter,
+                           groups=groups,
                            customer_map=customer_map,
                            view=view, is_privileged=is_privileged,
                            status_choices=Ticket.STATUS_CHOICES,
@@ -927,9 +927,9 @@ def search():
     date_from   = request.args.get('date_from', '')
     date_to     = request.args.get('date_to', '')
     assignee_id = request.args.get('assignee', '')
-    company_f   = request.args.get('company', '')
+    group_f     = request.args.get('group', '')
 
-    performed = bool(q or status_f or date_from or date_to or assignee_id or company_f)
+    performed = bool(q or status_f or date_from or date_to or assignee_id or group_f)
 
     tickets    = []
     pagination = None
@@ -969,11 +969,11 @@ def search():
             except ValueError:
                 pass
 
-        if company_f:
-            co = Company.query.filter_by(name=company_f).first()
-            if co:
-                co_emails = [c.email.lower() for c in co.customers]
-                query = query.filter(db.func.lower(Ticket.submitter_email).in_(co_emails))
+        if group_f:
+            grp = Group.query.filter_by(name=group_f).first()
+            if grp:
+                grp_emails = [c.email.lower() for c in grp.customers]
+                query = query.filter(db.func.lower(Ticket.submitter_email).in_(grp_emails))
 
         page     = request.args.get('page', 1, type=int)
         per_page = 25
@@ -986,13 +986,13 @@ def search():
         db.func.lower(Customer.email).in_(submitter_emails)).all()} if submitter_emails else {}
 
     employees = Employee.query.filter_by(is_active=True).order_by(Employee.username).all()
-    companies = Company.query.order_by(Company.name).all()
+    groups = Group.query.order_by(Group.name).all()
 
     return render_template('search.html',
                            tickets=tickets, pagination=pagination, per_page=25,
                            q=q, status_filter=status_f, date_from=date_from, date_to=date_to,
-                           assignee_id=assignee_id, company_filter=company_f,
-                           employees=employees, companies=companies,
+                           assignee_id=assignee_id, group_filter=group_f,
+                           employees=employees, groups=groups,
                            status_choices=Ticket.STATUS_CHOICES,
                            customer_map=customer_map, performed=performed)
 
@@ -1578,9 +1578,9 @@ def edit_customer(cust_id):
         return redirect(url_for('manager_customers'))
     customer.name      = name
     customer.email     = email
-    customer.companies = _resolve_companies(
-        request.form.getlist('company_ids', type=int),
-        request.form.get('new_company', '').strip(),
+    customer.groups = _resolve_groups(
+        request.form.getlist('group_ids', type=int),
+        request.form.get('new_group', '').strip(),
     )
     if password:
         pw_error = _validate_password(password)

@@ -697,11 +697,17 @@ msgstr "Mitarbeiter \"%(name)s\" aktualisiert."
 msgid "Customer \"%(name)s\" updated."
 msgstr "Kunde \"%(name)s\" aktualisiert."
 
-msgid "Company"
-msgstr "Unternehmen"
+msgid "Group"
+msgstr "Gruppe"
 
-msgid "All Companies"
-msgstr "Alle Unternehmen"
+msgid "Groups"
+msgstr "Gruppen"
+
+msgid "All Groups"
+msgstr "Alle Gruppen"
+
+msgid "Add new group\u2026"
+msgstr "Neue Gruppe hinzuf\u00fcgen\u2026"
 
 msgid "Internal Title"
 msgstr "Interner Titel"
@@ -727,8 +733,8 @@ msgstr "Beliebiger Status"
 msgid "Anyone"
 msgstr "Beliebig"
 
-msgid "All companies"
-msgstr "Alle Unternehmen"
+msgid "All groups"
+msgstr "Alle Gruppen"
 
 msgid "Created from"
 msgstr "Erstellt ab"

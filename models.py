@@ -52,15 +52,15 @@ class Employee(UserMixin, db.Model):
         return str(self.id)
 
 
-customer_companies = db.Table(
-    'customer_companies',
+customer_groups = db.Table(
+    'customer_groups',
     db.Column('customer_id', db.Integer, db.ForeignKey('customers.id'), primary_key=True),
-    db.Column('company_id',  db.Integer, db.ForeignKey('companies.id'),  primary_key=True),
+    db.Column('group_id',    db.Integer, db.ForeignKey('groups.id'),    primary_key=True),
 )
 
 
-class Company(db.Model):
-    __tablename__ = 'companies'
+class Group(db.Model):
+    __tablename__ = 'groups'
 
     id         = db.Column(db.Integer, primary_key=True)
     name       = db.Column(db.String(120), unique=True, nullable=False)
@@ -79,7 +79,7 @@ class Customer(db.Model):
     created_at    = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     created_by = db.relationship('Employee', backref='created_customers')
-    companies  = db.relationship('Company', secondary=customer_companies, backref='customers')
+    groups     = db.relationship('Group', secondary=customer_groups, backref='customers')
 
     def set_password(self, p):
         self.password_hash = generate_password_hash(p, method='scrypt')

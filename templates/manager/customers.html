@@ -24,18 +24,18 @@
                    required value="{{ request.form.email or '' }}">
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold">{{ _('Companies') }}</label>
-            {% if all_companies %}
-            <select multiple class="form-select form-select-sm mb-1" name="company_ids" size="3">
-              {% for co in all_companies %}
-              <option value="{{ co.id }}">{{ co.name }}</option>
+            <label class="form-label small fw-semibold">{{ _('Groups') }}</label>
+            {% if all_groups %}
+            <select multiple class="form-select form-select-sm mb-1" name="group_ids" size="3">
+              {% for grp in all_groups %}
+              <option value="{{ grp.id }}">{{ grp.name }}</option>
               {% endfor %}
             </select>
             <div class="form-text mb-1">{{ _('Hold Ctrl/Cmd to select multiple.') }}</div>
             {% endif %}
-            <input type="text" class="form-control form-control-sm" name="new_company"
-                   placeholder="{{ _('Add new company\u2026') }}"
-                   value="{{ request.form.new_company or '' }}">
+            <input type="text" class="form-control form-control-sm" name="new_group"
+                   placeholder="{{ _('Add new group\u2026') }}"
+                   value="{{ request.form.new_group or '' }}">
           </div>
           <div class="mb-3">
             <label for="password" class="form-label small fw-semibold">{{ _('Password') }}</label>
@@ -76,9 +76,9 @@
               <td class="fw-semibold">{{ cust.name }}</td>
               <td class="text-muted small">{{ cust.email }}</td>
               <td class="small">
-                {% if cust.companies %}
-                  {% for co in cust.companies %}
-                  <span class="badge bg-secondary me-1">{{ co.name }}</span>
+                {% if cust.groups %}
+                  {% for grp in cust.groups %}
+                  <span class="badge bg-secondary me-1">{{ grp.name }}</span>
                   {% endfor %}
                 {% else %}
                   <span class="text-muted">—</span>
@@ -100,7 +100,7 @@
                         data-action="{{ url_for('edit_customer', cust_id=cust.id) }}"
                         data-name="{{ cust.name|e }}"
                         data-email="{{ cust.email|e }}"
-                        data-company-ids="{{ cust.companies|map(attribute='id')|list|tojson }}"
+                        data-group-ids="{{ cust.groups|map(attribute='id')|list|tojson }}"
                         title="{{ _('Edit') }}">
                   <i class="bi bi-pencil"></i>
                 </button>
@@ -159,17 +159,17 @@
             <input type="email" name="email" id="editEmail" class="form-control form-control-sm" required>
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold">{{ _('Companies') }}</label>
-            {% if all_companies %}
-            <select multiple class="form-select form-select-sm mb-1" name="company_ids" id="editCompanyIds" size="3">
-              {% for co in all_companies %}
-              <option value="{{ co.id }}">{{ co.name }}</option>
+            <label class="form-label small fw-semibold">{{ _('Groups') }}</label>
+            {% if all_groups %}
+            <select multiple class="form-select form-select-sm mb-1" name="group_ids" id="editGroupIds" size="3">
+              {% for grp in all_groups %}
+              <option value="{{ grp.id }}">{{ grp.name }}</option>
               {% endfor %}
             </select>
             <div class="form-text mb-1">{{ _('Hold Ctrl/Cmd to select multiple.') }}</div>
             {% endif %}
-            <input type="text" class="form-control form-control-sm" name="new_company"
-                   id="editNewCompany" placeholder="{{ _('Add new company\u2026') }}">
+            <input type="text" class="form-control form-control-sm" name="new_group"
+                   id="editNewGroup" placeholder="{{ _('Add new group\u2026') }}">
           </div>
           <div class="mb-1">
             <label class="form-label small fw-semibold">{{ _('New Password') }}</label>
@@ -207,19 +207,19 @@
 
 document.querySelectorAll('.edit-customer-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var companyIds = JSON.parse(this.dataset.companyIds || '[]');
+    var groupIds = JSON.parse(this.dataset.groupIds || '[]');
     document.getElementById('editUserForm').action = this.dataset.action;
     document.getElementById('editName').value  = this.dataset.name;
     document.getElementById('editEmail').value = this.dataset.email;
-    document.getElementById('editNewCompany').value = '';
+    document.getElementById('editNewGroup').value = '';
     var pw = document.getElementById('editPwInput');
     pw.value = '';
     pw.classList.remove('is-invalid');
     document.getElementById('editPwError').textContent = '';
-    var sel = document.getElementById('editCompanyIds');
+    var sel = document.getElementById('editGroupIds');
     if (sel) {
       for (var i = 0; i < sel.options.length; i++) {
-        sel.options[i].selected = companyIds.includes(parseInt(sel.options[i].value));
+        sel.options[i].selected = groupIds.includes(parseInt(sel.options[i].value));
       }
     }
     new bootstrap.Modal(document.getElementById('editUserModal')).show();
