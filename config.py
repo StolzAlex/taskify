@@ -27,3 +27,18 @@ class Config:
     GITHUB_CLIENT_SECRET = os.environ.get('GITHUB_CLIENT_SECRET', '')
     GITHUB_ORG = os.environ.get('GITHUB_ORG', '')
     GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
+
+    # ── Inbound e-mail (IMAP polling) ────────────────────────────────────────
+    IMAP_HOST          = os.environ.get('IMAP_HOST', '')
+    IMAP_PORT          = int(os.environ.get('IMAP_PORT', 993))
+    IMAP_USER          = os.environ.get('IMAP_USER', '')
+    IMAP_PASSWORD      = os.environ.get('IMAP_PASSWORD', '')
+    IMAP_USE_SSL       = os.environ.get('IMAP_USE_SSL', 'true').lower() == 'true'
+    IMAP_POLL_INTERVAL = int(os.environ.get('IMAP_POLL_INTERVAL', 60))
+
+    # ── Inbound e-mail via Microsoft Graph API (Microsoft 365) ───────────────
+    AZURE_TENANT_ID     = os.environ.get('AZURE_TENANT_ID', '')
+    AZURE_CLIENT_ID     = os.environ.get('AZURE_CLIENT_ID', '')
+    AZURE_CLIENT_SECRET = os.environ.get('AZURE_CLIENT_SECRET', '')
+    GRAPH_MAILBOX       = os.environ.get('GRAPH_MAILBOX', '')   # e.g. support@example.com
+    GRAPH_POLL_INTERVAL = int(os.environ.get('GRAPH_POLL_INTERVAL', 60))

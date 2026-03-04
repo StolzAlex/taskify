@@ -1,7 +1,13 @@
+import email as _email_lib
+import email.utils
+import imaplib
 import os
 import re
+import threading
+import time
 import uuid
 from datetime import datetime, timedelta
+from email.header import decode_header as _decode_header
 from functools import wraps
 
 from dotenv import load_dotenv
@@ -1478,6 +1484,327 @@ def forbidden(e):
 @app.errorhandler(404)
 def not_found(e):
     return render_template('error.html', code=404, message=_('Page not found')), 404
+
+
+# ---------------------------------------------------------------------------
+# Inbound e-mail – IMAP polling
+# ---------------------------------------------------------------------------
+
+def _decode_mime_words(value):
+    """Decode a MIME encoded-word header value to a plain Unicode string."""
+    if not value:
+        return ''
+    result = ''
+    for part, enc in _decode_header(value):
+        if isinstance(part, bytes):
+            result += part.decode(enc or 'utf-8', errors='replace')
+        else:
+            result += part
+    return result.strip()
+
+
+def _extract_email_body(msg):
+    """Return the text content of an email as safe HTML ready for ticket storage."""
+    plain = None
+    html_raw = None
+
+    if msg.is_multipart():
+        for part in msg.walk():
+            ct = part.get_content_type()
+            disp = str(part.get('Content-Disposition', ''))
+            if 'attachment' in disp:
+                continue
+            charset = part.get_content_charset() or 'utf-8'
+            payload = part.get_payload(decode=True)
+            if payload is None:
+                continue
+            decoded = payload.decode(charset, errors='replace')
+            if ct == 'text/plain' and plain is None:
+                plain = decoded
+            elif ct == 'text/html' and html_raw is None:
+                html_raw = decoded
+    else:
+        charset = msg.get_content_charset() or 'utf-8'
+        payload = msg.get_payload(decode=True)
+        decoded = payload.decode(charset, errors='replace') if payload else ''
+        if msg.get_content_type() == 'text/html':
+            html_raw = decoded
+        else:
+            plain = decoded
+
+    if plain:
+        text = plain.strip()
+    elif html_raw:
+        # Strip tags; collapse whitespace
+        text = re.sub(r'<[^>]+>', ' ', html_raw)
+        text = re.sub(r'[ \t]+', ' ', text)
+        text = re.sub(r'\n{3,}', '\n\n', text).strip()
+    else:
+        text = ''
+
+    if not text:
+        return '<p>(Empty message)</p>'
+
+    # Escape and convert newlines to HTML paragraphs/breaks
+    safe = str(escape(text))
+    return '<p>' + safe.replace('\n\n', '</p><p>').replace('\n', '<br>') + '</p>'
+
+
+def _process_imap_inbox():
+    """Connect to the configured IMAP mailbox and turn every unseen message into a ticket."""
+    host = app.config.get('IMAP_HOST', '').strip()
+    user = app.config.get('IMAP_USER', '').strip()
+    password = app.config.get('IMAP_PASSWORD', '').strip()
+
+    if not host:
+        return
+    if not (user and password):
+        app.logger.warning('IMAP_HOST is set but IMAP_USER / IMAP_PASSWORD are missing.')
+        return
+
+    port    = app.config.get('IMAP_PORT', 993)
+    use_ssl = app.config.get('IMAP_USE_SSL', True)
+
+    try:
+        M = imaplib.IMAP4_SSL(host, port) if use_ssl else imaplib.IMAP4(host, port)
+        M.login(user, password)
+        M.select('INBOX')
+    except Exception as exc:
+        app.logger.error(f'IMAP connection failed ({host}:{port}): {exc}')
+        return
+
+    try:
+        status, data = M.search(None, 'UNSEEN')
+        if status != 'OK' or not data[0]:
+            return
+
+        for msg_num in data[0].split():
+            # Mark seen immediately to prevent reprocessing on restart
+            M.store(msg_num, '+FLAGS', '\\Seen')
+
+            try:
+                status2, raw_data = M.fetch(msg_num, '(RFC822)')
+                if status2 != 'OK':
+                    continue
+
+                msg = _email_lib.message_from_bytes(raw_data[0][1])
+
+                from_addr = _email_lib.utils.parseaddr(msg.get('From', ''))[1].lower().strip()
+                if not from_addr or '@' not in from_addr:
+                    continue
+
+                subject = _decode_mime_words(msg.get('Subject', '')).strip() or '(No Subject)'
+                subject = subject[:200]
+                body_html = _extract_email_body(msg)
+
+                ticket = Ticket(
+                    submitter_email=from_addr,
+                    subject=subject,
+                    body=body_html,
+                    status='open',
+                )
+                db.session.add(ticket)
+                db.session.flush()
+                log_event(ticket, 'email_received')
+                db.session.commit()
+                notify_submitter_confirmation(ticket)
+                app.logger.info(
+                    f'[IMAP] Ticket #{ticket.id} created from {from_addr} – {subject}')
+
+            except Exception as exc:
+                app.logger.error(f'[IMAP] Failed to process message {msg_num}: {exc}')
+                db.session.rollback()
+    finally:
+        try:
+            M.close()
+            M.logout()
+        except Exception:
+            pass
+
+
+def _imap_poll_loop():
+    interval = app.config.get('IMAP_POLL_INTERVAL', 60)
+    app.logger.info(f'[IMAP] Polling {app.config["IMAP_HOST"]} every {interval}s.')
+    while True:
+        try:
+            with app.app_context():
+                _process_imap_inbox()
+        except Exception as exc:
+            app.logger.error(f'[IMAP] Poll loop error: {exc}')
+        time.sleep(interval)
+
+
+@app.cli.command('poll-imap')
+def cli_poll_imap():
+    """Manually trigger one IMAP inbox poll (for testing)."""
+    with app.app_context():
+        _process_imap_inbox()
+    print('Done.')
+
+
+# ---------------------------------------------------------------------------
+# Inbound e-mail – Microsoft Graph API (Microsoft 365 shared mailbox)
+# ---------------------------------------------------------------------------
+
+_graph_token_cache: dict = {}   # keys: token, expires_at
+
+
+def _get_graph_token() -> str:
+    """Return a valid OAuth2 bearer token for Microsoft Graph, refreshing when needed."""
+    now = time.time()
+    if _graph_token_cache.get('token') and _graph_token_cache.get('expires_at', 0) > now + 30:
+        return _graph_token_cache['token']
+
+    tenant = app.config['AZURE_TENANT_ID']
+    url = f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token'
+    resp = http_requests.post(url, data={
+        'grant_type':    'client_credentials',
+        'client_id':     app.config['AZURE_CLIENT_ID'],
+        'client_secret': app.config['AZURE_CLIENT_SECRET'],
+        'scope':         'https://graph.microsoft.com/.default',
+    }, timeout=15)
+    resp.raise_for_status()
+    data = resp.json()
+    _graph_token_cache['token'] = data['access_token']
+    _graph_token_cache['expires_at'] = now + data.get('expires_in', 3600)
+    return _graph_token_cache['token']
+
+
+def _process_graph_inbox():
+    """Fetch unread messages from the M365 shared mailbox and create tickets."""
+    mailbox = app.config.get('GRAPH_MAILBOX', '').strip()
+    if not mailbox:
+        app.logger.warning('[Graph] GRAPH_MAILBOX is not set.')
+        return
+
+    try:
+        token = _get_graph_token()
+    except Exception as exc:
+        app.logger.error(f'[Graph] Failed to obtain access token: {exc}')
+        return
+
+    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+    base = f'https://graph.microsoft.com/v1.0/users/{mailbox}/messages'
+    params = {
+        '$filter': 'isRead eq false',
+        '$select': 'id,subject,from,body,receivedDateTime',
+        '$top': 50,
+    }
+
+    while True:
+        try:
+            resp = http_requests.get(base, headers=headers, params=params, timeout=20)
+            resp.raise_for_status()
+        except Exception as exc:
+            app.logger.error(f'[Graph] Failed to fetch messages: {exc}')
+            return
+
+        data = resp.json()
+        messages = data.get('value', [])
+
+        for msg in messages:
+            msg_id = msg.get('id')
+            # Mark as read immediately to prevent reprocessing
+            try:
+                http_requests.patch(
+                    f'{base}/{msg_id}',
+                    headers=headers,
+                    json={'isRead': True},
+                    timeout=10,
+                ).raise_for_status()
+            except Exception as exc:
+                app.logger.warning(f'[Graph] Could not mark message {msg_id} as read: {exc}')
+
+            try:
+                from_info = msg.get('from', {}).get('emailAddress', {})
+                from_addr = from_info.get('address', '').lower().strip()
+                if not from_addr or '@' not in from_addr:
+                    continue
+
+                subject = (msg.get('subject') or '(No Subject)').strip()[:200]
+
+                body_obj = msg.get('body', {})
+                content_type = body_obj.get('contentType', 'text')
+                content = body_obj.get('content', '')
+
+                if content_type == 'html':
+                    # Strip tags for a plain-text basis, then re-wrap in safe HTML
+                    plain = re.sub(r'<[^>]+>', ' ', content)
+                    plain = re.sub(r'[ \t]+', ' ', plain)
+                    plain = re.sub(r'\n{3,}', '\n\n', plain).strip()
+                    if plain:
+                        safe = str(escape(plain))
+                        body_html = '<p>' + safe.replace('\n\n', '</p><p>').replace('\n', '<br>') + '</p>'
+                    else:
+                        body_html = '<p>(Empty message)</p>'
+                else:
+                    text = content.strip()
+                    if text:
+                        safe = str(escape(text))
+                        body_html = '<p>' + safe.replace('\n\n', '</p><p>').replace('\n', '<br>') + '</p>'
+                    else:
+                        body_html = '<p>(Empty message)</p>'
+
+                ticket = Ticket(
+                    submitter_email=from_addr,
+                    subject=subject,
+                    body=body_html,
+                    status='open',
+                )
+                db.session.add(ticket)
+                db.session.flush()
+                log_event(ticket, 'email_received')
+                db.session.commit()
+                notify_submitter_confirmation(ticket)
+                app.logger.info(f'[Graph] Ticket #{ticket.id} created from {from_addr} – {subject}')
+
+            except Exception as exc:
+                app.logger.error(f'[Graph] Failed to process message {msg_id}: {exc}')
+                db.session.rollback()
+
+        # Follow @odata.nextLink for pagination
+        next_link = data.get('@odata.nextLink')
+        if not next_link:
+            break
+        base = next_link
+        params = {}
+
+
+def _graph_poll_loop():
+    interval = app.config.get('GRAPH_POLL_INTERVAL', 60)
+    app.logger.info(f'[Graph] Polling {app.config["GRAPH_MAILBOX"]} every {interval}s.')
+    while True:
+        try:
+            with app.app_context():
+                _process_graph_inbox()
+        except Exception as exc:
+            app.logger.error(f'[Graph] Poll loop error: {exc}')
+        time.sleep(interval)
+
+
+@app.cli.command('poll-graph')
+def cli_poll_graph():
+    """Manually trigger one Microsoft Graph inbox poll (for testing)."""
+    with app.app_context():
+        _process_graph_inbox()
+    print('Done.')
+
+
+# Start background polling thread.
+# Graph API takes priority if Azure credentials are set; falls back to IMAP.
+# In debug mode the Werkzeug reloader spawns a child process that sets
+# WERKZEUG_RUN_MAIN=true — only start the thread there, not in the watcher.
+_use_graph = bool(app.config.get('AZURE_TENANT_ID') and app.config.get('GRAPH_MAILBOX'))
+_use_imap  = bool(app.config.get('IMAP_HOST')) and not _use_graph
+
+if _use_graph or _use_imap:
+    _debug = app.debug
+    _in_reloader_child = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+    if not _debug or _in_reloader_child:
+        _target = _graph_poll_loop if _use_graph else _imap_poll_loop
+        _name   = 'graph-poll' if _use_graph else 'imap-poll'
+        _t = threading.Thread(target=_target, daemon=True, name=_name)
+        _t.start()
 
 
 # ---------------------------------------------------------------------------
