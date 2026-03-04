@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ _('Ticket #%(id)s', id=ticket.id) }} – Taskify{% endblock %}
+{% block title %}{{ _('Ticket #%(id)s', id=ticket.id) }} – {{ app_name }}{% endblock %}
 
 {% block head %}
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">

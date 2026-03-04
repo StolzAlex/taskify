@@ -21,6 +21,7 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
 
     PUBLIC_TICKETS = os.environ.get('PUBLIC_TICKETS', 'true').lower() == 'true'
+    APP_NAME = os.environ.get('APP_NAME', 'Taskify')
 
     GITHUB_CLIENT_ID = os.environ.get('GITHUB_CLIENT_ID', '')
     GITHUB_CLIENT_SECRET = os.environ.get('GITHUB_CLIENT_SECRET', '')

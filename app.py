@@ -134,6 +134,7 @@ def inject_globals():
         'github_token_configured': bool(app.config.get('GITHUB_TOKEN')),
         'github_org': app.config.get('GITHUB_ORG', ''),
         'github_ref_label': github_ref_label,
+        'app_name': app.config.get('APP_NAME', 'Taskify'),
     }
 
 
@@ -176,7 +177,7 @@ def notify_submitter_confirmation(ticket):
         f"We'll keep you updated by email."
     )
     send_email(
-        subject=f"[Taskify] Ticket #{ticket.id} received – {ticket.subject}",
+        subject=f"[{app.config['APP_NAME']}] Ticket #{ticket.id} received – {ticket.subject}",
         recipients=[ticket.submitter_email],
         body_text=body,
     )
@@ -196,7 +197,7 @@ def notify_submitter_update(ticket, extra_message=None):
     else:
         body += f"View your ticket at:\n{status_url}"
     send_email(
-        subject=f"[Taskify] Ticket #{ticket.id} updated – {ticket.subject}",
+        subject=f"[{app.config['APP_NAME']}] Ticket #{ticket.id} updated – {ticket.subject}",
         recipients=[ticket.submitter_email],
         body_text=body,
     )
@@ -216,7 +217,7 @@ def notify_assignee_customer_reply(ticket):
         recipients = [e.email for e in Employee.query.filter_by(is_active=True).all()]
     if recipients:
         send_email(
-            subject=f"[Taskify] Customer replied – Ticket #{ticket.id}",
+            subject=f"[{app.config['APP_NAME']}] Customer replied – Ticket #{ticket.id}",
             recipients=recipients,
             body_text=body,
         )
@@ -233,7 +234,7 @@ def notify_assignee_assigned(ticket, employee):
         f"View ticket: {detail_url}"
     )
     send_email(
-        subject=f"[Taskify] Assigned to you – Ticket #{ticket.id}: {ticket.subject}",
+        subject=f"[{app.config['APP_NAME']}] Assigned to you – Ticket #{ticket.id}: {ticket.subject}",
         recipients=[employee.email],
         body_text=body,
     )
@@ -251,7 +252,7 @@ def notify_watchers(ticket, subject, body, exclude_employee_id=None):
 def send_customer_welcome_email(customer, plain_password):
     login_url = url_for('customer_login', _external=True)
     body = (
-        f"Welcome to Taskify!\n\n"
+        f"Welcome to {app.config['APP_NAME']}!\n\n"
         f"Your customer account has been created.\n\n"
         f"Email: {customer.email}\n"
         f"Password: {plain_password}\n\n"
@@ -259,7 +260,7 @@ def send_customer_welcome_email(customer, plain_password):
         f"Please change your password after first login."
     )
     send_email(
-        subject=_('Welcome to Taskify \u2013 Your Customer Account'),
+        subject=f"{app.config['APP_NAME']} \u2013 Your Customer Account",
         recipients=[customer.email],
         body_text=body,
     )
@@ -373,7 +374,7 @@ def customer_reply(token):
     notify_assignee_customer_reply(ticket)
     notify_watchers(
         ticket,
-        subject=f"[Taskify] Kundenantwort \u2013 Ticket #{ticket.id}: {ticket.subject}",
+        subject=f"[{app.config['APP_NAME']}] Kundenantwort \u2013 Ticket #{ticket.id}: {ticket.subject}",
         body=(f"Der Kunde hat auf Ticket #{ticket.id} geantwortet.\n\n"
               f"Betreff: {ticket.subject}\n\n"
               f"Ticket ansehen: {url_for('ticket_detail', ticket_id=ticket.id, _external=True)}"),
@@ -911,7 +912,7 @@ def add_message(ticket_id):
         notify_submitter_update(ticket, extra_message=plain)
     notify_watchers(
         ticket,
-        subject=f"[Taskify] Neue Nachricht \u2013 Ticket #{ticket.id}: {ticket.subject}",
+        subject=f"[{app.config['APP_NAME']}] Neue Nachricht \u2013 Ticket #{ticket.id}: {ticket.subject}",
         body=(f"Eine neue Nachricht wurde zu Ticket #{ticket.id} hinzugefuegt.\n\n"
               f"Betreff: {ticket.subject}\n\n"
               f"Ticket ansehen: {url_for('ticket_detail', ticket_id=ticket.id, _external=True)}"),
@@ -956,7 +957,7 @@ def change_status(ticket_id):
     notify_submitter_update(ticket)
     notify_watchers(
         ticket,
-        subject=f"[Taskify] Status geaendert \u2013 Ticket #{ticket.id}: {ticket.subject}",
+        subject=f"[{app.config['APP_NAME']}] Status geaendert \u2013 Ticket #{ticket.id}: {ticket.subject}",
         body=(f"Status geaendert auf Ticket #{ticket.id}.\n\n"
               f"Betreff: {ticket.subject}\n"
               f"Neuer Status: {new_status.replace('_', ' ').title()}\n\n"
@@ -1138,7 +1139,7 @@ def github_create_issue(ticket_id):
     plain_body = re.sub(r'<[^>]+>', '', ticket.body).strip()
     issue_body = (f"{plain_body}\n\n---\n"
                   f"*Submitted by: {ticket.submitter_email}*  \n"
-                  f"*Taskify Ticket #{ticket.id}*")
+                  f"*{app.config['APP_NAME']} Ticket #{ticket.id}*")
     payload = {
         'title': ticket.internal_title or ticket.subject,
         'body': issue_body,
@@ -1450,8 +1451,8 @@ def admin_mail_test():
                 sender = cfg.get('MAIL_DEFAULT_SENDER', user)
                 smtp.sendmail(sender, [recipient],
                     f"From: {sender}\r\nTo: {recipient}\r\n"
-                    f"Subject: [Taskify] Mail test\r\n\r\n"
-                    f"This is a test email from Taskify.\r\n"
+                    f"Subject: [{app.config['APP_NAME']}] Mail test\r\n\r\n"
+                    f"This is a test email from {app.config['APP_NAME']}.\r\n"
                     f"Server: {host}:{port}  TLS={use_tls}  SSL={use_ssl}\r\n"
                     f"Sender: {sender}\r\n"
                 )
