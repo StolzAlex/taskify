@@ -829,3 +829,35 @@ msgstr "Neues Issue erstellen"
 
 msgid "GitHub PR was merged — ticket status updated to Resolved."
 msgstr "GitHub-PR wurde gemergt — Ticket-Status auf Gelöst aktualisiert."
+
+msgid "Ticket ID"
+msgstr "Ticket-ID"
+
+msgid "Thank you for submitting your support request."
+msgstr "Vielen Dank für Ihre Support-Anfrage."
+
+msgid "You can track your ticket status at:"
+msgstr "Den Status Ihres Tickets können Sie hier verfolgen:"
+
+msgid "We'll keep you updated by email."
+msgstr "Wir halten Sie per E-Mail auf dem Laufenden."
+
+#, python-format
+msgid "Ticket #%(id)s received \u2013 %(subject)s"
+msgstr "Ticket #%(id)s erhalten \u2013 %(subject)s"
+
+msgid "Your support ticket has been updated."
+msgstr "Ihr Support-Ticket wurde aktualisiert."
+
+msgid "Message from support:"
+msgstr "Nachricht vom Support:"
+
+msgid "This ticket is now closed. No further action is required on your part."
+msgstr "Dieses Ticket ist nun geschlossen. Es sind keine weiteren Maßnahmen Ihrerseits erforderlich."
+
+msgid "View your ticket at:"
+msgstr "Ihr Ticket finden Sie unter:"
+
+#, python-format
+msgid "Ticket #%(id)s updated \u2013 %(subject)s"
+msgstr "Ticket #%(id)s aktualisiert \u2013 %(subject)s"

@@ -22,7 +22,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message as MailMessage
-from flask_babel import Babel, gettext as _, lazy_gettext as _l, get_locale
+from flask_babel import Babel, gettext as _, lazy_gettext as _l, get_locale, force_locale
 from markupsafe import escape
 from werkzeug.utils import secure_filename
 
@@ -236,38 +236,47 @@ def send_email(subject, recipients, body_text, body_html=None, silent=False):
 
 def notify_submitter_confirmation(ticket):
     status_url = url_for('ticket_status', token=ticket.token, _external=True)
-    body = (
-        f"Thank you for submitting your support request.\n\n"
-        f"Subject: {ticket.subject}\n"
-        f"Ticket ID: #{ticket.id}\n\n"
-        f"You can track your ticket status at:\n{status_url}\n\n"
-        f"We'll keep you updated by email."
-    )
-    send_email(
-        subject=f"[{app.config['APP_NAME']}] Ticket #{ticket.id} received – {ticket.subject}",
-        recipients=[ticket.submitter_email],
-        body_text=body,
-    )
+    locale = getattr(ticket, 'locale', None) or 'en'
+    with force_locale(locale):
+        subj = _('Ticket #%(id)s received \u2013 %(subject)s',
+                 id=ticket.id, subject=ticket.subject)
+        keep_updated = _("We'll keep you updated by email.")
+        body = (
+            f"{_('Thank you for submitting your support request.')}\n\n"
+            f"{_('Subject')}: {ticket.subject}\n"
+            f"{_('Ticket ID')}: #{ticket.id}\n\n"
+            f"{_('You can track your ticket status at:')}\n{status_url}\n\n"
+            f"{keep_updated}"
+        )
+        send_email(
+            subject=f"[{app.config['APP_NAME']}] {subj}",
+            recipients=[ticket.submitter_email],
+            body_text=body,
+        )
 
 
 def notify_submitter_update(ticket, extra_message=None):
     status_url = url_for('ticket_status', token=ticket.token, _external=True)
-    body = (
-        f"Your support ticket has been updated.\n\n"
-        f"Subject: {ticket.subject}\n"
-        f"Status: {ticket.status.replace('_', ' ').title()}\n\n"
-    )
-    if extra_message:
-        body += f"Message from support:\n{extra_message}\n\n"
-    if ticket.status in ('resolved', 'closed'):
-        body += "This ticket is now closed. No further action is required on your part."
-    else:
-        body += f"View your ticket at:\n{status_url}"
-    send_email(
-        subject=f"[{app.config['APP_NAME']}] Ticket #{ticket.id} updated – {ticket.subject}",
-        recipients=[ticket.submitter_email],
-        body_text=body,
-    )
+    locale = getattr(ticket, 'locale', None) or 'en'
+    with force_locale(locale):
+        subj = _('Ticket #%(id)s updated \u2013 %(subject)s',
+                 id=ticket.id, subject=ticket.subject)
+        body = (
+            f"{_('Your support ticket has been updated.')}\n\n"
+            f"{_('Subject')}: {ticket.subject}\n"
+            f"{_('Status')}: {status_label(ticket.status)}\n\n"
+        )
+        if extra_message:
+            body += f"{_('Message from support:')}\n{extra_message}\n\n"
+        if ticket.status in ('resolved', 'closed'):
+            body += _('This ticket is now closed. No further action is required on your part.')
+        else:
+            body += f"{_('View your ticket at:')}\n{status_url}"
+        send_email(
+            subject=f"[{app.config['APP_NAME']}] {subj}",
+            recipients=[ticket.submitter_email],
+            body_text=body,
+        )
 
 
 def notify_assignee_customer_reply(ticket):
@@ -396,7 +405,8 @@ def submit():
         if not email or not subject or not body:
             flash(_('All fields are required.'), 'danger')
             return render_template('submit.html', customer=customer)
-        ticket = Ticket(submitter_email=email, subject=subject, body=body)
+        ticket = Ticket(submitter_email=email, subject=subject, body=body,
+                        locale=session.get('lang', 'en'))
         db.session.add(ticket)
         db.session.commit()
         notify_submitter_confirmation(ticket)
