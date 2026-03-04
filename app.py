@@ -205,23 +205,32 @@ def load_user(user_id):
 # Email helpers
 # ---------------------------------------------------------------------------
 
-def send_email(subject, recipients, body_text, body_html=None):
+def send_email(subject, recipients, body_text, body_html=None, silent=False):
+    """Send an email and flash the result unless silent=True.
+
+    silent=True is used for background notifications (watchers, customer-side
+    triggers) where no employee UI is present to show the flash.
+    """
     try:
         msg = MailMessage(subject=subject, recipients=recipients, body=body_text,
                           html=body_html)
         mail.send(msg)
         if app.config.get('MAIL_SUPPRESS_SEND') or app.config.get('TESTING'):
             app.logger.info(f'Email suppressed (MAIL_SUPPRESS_SEND) to {recipients}: {subject}')
-            flash(_('Email to %(addr)s was suppressed (MAIL_SUPPRESS_SEND is enabled).',
-                    addr=', '.join(recipients)), 'warning')
+            if not silent:
+                flash(_('Email to %(addr)s was suppressed (MAIL_SUPPRESS_SEND is enabled).',
+                        addr=', '.join(recipients)), 'warning')
             return False
         app.logger.info(f'Email sent to {recipients}: {subject}')
+        if not silent:
+            flash(_('Email sent to %(addr)s.', addr=', '.join(recipients)), 'info')
         return True
     except Exception as e:
         server = f"{app.config.get('MAIL_SERVER')}:{app.config.get('MAIL_PORT')}"
         app.logger.error(f'Email send failed (server={server}, suppress={app.config.get("MAIL_SUPPRESS_SEND")}): {e}')
-        flash(_('Email to %(addr)s could not be sent (%(error)s).',
-                addr=', '.join(recipients), error=str(e)), 'danger')
+        if not silent:
+            flash(_('Email to %(addr)s could not be sent (%(error)s).',
+                    addr=', '.join(recipients), error=str(e)), 'danger')
         return False
 
 
@@ -278,6 +287,7 @@ def notify_assignee_customer_reply(ticket):
             subject=f"[{app.config['APP_NAME']}] Customer replied – Ticket #{ticket.id}",
             recipients=recipients,
             body_text=body,
+            silent=True,   # customer is the actor here — don't flash employee emails to them
         )
 
 
@@ -304,7 +314,8 @@ def notify_watchers(ticket, subject, body, exclude_employee_id=None):
     watches = TicketWatch.query.filter_by(ticket_id=ticket.id).all()
     for w in watches:
         if w.employee_id not in excluded and w.employee.is_active:
-            send_email(subject=subject, recipients=[w.employee.email], body_text=body)
+            send_email(subject=subject, recipients=[w.employee.email], body_text=body,
+                       silent=True)   # one flash per watcher would be too noisy
 
 
 def send_customer_welcome_email(customer, plain_password):
@@ -851,22 +862,33 @@ def dashboard():
 
     week_ago = datetime.utcnow() - timedelta(days=7)
     active_statuses = ['open', 'in_progress']
+
+    # Scope stat queries to the active tab so the cards reflect what the user sees.
+    def _stats_base():
+        if view == 'mine':
+            return Ticket.query.join(Assignment).filter(Assignment.employee_id == current_user.id)
+        if view == 'watched':
+            return Ticket.query.filter(Ticket.id.in_(watched_ids))
+        return Ticket.query
+
     stats = {
-        'open':           Ticket.query.filter_by(status='open').count(),
-        'in_progress':    Ticket.query.filter_by(status='in_progress').count(),
-        'unassigned':     Ticket.query.filter(
-                              Ticket.status.in_(active_statuses),
-                              ~Ticket.id.in_(db.session.query(Assignment.ticket_id))
-                          ).count(),
-        'resolved_week':  Ticket.query.filter(
-                              Ticket.status.in_(['resolved', 'closed']),
-                              Ticket.updated_at >= week_ago
-                          ).count(),
-        'mine':           Ticket.query.join(Assignment).filter(
-                              Assignment.employee_id == current_user.id,
-                              Ticket.status.in_(active_statuses)
-                          ).count(),
-        'watched':        TicketWatch.query.filter_by(employee_id=current_user.id).count(),
+        'open':          _stats_base().filter(Ticket.status == 'open').count(),
+        'in_progress':   _stats_base().filter(Ticket.status == 'in_progress').count(),
+        # Unassigned is meaningless for 'mine' (those are by definition assigned)
+        'unassigned':    _stats_base().filter(
+                             Ticket.status.in_(active_statuses),
+                             ~Ticket.id.in_(db.session.query(Assignment.ticket_id))
+                         ).count() if view != 'mine' else 0,
+        'resolved_week': _stats_base().filter(
+                             Ticket.status.in_(['resolved', 'closed']),
+                             Ticket.updated_at >= week_ago
+                         ).count(),
+        # Tab badge counts are always global so they don't zero out when active
+        'mine':          Ticket.query.join(Assignment).filter(
+                             Assignment.employee_id == current_user.id,
+                             Ticket.status.in_(active_statuses)
+                         ).count(),
+        'watched':       TicketWatch.query.filter_by(employee_id=current_user.id).count(),
     }
 
     return render_template('dashboard.html', tickets=tickets,
