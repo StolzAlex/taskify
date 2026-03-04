@@ -23,13 +23,6 @@
             <input type="email" class="form-control form-control-sm" id="email" name="email"
                    required value="{{ request.form.email or '' }}">
           </div>
-          <div class="mb-3">
-            <label for="password" class="form-label small fw-semibold">{{ _('Password') }}</label>
-            <input type="password" class="form-control form-control-sm" id="password" name="password"
-                   required autocomplete="new-password">
-            <div class="invalid-feedback" id="createPwError"></div>
-            <div class="form-text">{{ _('Min. 12 characters, including uppercase, lowercase, digit and special character.') }}</div>
-          </div>
           <div class="mb-2 form-check">
             <input type="checkbox" class="form-check-input" id="is_admin" name="is_admin"
                    {{ 'checked' if request.form.is_admin }}>
@@ -208,12 +201,6 @@
 {% block scripts %}
 <script>
 (function () {
-  // Create form
-  var createForm  = document.querySelector('.card form');
-  var createInput = document.getElementById('password');
-  var createErr   = document.getElementById('createPwError');
-  attachPasswordValidation(createForm, createInput, createErr, true);
-
   // Edit modal form
   var editForm  = document.getElementById('editUserForm');
   var editInput = document.getElementById('editPwInput');

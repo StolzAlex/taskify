@@ -349,6 +349,31 @@ def send_customer_welcome_email(customer, plain_password):
     )
 
 
+def _make_setup_token(user):
+    """Generate a 72-hour password-setup token, persist it, and return it."""
+    token = secrets.token_urlsafe(32)
+    user.setup_token = token
+    user.setup_token_expires = datetime.utcnow() + timedelta(hours=72)
+    db.session.commit()
+    return token
+
+
+def send_setup_email(user_email, user_name, setup_url):
+    app_name = app.config['APP_NAME']
+    body = (
+        f"Hello {user_name},\n\n"
+        f"An account has been created for you on {app_name}.\n\n"
+        f"Please set your password by visiting the link below within 72 hours:\n"
+        f"{setup_url}\n\n"
+        f"If you did not expect this email, you can ignore it."
+    )
+    send_email(
+        subject=f"{app_name} \u2013 {_('Set up your password')}",
+        recipients=[user_email],
+        body_text=body,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Language switcher
 # ---------------------------------------------------------------------------
@@ -358,6 +383,40 @@ def set_language(lang):
     if lang in app.config['BABEL_SUPPORTED_LOCALES']:
         session['lang'] = lang
     return redirect(request.referrer or url_for('submit'))
+
+
+# ---------------------------------------------------------------------------
+# Password self-setup via email link
+# ---------------------------------------------------------------------------
+
+@app.route('/setup-password/<token>', methods=['GET', 'POST'])
+@limiter.limit('10 per hour')
+def setup_password(token):
+    user = (
+        Customer.query.filter_by(setup_token=token).first()
+        or Employee.query.filter_by(setup_token=token).first()
+    )
+    if not user or not user.setup_token_expires or user.setup_token_expires < datetime.utcnow():
+        flash(_('This link is invalid or has expired.'), 'danger')
+        return redirect(url_for('login'))
+    is_employee = isinstance(user, Employee)
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        confirm  = request.form.get('confirm', '')
+        if password != confirm:
+            flash(_('Passwords do not match.'), 'danger')
+            return render_template('setup_password.html', user=user)
+        pw_error = _validate_password(password)
+        if pw_error:
+            flash(pw_error, 'danger')
+            return render_template('setup_password.html', user=user)
+        user.set_password(password)
+        user.setup_token = None
+        user.setup_token_expires = None
+        db.session.commit()
+        flash(_('Password set! You can now log in.'), 'success')
+        return redirect(url_for('login' if is_employee else 'customer_login'))
+    return render_template('setup_password.html', user=user)
 
 
 # ---------------------------------------------------------------------------
@@ -710,27 +769,25 @@ def _resolve_groups(group_ids, new_name):
 @manager_required
 def manager_customers():
     if request.method == 'POST':
-        name     = request.form.get('name', '').strip()
-        email    = request.form.get('email', '').strip()
-        password = request.form.get('password', '')
-        pw_error = _validate_password(password) if password else None
-        if not name or not email or not password:
+        name  = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        if not name or not email:
             flash(_('All fields are required.'), 'danger')
-        elif pw_error:
-            flash(pw_error, 'danger')
         elif Customer.query.filter(Customer.email.ilike(email)).first():
             flash(_('Email already in use.'), 'danger')
         else:
             customer = Customer(name=name, email=email, created_by_id=current_user.id)
-            customer.set_password(password)
+            customer.set_password(secrets.token_hex(32))
             customer.groups = _resolve_groups(
                 request.form.getlist('group_ids', type=int),
                 request.form.get('new_group', '').strip(),
             )
             db.session.add(customer)
             db.session.commit()
-            send_customer_welcome_email(customer, password)
-            flash(_('Customer "%(name)s" created.', name=name), 'success')
+            token = _make_setup_token(customer)
+            setup_url = url_for('setup_password', token=token, _external=True)
+            send_setup_email(customer.email, customer.name, setup_url)
+            flash(_('A setup link has been sent to %(email)s.', email=email), 'success')
         return redirect(url_for('manager_customers'))
     customers  = Customer.query.order_by(Customer.created_at.desc()).all()
     all_groups = Group.query.order_by(Group.name).all()
@@ -1437,14 +1494,10 @@ def admin_employees():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip()
-        password = request.form.get('password', '')
         is_admin = request.form.get('is_admin') == 'on'
         is_manager = request.form.get('is_manager') == 'on'
-        pw_error = _validate_password(password) if password else None
-        if not username or not email or not password:
+        if not username or not email:
             flash(_('All fields are required.'), 'danger')
-        elif pw_error:
-            flash(pw_error, 'danger')
         elif Employee.query.filter_by(username=username).first():
             flash(_('Username already taken.'), 'danger')
         elif Employee.query.filter_by(email=email).first():
@@ -1452,10 +1505,13 @@ def admin_employees():
         else:
             emp = Employee(username=username, email=email,
                            is_admin=is_admin, is_manager=is_manager, is_active=True)
-            emp.set_password(password)
+            emp.set_password(secrets.token_hex(32))
             db.session.add(emp)
             db.session.commit()
-            flash(_('Employee "%(name)s" created.', name=username), 'success')
+            token = _make_setup_token(emp)
+            setup_url = url_for('setup_password', token=token, _external=True)
+            send_setup_email(emp.email, emp.username, setup_url)
+            flash(_('A setup link has been sent to %(email)s.', email=email), 'success')
         return redirect(url_for('admin_employees'))
     employees = Employee.query.order_by(Employee.created_at.desc()).all()
     return render_template('admin/employees.html', employees=employees)

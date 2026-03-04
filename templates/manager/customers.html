@@ -37,13 +37,6 @@
                    placeholder="{{ _('Add new group\u2026') }}"
                    value="{{ request.form.new_group or '' }}">
           </div>
-          <div class="mb-3">
-            <label for="password" class="form-label small fw-semibold">{{ _('Password') }}</label>
-            <input type="password" class="form-control form-control-sm" id="password" name="password"
-                   required autocomplete="new-password">
-            <div class="invalid-feedback" id="createPwError"></div>
-            <div class="form-text">{{ _('Min. 12 characters, including uppercase, lowercase, digit and special character.') }}</div>
-          </div>
           <button type="submit" class="btn btn-primary btn-sm w-100">
             <i class="bi bi-person-plus me-1"></i>{{ _('Create') }}
           </button>
@@ -192,12 +185,6 @@
 {% block scripts %}
 <script>
 (function () {
-  // Create form
-  var createForm  = document.querySelector('.card form');
-  var createInput = document.getElementById('password');
-  var createErr   = document.getElementById('createPwError');
-  attachPasswordValidation(createForm, createInput, createErr, true);
-
   // Edit modal form
   var editForm  = document.getElementById('editUserForm');
   var editInput = document.getElementById('editPwInput');

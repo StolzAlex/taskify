@@ -882,3 +882,25 @@ msgstr "Mitarbeiterhandbuch"
 
 msgid "Customer Manual"
 msgstr "Kundenhandbuch"
+
+msgid "Set up your password"
+msgstr "Passwort einrichten"
+
+msgid "Set Password"
+msgstr "Passwort setzen"
+
+msgid "Confirm Password"
+msgstr "Passwort bestätigen"
+
+msgid "Passwords do not match."
+msgstr "Die Passwörter stimmen nicht überein."
+
+msgid "This link is invalid or has expired."
+msgstr "Dieser Link ist ungültig oder abgelaufen."
+
+msgid "Password set! You can now log in."
+msgstr "Passwort gesetzt! Sie können sich jetzt anmelden."
+
+#, python-format
+msgid "A setup link has been sent to %(email)s."
+msgstr "Ein Einrichtungslink wurde an %(email)s gesendet."
