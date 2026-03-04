@@ -34,7 +34,16 @@
       </div>
       <div class="card-body">
         <p class="text-muted small mb-2">
-          <i class="bi bi-envelope me-1"></i>{{ ticket.submitter_email }}
+          <i class="bi bi-person me-1"></i>
+          {% if submitter_customer %}
+            <strong class="text-dark">{{ submitter_customer.name }}</strong>
+            <span class="ms-1">&lt;{{ ticket.submitter_email }}&gt;</span>
+            {% for grp in submitter_customer.groups %}
+            <span class="badge bg-secondary ms-1">{{ grp.name }}</span>
+            {% endfor %}
+          {% else %}
+            <i class="bi bi-envelope me-1"></i>{{ ticket.submitter_email }}
+          {% endif %}
           &nbsp;&middot;&nbsp;
           <i class="bi bi-clock me-1"></i>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}
           &nbsp;&middot;&nbsp;

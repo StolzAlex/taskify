@@ -176,9 +176,10 @@
               </td>
               <td class="small">
                 {% set cust = customer_map.get(ticket.submitter_email.lower()) %}
-                {% if cust and cust.companies %}
-                  {% for co in cust.companies %}
-                  <div class="fw-semibold text-dark">{{ co.name }}</div>
+                {% if cust %}
+                  <div class="fw-semibold text-dark">{{ cust.name }}</div>
+                  {% for grp in cust.groups %}
+                  <span class="badge bg-secondary me-1">{{ grp.name }}</span>
                   {% endfor %}
                   <div class="text-muted">{{ ticket.submitter_email }}</div>
                 {% else %}

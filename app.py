@@ -1060,9 +1060,12 @@ def ticket_detail(ticket_id):
     events = ticket.events.all()
     is_watching = TicketWatch.query.filter_by(
         ticket_id=ticket_id, employee_id=current_user.id).first() is not None
+    submitter_customer = Customer.query.filter(
+        Customer.email.ilike(ticket.submitter_email)).first()
     return render_template('ticket.html', ticket=ticket, employees=employees,
                            status_choices=Ticket.STATUS_CHOICES, events=events,
-                           is_watching=is_watching)
+                           is_watching=is_watching,
+                           submitter_customer=submitter_customer)
 
 
 @app.route('/tickets/<int:ticket_id>/message', methods=['POST'])
