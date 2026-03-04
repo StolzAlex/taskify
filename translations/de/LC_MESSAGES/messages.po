@@ -820,3 +820,12 @@ msgstr "Keine Tickets warten auf Ihre Antwort."
 
 msgid "No resolved or closed tickets."
 msgstr "Keine gelösten oder geschlossenen Tickets."
+
+msgid "Link PR / Issue"
+msgstr "PR / Issue verknüpfen"
+
+msgid "Create New Issue"
+msgstr "Neues Issue erstellen"
+
+msgid "GitHub PR was merged — ticket status updated to Resolved."
+msgstr "GitHub-PR wurde gemergt — Ticket-Status auf Gelöst aktualisiert."

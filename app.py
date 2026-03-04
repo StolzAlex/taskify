@@ -987,45 +987,61 @@ def search():
                            customer_map=customer_map, performed=performed)
 
 
-def _sync_github_issue(ticket):
-    """If ticket links to a GitHub issue, close the ticket when the issue is closed."""
-    m = re.match(r'https://github\.com/([^/]+/[^/]+)/issues/(\d+)', ticket.github_pr_url or '')
+def _sync_github_ref(ticket):
+    """Sync ticket status from the linked GitHub issue or PR."""
+    url = ticket.github_pr_url or ''
+    m = re.match(r'https://github\.com/([^/]+/[^/]+)/(issues|pull)/(\d+)', url)
     if not m:
         return
+    repo, ref_type, number = m.group(1), m.group(2), m.group(3)
     headers = {'Accept': 'application/vnd.github+json'}
     token = app.config.get('GITHUB_TOKEN', '').strip()
     if token:
         headers['Authorization'] = f'Bearer {token}'
     try:
-        resp = http_requests.get(
-            f'https://api.github.com/repos/{m.group(1)}/issues/{m.group(2)}',
-            headers=headers, timeout=5,
-        )
+        if ref_type == 'pull':
+            resp = http_requests.get(
+                f'https://api.github.com/repos/{repo}/pulls/{number}',
+                headers=headers, timeout=5,
+            )
+        else:
+            resp = http_requests.get(
+                f'https://api.github.com/repos/{repo}/issues/{number}',
+                headers=headers, timeout=5,
+            )
     except Exception:
         return
     if not resp.ok:
         return
-    gh_state = resp.json().get('state')
-    if gh_state == 'closed' and ticket.status not in ('closed', 'resolved'):
-        old = ticket.status
-        ticket.status = 'closed'
+    data = resp.json()
+    gh_state  = data.get('state')          # 'open' or 'closed'
+    gh_merged = data.get('merged', False)  # True only for merged PRs
+    old = ticket.status
+    new_status = None
+    msg = None
+    if gh_state == 'closed':
+        if gh_merged and ticket.status not in ('resolved', 'closed'):
+            new_status = 'resolved'
+            msg = _('GitHub PR was merged — ticket status updated to Resolved.')
+        elif not gh_merged and ticket.status not in ('resolved', 'closed'):
+            new_status = 'closed'
+            msg = _('GitHub issue was closed — ticket status updated to Closed.')
+    elif gh_state == 'open' and ticket.status in ('resolved', 'closed'):
+        new_status = 'open'
+        msg = _('GitHub issue was reopened — ticket status updated to Open.')
+    if new_status:
+        ticket.status = new_status
         ticket.updated_at = datetime.utcnow()
-        log_event(ticket, 'status', from_value=old, to_value='closed')
+        log_event(ticket, 'status', from_value=old, to_value=new_status)
         db.session.commit()
-        flash(_('GitHub issue was closed — ticket status updated to Closed.'), 'info')
-    elif gh_state == 'open' and ticket.status == 'closed':
-        ticket.status = 'open'
-        ticket.updated_at = datetime.utcnow()
-        log_event(ticket, 'status', from_value='closed', to_value='open')
-        db.session.commit()
-        flash(_('GitHub issue was reopened — ticket status updated to Open.'), 'info')
+        flash(msg, 'info')
 
 
 @app.route('/tickets/<int:ticket_id>')
 @login_required
 def ticket_detail(ticket_id):
     ticket = db.session.get(Ticket, ticket_id) or abort(404)
-    _sync_github_issue(ticket)
+    _sync_github_ref(ticket)
     employees = Employee.query.filter_by(is_active=True).all()
     events = ticket.events.all()
     is_watching = TicketWatch.query.filter_by(
