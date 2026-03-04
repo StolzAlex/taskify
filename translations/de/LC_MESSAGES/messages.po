@@ -706,8 +706,8 @@ msgstr "Gruppen"
 msgid "All Groups"
 msgstr "Alle Gruppen"
 
-msgid "Add new group\u2026"
-msgstr "Neue Gruppe hinzuf\u00fcgen\u2026"
+msgid "Add new group…"
+msgstr "Neue Gruppe hinzufügen…"
 
 msgid "Internal Title"
 msgstr "Interner Titel"
@@ -852,8 +852,8 @@ msgid "We'll keep you updated by email."
 msgstr "Wir halten Sie per E-Mail auf dem Laufenden."
 
 #, python-format
-msgid "Ticket #%(id)s received \u2013 %(subject)s"
-msgstr "Ticket #%(id)s erhalten \u2013 %(subject)s"
+msgid "Ticket #%(id)s received – %(subject)s"
+msgstr "Ticket #%(id)s erhalten – %(subject)s"
 
 msgid "Your support ticket has been updated."
 msgstr "Ihr Support-Ticket wurde aktualisiert."
@@ -868,5 +868,17 @@ msgid "View your ticket at:"
 msgstr "Ihr Ticket finden Sie unter:"
 
 #, python-format
-msgid "Ticket #%(id)s updated \u2013 %(subject)s"
-msgstr "Ticket #%(id)s aktualisiert \u2013 %(subject)s"
+msgid "Ticket #%(id)s updated – %(subject)s"
+msgstr "Ticket #%(id)s aktualisiert – %(subject)s"
+
+msgid "Help"
+msgstr "Hilfe"
+
+msgid "Contents"
+msgstr "Inhalt"
+
+msgid "Employee Manual"
+msgstr "Mitarbeiterhandbuch"
+
+msgid "Customer Manual"
+msgstr "Kundenhandbuch"

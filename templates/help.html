@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} – {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+  <h1 class="h3 mb-0"><i class="bi bi-question-circle me-2"></i>{{ title }}</h1>
+</div>
+
+<div class="row g-4 align-items-start">
+
+  <!-- Sticky TOC sidebar (hidden on small screens) -->
+  <div class="col-lg-3 d-none d-lg-block">
+    <div class="card shadow-sm md-toc-card">
+      <div class="card-header py-2">
+        <h6 class="mb-0"><i class="bi bi-list-ul me-1"></i>{{ _('Contents') }}</h6>
+      </div>
+      <div class="card-body p-2 small md-toc">
+        {{ toc }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Rendered markdown -->
+  <div class="col-lg-9">
+    <div class="card shadow-sm">
+      <div class="card-body md-content">
+        {{ content }}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

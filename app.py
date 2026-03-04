@@ -3,6 +3,8 @@ import email.utils
 import imaplib
 import os
 import click
+import markdown as _md_lib
+from markdown.extensions.toc import TocExtension as _TocExtension
 import re
 import secrets
 import string
@@ -26,7 +28,7 @@ from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message as MailMessage
 from flask_babel import Babel, gettext as _, lazy_gettext as _l, get_locale, force_locale
-from markupsafe import escape
+from markupsafe import escape, Markup
 from werkzeug.utils import secure_filename
 
 from config import Config
@@ -1710,6 +1712,37 @@ def internal_error(e):
     db.session.rollback()
     app.logger.exception('Unhandled exception')
     return render_template('error.html', code=500, message=_('An unexpected error occurred.')), 500
+
+
+def _render_markdown(path):
+    """Return (content_html, toc_html) from a Markdown file."""
+    with open(path, encoding='utf-8') as f:
+        src = f.read()
+    md = _md_lib.Markdown(
+        extensions=['tables', 'fenced_code', _TocExtension(permalink=False)]
+    )
+    content_html = Markup(md.convert(src))
+    toc_html = Markup(md.toc)
+    return content_html, toc_html
+
+
+@app.route('/help')
+@login_required
+def help_page():
+    content, toc = _render_markdown(
+        os.path.join(app.root_path, 'docs', 'manual-employees.md'))
+    return render_template('help.html', content=content, toc=toc,
+                           title=_('Employee Manual'))
+
+
+@app.route('/customer/help')
+def customer_help():
+    if not get_current_customer():
+        return redirect(url_for('customer_login'))
+    content, toc = _render_markdown(
+        os.path.join(app.root_path, 'docs', 'manual-customers.md'))
+    return render_template('help.html', content=content, toc=toc,
+                           title=_('Customer Manual'))
 
 
 @app.route('/healthz')
