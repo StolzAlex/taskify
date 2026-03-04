@@ -143,6 +143,8 @@
               <i class="bi bi-person-exclamation text-warning mt-1 flex-shrink-0"></i>
             {% elif ev.event_type == 'attachment' %}
               <i class="bi bi-paperclip text-muted mt-1 flex-shrink-0"></i>
+            {% elif ev.event_type == 'assignment' %}
+              <i class="bi bi-person-check text-primary mt-1 flex-shrink-0"></i>
             {% endif %}
             <div class="flex-grow-1 overflow-hidden">
               <div>
@@ -153,6 +155,12 @@
                   {{ _('You replied') }}
                 {% elif ev.event_type == 'attachment' %}
                   {{ _('File attached') }}: <em>{{ ev.to_value }}</em>
+                {% elif ev.event_type == 'assignment' %}
+                  {% if ev.to_value %}
+                    {{ _('Assigned to') }} <strong>{{ ev.to_value }}</strong>
+                  {% else %}
+                    {{ _('Assignment removed') }}
+                  {% endif %}
                 {% endif %}
               </div>
               <div class="text-muted d-flex justify-content-between mt-1">

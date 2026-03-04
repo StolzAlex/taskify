@@ -93,6 +93,8 @@ class Ticket(db.Model):
     assignment = db.relationship('Assignment', backref='ticket', uselist=False)
     events = db.relationship('TicketEvent', backref='ticket', lazy='dynamic',
                              order_by='TicketEvent.created_at')
+    watches = db.relationship('TicketWatch', backref='ticket', lazy='dynamic',
+                              cascade='all, delete-orphan')
 
     STATUS_CHOICES = ['open', 'in_progress', 'resolved', 'closed']
 
@@ -149,6 +151,16 @@ class TicketEvent(db.Model):
     created_at  = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     actor = db.relationship('Employee')
+
+
+class TicketWatch(db.Model):
+    __tablename__ = 'ticket_watches'
+    id          = db.Column(db.Integer, primary_key=True)
+    ticket_id   = db.Column(db.Integer, db.ForeignKey('tickets.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=False)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    __table_args__ = (db.UniqueConstraint('ticket_id', 'employee_id'),)
+    employee = db.relationship('Employee', backref='watches')
 
 
 class Attachment(db.Model):

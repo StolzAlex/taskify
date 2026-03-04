@@ -61,6 +61,16 @@
       </div>
     </a>
   </div>
+  <div class="col-6 col-md-4 col-xl">
+    <a href="{{ url_for('dashboard', view='watched') }}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 border-info border-opacity-75 {{ 'bg-info bg-opacity-10' if view == 'watched' and not status_filter and not unassigned_filter and not resolved_week_filter }}">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold text-info">{{ stats.watched }}</div>
+          <div class="small text-muted">{{ _('Watched') }}</div>
+        </div>
+      </div>
+    </a>
+  </div>
 </div>
 
 <div class="row g-4 align-items-start">
@@ -80,6 +90,10 @@
             <a href="{{ url_for('dashboard', view='all', status=status_filter, company=company_filter) }}"
                class="btn {{ 'btn-primary' if view == 'all' else 'btn-outline-primary' }}">
               <i class="bi bi-grid me-1"></i>{{ _('All Tickets') }}
+            </a>
+            <a href="{{ url_for('dashboard', view='watched', status=status_filter, company=company_filter) }}"
+               class="btn {{ 'btn-primary' if view == 'watched' else 'btn-outline-primary' }}">
+              <i class="bi bi-eye me-1"></i>{{ _('Watched') }}
             </a>
           </div>
           <input type="hidden" name="view" value="{{ view }}">
@@ -130,6 +144,9 @@
                 <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" class="text-decoration-none fw-semibold">
                   {{ ticket.subject }}
                 </a>
+                {% if ticket.id in watched_ids %}
+                <i class="bi bi-eye text-info ms-1" title="{{ _('Watching') }}"></i>
+                {% endif %}
               </td>
               <td class="small">
                 {% set cust = customer_map.get(ticket.submitter_email.lower()) %}

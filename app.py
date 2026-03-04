@@ -18,7 +18,7 @@ from markupsafe import escape
 from werkzeug.utils import secure_filename
 
 from config import Config
-from models import db, Employee, Customer, Ticket, Assignment, Message, Attachment, TicketEvent
+from models import db, Employee, Customer, Ticket, Assignment, Message, Attachment, TicketEvent, TicketWatch
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -151,8 +151,20 @@ def send_email(subject, recipients, body_text, body_html=None):
         msg = MailMessage(subject=subject, recipients=recipients, body=body_text,
                           html=body_html)
         mail.send(msg)
+        if app.config.get('MAIL_SUPPRESS_SEND') or app.config.get('TESTING'):
+            app.logger.info(f'Email suppressed (MAIL_SUPPRESS_SEND) to {recipients}: {subject}')
+            flash(_('Email to %(addr)s was suppressed (MAIL_SUPPRESS_SEND is enabled).',
+                    addr=', '.join(recipients)), 'warning')
+            return False
+        app.logger.info(f'Email sent to {recipients}: {subject}')
+        flash(_('Email sent to %(addr)s.', addr=', '.join(recipients)), 'info')
+        return True
     except Exception as e:
-        app.logger.warning(f'Email send failed: {e}')
+        server = f"{app.config.get('MAIL_SERVER')}:{app.config.get('MAIL_PORT')}"
+        app.logger.error(f'Email send failed (server={server}, suppress={app.config.get("MAIL_SUPPRESS_SEND")}): {e}')
+        flash(_('Email to %(addr)s could not be sent (%(error)s).',
+                addr=', '.join(recipients), error=str(e)), 'danger')
+        return False
 
 
 def notify_submitter_confirmation(ticket):
@@ -206,6 +218,33 @@ def notify_assignee_customer_reply(ticket):
             recipients=recipients,
             body_text=body,
         )
+
+
+def notify_assignee_assigned(ticket, employee):
+    detail_url = url_for('ticket_detail', ticket_id=ticket.id, _external=True)
+    body = (
+        f"You have been assigned to a support ticket.\n\n"
+        f"Subject: {ticket.subject}\n"
+        f"Ticket ID: #{ticket.id}\n"
+        f"Submitted by: {ticket.submitter_email}\n"
+        f"Status: {ticket.status.replace('_', ' ').title()}\n\n"
+        f"View ticket: {detail_url}"
+    )
+    send_email(
+        subject=f"[Taskify] Assigned to you – Ticket #{ticket.id}: {ticket.subject}",
+        recipients=[employee.email],
+        body_text=body,
+    )
+
+
+def notify_watchers(ticket, subject, body, exclude_employee_id=None):
+    watches = TicketWatch.query.filter_by(ticket_id=ticket.id).all()
+    recipients = [
+        w.employee.email for w in watches
+        if w.employee_id != exclude_employee_id and w.employee.is_active
+    ]
+    if recipients:
+        send_email(subject=subject, recipients=recipients, body_text=body)
 
 
 def send_customer_welcome_email(customer, plain_password):
@@ -332,6 +371,13 @@ def customer_reply(token):
     log_event(ticket, 'customer_reply')
     db.session.commit()
     notify_assignee_customer_reply(ticket)
+    notify_watchers(
+        ticket,
+        subject=f"[Taskify] Kundenantwort \u2013 Ticket #{ticket.id}: {ticket.subject}",
+        body=(f"Der Kunde hat auf Ticket #{ticket.id} geantwortet.\n\n"
+              f"Betreff: {ticket.subject}\n\n"
+              f"Ticket ansehen: {url_for('ticket_detail', ticket_id=ticket.id, _external=True)}"),
+    )
     flash(_('Your reply has been sent.'), 'success')
     return redirect(url_for('ticket_status', token=token))
 
@@ -467,7 +513,7 @@ def customer_dashboard():
     recent_events = (TicketEvent.query
                      .filter(
                          TicketEvent.ticket_id.in_(ticket_ids),
-                         TicketEvent.event_type.in_(['status', 'customer_reply', 'attachment'])
+                         TicketEvent.event_type.in_(['status', 'customer_reply', 'attachment', 'assignment'])
                      )
                      .order_by(TicketEvent.created_at.desc())
                      .limit(15).all()) if ticket_ids else []
@@ -553,7 +599,7 @@ def dashboard():
     is_privileged = current_user.is_admin or current_user.is_manager
     default_view = 'all' if is_privileged else 'mine'
     if 'view' in request.args:
-        view = request.args['view'] if request.args['view'] in ('mine', 'all') else default_view
+        view = request.args['view'] if request.args['view'] in ('mine', 'all', 'watched') else default_view
         if view != current_user.get_pref('dashboard_view'):
             current_user.set_pref('dashboard_view', view)
             db.session.commit()
@@ -582,8 +628,11 @@ def dashboard():
         company_emails = db.session.query(db.func.lower(Customer.email)).filter_by(
             company=company_filter)
         query = query.filter(db.func.lower(Ticket.submitter_email).in_(company_emails))
+    watched_ids = {w.ticket_id for w in TicketWatch.query.filter_by(employee_id=current_user.id).all()}
     if view == 'mine':
         query = query.join(Assignment).filter(Assignment.employee_id == current_user.id)
+    elif view == 'watched':
+        query = query.filter(Ticket.id.in_(watched_ids))
 
     page     = request.args.get('page', 1, type=int)
     per_page = 25
@@ -603,9 +652,23 @@ def dashboard():
     companies = sorted({c.company for c in Customer.query.filter(
         Customer.company.isnot(None)).all()})
 
-    recent_events = (TicketEvent.query
-                     .order_by(TicketEvent.created_at.desc())
-                     .limit(20).all())
+    if view == 'mine':
+        my_ticket_ids = db.session.query(Assignment.ticket_id).filter(
+            Assignment.employee_id == current_user.id
+        )
+        recent_events = (TicketEvent.query
+                         .filter(TicketEvent.ticket_id.in_(my_ticket_ids))
+                         .order_by(TicketEvent.created_at.desc())
+                         .limit(20).all())
+    elif view == 'watched':
+        recent_events = (TicketEvent.query
+                         .filter(TicketEvent.ticket_id.in_(watched_ids))
+                         .order_by(TicketEvent.created_at.desc())
+                         .limit(20).all())
+    else:
+        recent_events = (TicketEvent.query
+                         .order_by(TicketEvent.created_at.desc())
+                         .limit(20).all())
 
     week_ago = datetime.utcnow() - timedelta(days=7)
     active_statuses = ['open', 'in_progress']
@@ -624,6 +687,7 @@ def dashboard():
                               Assignment.employee_id == current_user.id,
                               Ticket.status.in_(active_statuses)
                           ).count(),
+        'watched':        TicketWatch.query.filter_by(employee_id=current_user.id).count(),
     }
 
     return render_template('dashboard.html', tickets=tickets,
@@ -637,7 +701,8 @@ def dashboard():
                            view=view, is_privileged=is_privileged,
                            status_choices=Ticket.STATUS_CHOICES,
                            recent_events=recent_events,
-                           stats=stats)
+                           stats=stats,
+                           watched_ids=watched_ids)
 
 
 def _sync_github_issue(ticket):
@@ -681,8 +746,11 @@ def ticket_detail(ticket_id):
     _sync_github_issue(ticket)
     employees = Employee.query.filter_by(is_active=True).all()
     events = ticket.events.all()
+    is_watching = TicketWatch.query.filter_by(
+        ticket_id=ticket_id, employee_id=current_user.id).first() is not None
     return render_template('ticket.html', ticket=ticket, employees=employees,
-                           status_choices=Ticket.STATUS_CHOICES, events=events)
+                           status_choices=Ticket.STATUS_CHOICES, events=events,
+                           is_watching=is_watching)
 
 
 @app.route('/tickets/<int:ticket_id>/message', methods=['POST'])
@@ -727,6 +795,14 @@ def add_message(ticket_id):
     if is_visible:
         plain = re.sub(r'<[^>]+>', '', body)
         notify_submitter_update(ticket, extra_message=plain)
+    notify_watchers(
+        ticket,
+        subject=f"[Taskify] Neue Nachricht \u2013 Ticket #{ticket.id}: {ticket.subject}",
+        body=(f"Eine neue Nachricht wurde zu Ticket #{ticket.id} hinzugefuegt.\n\n"
+              f"Betreff: {ticket.subject}\n\n"
+              f"Ticket ansehen: {url_for('ticket_detail', ticket_id=ticket.id, _external=True)}"),
+        exclude_employee_id=current_user.id,
+    )
     flash(_('Message added.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 
@@ -764,6 +840,15 @@ def change_status(ticket_id):
               actor_id=current_user.id)
     db.session.commit()
     notify_submitter_update(ticket)
+    notify_watchers(
+        ticket,
+        subject=f"[Taskify] Status geaendert \u2013 Ticket #{ticket.id}: {ticket.subject}",
+        body=(f"Status geaendert auf Ticket #{ticket.id}.\n\n"
+              f"Betreff: {ticket.subject}\n"
+              f"Neuer Status: {new_status.replace('_', ' ').title()}\n\n"
+              f"Ticket ansehen: {url_for('ticket_detail', ticket_id=ticket.id, _external=True)}"),
+        exclude_employee_id=current_user.id,
+    )
     flash(_('Status changed to %(status)s.', status=status_label(new_status)), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 
@@ -794,7 +879,25 @@ def assign_ticket(ticket_id):
               actor_id=current_user.id)
     ticket.updated_at = datetime.utcnow()
     db.session.commit()
+    if employee_id and emp and new_assignee != old_assignee:
+        notify_assignee_assigned(ticket, emp)
     flash(_('Assignment updated.'), 'success')
+    return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+
+
+@app.route('/tickets/<int:ticket_id>/watch', methods=['POST'])
+@login_required
+def toggle_watch(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    watch = TicketWatch.query.filter_by(ticket_id=ticket_id, employee_id=current_user.id).first()
+    if watch:
+        db.session.delete(watch)
+        db.session.commit()
+        flash(_('You are no longer watching this ticket.'), 'info')
+    else:
+        db.session.add(TicketWatch(ticket_id=ticket_id, employee_id=current_user.id))
+        db.session.commit()
+        flash(_('You are now watching this ticket.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 
 
@@ -1178,6 +1281,72 @@ def delete_employee(emp_id):
     db.session.commit()
     flash(_('Employee "%(name)s" deleted.', name=username), 'success')
     return redirect(url_for('admin_employees'))
+
+
+# ---------------------------------------------------------------------------
+# Mail test (admin only)
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/mail-test', methods=['GET', 'POST'])
+@admin_required
+def admin_mail_test():
+    cfg = app.config
+    info = {
+        'MAIL_SERVER':          cfg.get('MAIL_SERVER'),
+        'MAIL_PORT':            cfg.get('MAIL_PORT'),
+        'MAIL_USE_TLS':         cfg.get('MAIL_USE_TLS'),
+        'MAIL_USE_SSL':         cfg.get('MAIL_USE_SSL'),
+        'MAIL_USERNAME':        cfg.get('MAIL_USERNAME') or '(not set)',
+        'MAIL_PASSWORD':        '***' if cfg.get('MAIL_PASSWORD') else '(not set)',
+        'MAIL_DEFAULT_SENDER':  cfg.get('MAIL_DEFAULT_SENDER'),
+        'MAIL_SUPPRESS_SEND':   cfg.get('MAIL_SUPPRESS_SEND'),
+        'TESTING':              cfg.get('TESTING'),
+    }
+    result = None
+    if request.method == 'POST':
+        recipient = request.form.get('recipient', '').strip()
+        if not recipient:
+            flash(_('Please enter a recipient address.'), 'danger')
+        else:
+            import smtplib, ssl as _ssl
+            # Low-level SMTP probe so we can report exactly what fails
+            try:
+                port    = int(cfg.get('MAIL_PORT', 25))
+                use_ssl = cfg.get('MAIL_USE_SSL', False)
+                use_tls = cfg.get('MAIL_USE_TLS', False)
+                host    = cfg.get('MAIL_SERVER', 'localhost')
+                user    = cfg.get('MAIL_USERNAME') or ''
+                pw      = cfg.get('MAIL_PASSWORD') or ''
+
+                if use_ssl:
+                    ctx  = _ssl.create_default_context()
+                    smtp = smtplib.SMTP_SSL(host, port, context=ctx, timeout=10)
+                else:
+                    smtp = smtplib.SMTP(host, port, timeout=10)
+                    if use_tls:
+                        smtp.ehlo()
+                        smtp.starttls()
+                        smtp.ehlo()
+
+                if user and pw:
+                    smtp.login(user, pw)
+
+                sender = cfg.get('MAIL_DEFAULT_SENDER', user)
+                smtp.sendmail(sender, [recipient],
+                    f"From: {sender}\r\nTo: {recipient}\r\n"
+                    f"Subject: [Taskify] Mail test\r\n\r\n"
+                    f"This is a test email from Taskify.\r\n"
+                    f"Server: {host}:{port}  TLS={use_tls}  SSL={use_ssl}\r\n"
+                    f"Sender: {sender}\r\n"
+                )
+                smtp.quit()
+                result = ('success', f'SMTP accepted the message for {recipient}. Check inbox (and spam).')
+                app.logger.info(f'Mail test to {recipient} succeeded via {host}:{port}')
+            except Exception as e:
+                result = ('danger', f'{type(e).__name__}: {e}')
+                app.logger.error(f'Mail test failed: {e}')
+
+    return render_template('admin/mail_test.html', info=info, result=result)
 
 
 # ---------------------------------------------------------------------------

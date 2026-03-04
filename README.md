@@ -76,6 +76,7 @@ All settings are loaded from a **`.env` file** in the project root (via `python-
 | `MAIL_USERNAME` | _(none)_ | SMTP username |
 | `MAIL_PASSWORD` | _(none)_ | SMTP password |
 | `MAIL_DEFAULT_SENDER` | `noreply@taskify.local` | From address |
+| `MAIL_USE_SSL` | `false` | Enable SSL/TLS on connect (port 465). Use instead of `MAIL_USE_TLS` for implicit TLS |
 | `MAIL_SUPPRESS_SEND` | `false` | Set to `true` to silently drop all emails (dev mode) |
 | `BABEL_DEFAULT_LOCALE` | `en` | Default UI language (`en` or `de`) |
 | `GITHUB_CLIENT_ID` | _(none)_ | GitHub OAuth App client ID — enables SSO login button |
@@ -217,12 +218,14 @@ Managers create customer accounts at `/manager/customers`. The customer receives
 2. The **Dashboard** lists tickets, with a **My Tickets / All Tickets** toggle.
    - Admin and manager accounts default to *All Tickets*.
    - Staff accounts default to *My Tickets* (tickets assigned to them).
+   - A **Watched** tab shows only tickets you are subscribed to, each marked with an eye icon.
    - The chosen view is **saved per user** in the database and restored on next login.
    - Filter by status or company using the dropdowns (auto-submit on change). The company dropdown appears automatically when any customer accounts have a company set. The submitter column shows the company name when known.
 3. On a ticket detail page you can:
    - **Add a message** using the Quill rich-text editor. Optionally attach a file inline. Check *Visible to customer* to send it as an email reply.
-   - **Change status** — triggers an email notification to the submitter.
+   - **Change status** — triggers an email notification to the submitter and all watchers.
    - **Assign** the ticket to an active employee.
+   - **Watch / Unwatch** — subscribe to email notifications for this ticket (status changes, customer replies, new internal messages). The sidebar button toggles your watch. Watched tickets appear in the **Watched** tab on the dashboard and are marked with an eye icon in the ticket table.
    - **Set an internal title** — optional free-text title visible only to employees. When set, it is used as the GitHub issue title instead of the customer-facing subject.
    - **Link a GitHub PR or Issue** — search via the sidebar card; supports `reponame: query` prefix.
    - **Create a GitHub Issue** — select a repo and click Create; the issue is linked automatically. Uses the internal title if set, otherwise falls back to the ticket subject.
@@ -237,11 +240,13 @@ Managers have access to **`/manager/customers`**:
 
 ### For admins
 
-Admins have access to **`/admin/employees`**:
+Admins have access to **`/admin/employees`** and **`/admin/mail-test`**.
 - Create new employee accounts with optional **Admin** or **Manager** roles.
 - Edit an employee's name, email address, or password (pencil button).
 - Activate/deactivate or delete employee accounts.
 - Link or unlink GitHub accounts for any employee.
+
+**`/admin/mail-test`** — displays the active mail configuration (password masked) and sends a raw SMTP test email to any address, bypassing Flask-Mail so the exact error is shown if delivery fails.
 
 **Editing privileges:** Admins can edit managers and staff, but not other admins. Managers can edit staff only. Password fields are optional — leave blank to keep the current password.
 
@@ -307,7 +312,8 @@ taskify/
 │   ├── ticket.html             # Employee: ticket detail, messages, GitHub sidebar
 │   ├── error.html              # 403 / 404 error page
 │   ├── admin/
-│   │   └── employees.html      # Admin: manage employees + GitHub linking
+│   │   ├── employees.html      # Admin: manage employees + GitHub linking
+│   │   └── mail_test.html      # Admin: live SMTP config check + test send
 │   ├── customer/
 │   │   └── dashboard.html      # Customer: ticket list
 │   └── manager/
@@ -333,8 +339,11 @@ Assignment — ticket_id FK, employee_id FK          [one per ticket]
 Message    — ticket_id FK, employee_id FK (null = customer reply),
              body (HTML), is_customer_visible, is_customer_reply,
              created_at, edited_at
-Attachment — ticket_id FK, message_id FK (nullable), filename (UUID on disk),
-             original_filename, size, created_at
+TicketEvent  — ticket_id FK, employee_id FK (nullable), event_type, from_value,
+               to_value, created_at
+TicketWatch  — ticket_id FK, employee_id FK            [unique per pair]
+Attachment   — ticket_id FK, message_id FK (nullable), filename (UUID on disk),
+               original_filename, size, created_at
 ```
 
 **Ticket statuses:** `open` → `in_progress` → `resolved` → `closed`
@@ -346,9 +355,10 @@ Attachment — ticket_id FK, message_id FK (nullable), filename (UUID on disk),
 | Trigger | Recipient |
 |---|---|
 | Ticket submitted | Submitter — confirmation + status link |
-| Status changed | Submitter — new status |
+| Status changed | Submitter — new status; all watchers (except the employee who changed it) |
+| Employee adds any message | All watchers (except the author) |
 | Employee adds customer-visible message | Submitter — message content |
-| Customer replies on status page | Assignee (or all active employees if unassigned) |
+| Customer replies on status page | Assignee (or all active employees if unassigned); all watchers |
 | Manager creates customer account | Customer — welcome email with credentials |
 
 ---
@@ -394,6 +404,15 @@ ALTER TABLE customers ADD COLUMN company VARCHAR(120);
 
 -- Added later: employee-assigned internal title for tickets
 ALTER TABLE tickets ADD COLUMN internal_title VARCHAR(200);
+
+-- Added later: ticket watch subscriptions
+CREATE TABLE IF NOT EXISTS ticket_watches (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id   INTEGER NOT NULL REFERENCES tickets(id),
+    employee_id INTEGER NOT NULL REFERENCES employees(id),
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (ticket_id, employee_id)
+);
 ```
 
 ---

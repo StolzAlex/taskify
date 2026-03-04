@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('Mail Test') }} – Taskify{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0"><i class="bi bi-envelope-check me-2"></i>{{ _('Mail Configuration Test') }}</h1>
+  <a href="{{ url_for('admin_employees') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>{{ _('Back') }}
+  </a>
+</div>
+
+<!-- Current config -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header"><h6 class="mb-0">{{ _('Active Configuration') }}</h6></div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-striped mb-0">
+      <tbody>
+        {% for key, val in info.items() %}
+        <tr>
+          <td class="fw-semibold text-muted ps-3" style="width:220px;">{{ key }}</td>
+          <td class="font-monospace">
+            {% if val is none or val == '' %}
+              <span class="text-muted fst-italic">(not set)</span>
+            {% elif val == true %}
+              <span class="badge bg-success">True</span>
+            {% elif val == false %}
+              <span class="badge bg-secondary">False</span>
+            {% else %}
+              {{ val }}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Test result -->
+{% if result %}
+<div class="alert alert-{{ result[0] }} d-flex align-items-start gap-2">
+  <i class="bi bi-{{ 'check-circle' if result[0] == 'success' else 'x-circle' }} flex-shrink-0 mt-1"></i>
+  <div><strong>{{ _('Result:') }}</strong> {{ result[1] }}</div>
+</div>
+{% endif %}
+
+<!-- Send test mail -->
+<div class="card shadow-sm">
+  <div class="card-header"><h6 class="mb-0">{{ _('Send Test Email') }}</h6></div>
+  <div class="card-body">
+    <form method="post">
+      <div class="mb-3">
+        <label class="form-label">{{ _('Recipient') }}</label>
+        <input type="email" name="recipient" class="form-control"
+               value="{{ current_user.email }}" required>
+        <div class="form-text">{{ _('Uses a direct SMTP connection — bypasses Flask-Mail so you see exact errors.') }}</div>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-send me-1"></i>{{ _('Send Test Email') }}
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
