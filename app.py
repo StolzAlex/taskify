@@ -2,7 +2,10 @@ import email as _email_lib
 import email.utils
 import imaplib
 import os
+import click
 import re
+import secrets
+import string
 import threading
 import time
 import uuid
@@ -1863,6 +1866,47 @@ def _imap_poll_loop():
             backoff = min(interval * (2 ** failures), 3600)
             app.logger.error(f'[IMAP] Poll loop error (attempt {failures}, retry in {backoff}s): {exc}')
             time.sleep(backoff)
+
+
+@app.cli.command('reset-admin')
+@click.option('--username', default=None, help='Username of the admin to reset (default: first active admin)')
+def cli_reset_admin(username):
+    """Emergency admin password reset. Run from the server command line only."""
+    if username:
+        emp = Employee.query.filter_by(username=username, is_admin=True).first()
+        if not emp:
+            print(f'ERROR: No admin account found with username "{username}".')
+            raise SystemExit(1)
+    else:
+        emp = Employee.query.filter_by(is_admin=True, is_active=True).first()
+        if not emp:
+            print('ERROR: No active admin account found.')
+            raise SystemExit(1)
+
+    # Build a 16-char password guaranteed to satisfy all validation rules
+    upper   = string.ascii_uppercase
+    lower   = string.ascii_lowercase
+    digits  = string.digits
+    special = '!@#$%^&*()-_=+'
+    pool    = upper + lower + digits + special
+    while True:
+        chars = (
+            [secrets.choice(upper),   secrets.choice(lower),
+             secrets.choice(digits),  secrets.choice(special)]
+            + [secrets.choice(pool) for _ in range(12)]
+        )
+        secrets.SystemRandom().shuffle(chars)
+        pw = ''.join(chars)
+        if _validate_password(pw) is None:
+            break
+
+    emp.set_password(pw)
+    db.session.commit()
+    print('')
+    print(f'  Admin account : {emp.username} ({emp.email})')
+    print(f'  New password  : {pw}')
+    print('')
+    print('Log in immediately and change this password.')
 
 
 @app.cli.command('poll-imap')
