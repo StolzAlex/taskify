@@ -708,3 +708,55 @@ msgstr "Interner Titel"
 
 msgid "Optional — used as GitHub issue title"
 msgstr "Optional – wird als GitHub-Issue-Titel verwendet"
+
+msgid "Search"
+msgstr "Suchen"
+
+msgid "Search Tickets"
+msgstr "Tickets suchen"
+
+msgid "Search tickets…"
+msgstr "Tickets suchen…"
+
+msgid "Search subject, description, messages…"
+msgstr "Betreff, Beschreibung, Nachrichten suchen…"
+
+msgid "Any status"
+msgstr "Beliebiger Status"
+
+msgid "Anyone"
+msgstr "Beliebig"
+
+msgid "All companies"
+msgstr "Alle Unternehmen"
+
+msgid "Created from"
+msgstr "Erstellt ab"
+
+msgid "Created until"
+msgstr "Erstellt bis"
+
+#, python-format
+msgid "%(total)s result(s)"
+msgstr "%(total)s Ergebnis(se)"
+
+msgid "for"
+msgstr "für"
+
+msgid "No results found"
+msgstr "Keine Ergebnisse gefunden"
+
+msgid "No tickets match your search."
+msgstr "Keine Tickets entsprechen Ihrer Suche."
+
+msgid "Enter a search term or select filters above."
+msgstr "Suchbegriff eingeben oder Filter oben auswählen."
+
+msgid "Watched"
+msgstr "Beobachtet"
+
+msgid "Watching"
+msgstr "Wird beobachtet"
+
+msgid "Closed hidden"
+msgstr "Geschlossen ausgeblendet"

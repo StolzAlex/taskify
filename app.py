@@ -629,10 +629,24 @@ def dashboard():
     unassigned_filter    = request.args.get('unassigned', '') == '1'
     resolved_week_filter = request.args.get('resolved_week', '') == '1'
     company_filter       = request.args.get('company', '')
+    q                    = request.args.get('q', '').strip()
 
     query = Ticket.query
+    # Hide closed tickets by default unless explicitly requested
+    hide_closed = not status_filter and not unassigned_filter and not resolved_week_filter
     if status_filter:
         query = query.filter(Ticket.status == status_filter)
+    elif hide_closed:
+        query = query.filter(Ticket.status != 'closed')
+    if q:
+        msg_ids = db.session.query(Message.ticket_id).filter(Message.body.ilike(f'%{q}%'))
+        query = query.filter(db.or_(
+            Ticket.subject.ilike(f'%{q}%'),
+            Ticket.body.ilike(f'%{q}%'),
+            Ticket.internal_title.ilike(f'%{q}%'),
+            Ticket.submitter_email.ilike(f'%{q}%'),
+            Ticket.id.in_(msg_ids),
+        ))
     if unassigned_filter:
         query = query.filter(
             Ticket.status.in_(['open', 'in_progress']),
@@ -712,6 +726,7 @@ def dashboard():
 
     return render_template('dashboard.html', tickets=tickets,
                            pagination=pagination, per_page=per_page,
+                           q=q,
                            status_filter=status_filter,
                            unassigned_filter=unassigned_filter,
                            resolved_week_filter=resolved_week_filter,
@@ -722,7 +737,8 @@ def dashboard():
                            status_choices=Ticket.STATUS_CHOICES,
                            recent_events=recent_events,
                            stats=stats,
-                           watched_ids=watched_ids)
+                           watched_ids=watched_ids,
+                           hide_closed=hide_closed)
 
 
 @app.route('/search')

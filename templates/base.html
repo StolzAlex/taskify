@@ -1,8 +1,9 @@
 <!doctype html>
-<html lang="{{ get_locale() }}">
+<html lang="{{ get_locale() }}" id="htmlRoot">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>document.documentElement.setAttribute('data-bs-theme', localStorage.getItem('theme') || 'light');</script>
   <title>{% block title %}Taskify{% endblock %}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -26,11 +27,6 @@
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('dashboard') }}">
               <i class="bi bi-grid me-1"></i>{{ _('Dashboard') }}
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('search') }}">
-              <i class="bi bi-search me-1"></i>{{ _('Search') }}
             </a>
           </li>
           {% if current_user.is_admin or current_user.is_manager %}
@@ -91,6 +87,13 @@
             </li>
           </ul>
         </li>
+
+        <!-- Dark mode toggle -->
+        <li class="nav-item ms-1">
+          <button class="btn btn-link nav-link px-2" id="themeToggle" title="Toggle dark mode" style="font-size:1.1rem;">
+            <i id="themeIcon" class="bi bi-moon"></i>
+          </button>
+        </li>
       </ul>
     </div>
   </div>
@@ -120,6 +123,23 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  (function () {
+    const html = document.getElementById('htmlRoot');
+    const icon = document.getElementById('themeIcon');
+    function syncIcon() {
+      const dark = html.getAttribute('data-bs-theme') === 'dark';
+      icon.className = dark ? 'bi bi-sun' : 'bi bi-moon';
+    }
+    syncIcon();
+    document.getElementById('themeToggle').addEventListener('click', function () {
+      const next = html.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-bs-theme', next);
+      localStorage.setItem('theme', next);
+      syncIcon();
+    });
+  })();
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

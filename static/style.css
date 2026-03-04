@@ -72,3 +72,83 @@ body {
 footer {
   font-size: 0.85rem;
 }
+
+/* ── Dark mode ── */
+
+/* Shift Bootstrap's near-black defaults to a softer dark-slate palette */
+[data-bs-theme="dark"] {
+  --bs-body-bg:         #1e2740;
+  --bs-body-bg-rgb:     30, 39, 64;
+  --bs-secondary-bg:    #263050;   /* cards, inputs */
+  --bs-secondary-bg-rgb: 38, 48, 80;
+  --bs-tertiary-bg:     #22294a;   /* table heads, subtle areas */
+  --bs-tertiary-bg-rgb: 34, 41, 74;
+  --bs-body-color:      #d8e0f0;
+  --bs-body-color-rgb:  216, 224, 240;
+  --bs-secondary-color: rgba(216, 224, 240, 0.7);
+  --bs-border-color:    #3c5080;
+  --bs-border-color-translucent: rgba(255,255,255,.12);
+}
+
+body {
+  background-color: var(--bs-body-bg);
+}
+
+/* Navbar */
+[data-bs-theme="dark"] .navbar.bg-primary {
+  background-color: #18203a !important;
+  border-bottom: 1px solid #2e3e6a;
+}
+
+/* text-dark on plain elements is invisible on dark backgrounds.
+   Leave .badge untouched — dark text on yellow warning badges is intentional. */
+[data-bs-theme="dark"] .text-dark:not(.badge) {
+  color: var(--bs-body-color) !important;
+}
+
+/* bg-dark badge (Closed status) would vanish on dark cards */
+[data-bs-theme="dark"] .badge.bg-dark {
+  background-color: #4a5670 !important;
+  color: #e8edf8 !important;
+}
+
+/* Status colour adjustments — make them more vivid on dark backgrounds */
+[data-bs-theme="dark"] .badge.bg-secondary { background-color: #5a6480 !important; }
+[data-bs-theme="dark"] .badge.bg-success   { background-color: #2a7a4f !important; }
+[data-bs-theme="dark"] .badge.bg-primary   { background-color: #1a5bbf !important; }
+
+/* Subtle card highlight tints used by stats cards */
+[data-bs-theme="dark"] .bg-warning.bg-opacity-10 { background-color: rgba(255,193,7,.15) !important; }
+[data-bs-theme="dark"] .bg-primary.bg-opacity-10 { background-color: rgba(13,110,253,.18) !important; }
+[data-bs-theme="dark"] .bg-danger.bg-opacity-10  { background-color: rgba(220,53,69,.15) !important; }
+[data-bs-theme="dark"] .bg-success.bg-opacity-10 { background-color: rgba(25,135,84,.15) !important; }
+[data-bs-theme="dark"] .bg-info.bg-opacity-10    { background-color: rgba(13,202,240,.12) !important; }
+
+/* Quill toolbar */
+[data-bs-theme="dark"] .ql-toolbar.ql-snow {
+  background: var(--bs-secondary-bg);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .ql-toolbar.ql-snow:has(+ .ql-container .ql-editor.is-invalid) {
+  border-color: #dc3545;
+}
+
+/* Quill editor area */
+[data-bs-theme="dark"] .ql-container.ql-snow {
+  background: var(--bs-tertiary-bg);
+  border-color: var(--bs-border-color);
+  color: var(--bs-body-color);
+}
+[data-bs-theme="dark"] .ql-container.ql-snow:has(.ql-editor.is-invalid) {
+  border-color: #dc3545;
+}
+
+/* Quill icons */
+[data-bs-theme="dark"] .ql-snow .ql-stroke                           { stroke: #a0aec8; }
+[data-bs-theme="dark"] .ql-snow .ql-fill,
+[data-bs-theme="dark"] .ql-snow .ql-stroke.ql-fill                  { fill: #a0aec8; }
+[data-bs-theme="dark"] .ql-snow .ql-picker                          { color: #a0aec8; }
+[data-bs-theme="dark"] .ql-snow .ql-picker-options                  { background: var(--bs-secondary-bg); border-color: var(--bs-border-color); }
+[data-bs-theme="dark"] .ql-snow.ql-toolbar button:hover .ql-stroke,
+[data-bs-theme="dark"] .ql-snow.ql-toolbar button.ql-active .ql-stroke { stroke: #fff; }
+[data-bs-theme="dark"] .ql-editor.ql-blank::before                  { color: #6070a0; }

@@ -79,47 +79,71 @@
   <div class="col-lg-8">
     <div class="card shadow-sm">
 
-      <!-- View toggle + status filter -->
+      <!-- Search + filters -->
       <div class="card-header">
-        <form method="get" class="d-flex flex-wrap align-items-center gap-2">
-          <div class="btn-group btn-group-sm" role="group">
-            <a href="{{ url_for('dashboard', view='mine', status=status_filter, company=company_filter) }}"
-               class="btn {{ 'btn-primary' if view == 'mine' else 'btn-outline-primary' }}">
-              <i class="bi bi-person me-1"></i>{{ _('My Tickets') }}
-            </a>
-            <a href="{{ url_for('dashboard', view='all', status=status_filter, company=company_filter) }}"
-               class="btn {{ 'btn-primary' if view == 'all' else 'btn-outline-primary' }}">
-              <i class="bi bi-grid me-1"></i>{{ _('All Tickets') }}
-            </a>
-            <a href="{{ url_for('dashboard', view='watched', status=status_filter, company=company_filter) }}"
-               class="btn {{ 'btn-primary' if view == 'watched' else 'btn-outline-primary' }}">
-              <i class="bi bi-eye me-1"></i>{{ _('Watched') }}
-            </a>
-          </div>
+        <form method="get" id="dashForm">
           <input type="hidden" name="view" value="{{ view }}">
-          <select name="status" class="form-select form-select-sm w-auto"
-                  onchange="this.form.submit()">
-            <option value="">{{ _('All Statuses') }}</option>
-            {% for s in status_choices %}
-            <option value="{{ s }}" {{ 'selected' if status_filter == s }}>
-              {{ status_label(s) }}
-            </option>
-            {% endfor %}
-          </select>
-          {% if companies %}
-          <select name="company" class="form-select form-select-sm w-auto"
-                  onchange="this.form.submit()">
-            <option value="">{{ _('All Companies') }}</option>
-            {% for co in companies %}
-            <option value="{{ co.name }}" {{ 'selected' if company_filter == co.name }}>{{ co.name }}</option>
-            {% endfor %}
-          </select>
-          {% endif %}
-          {% if status_filter or unassigned_filter or resolved_week_filter or company_filter %}
-          <a href="{{ url_for('dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
-          </a>
-          {% endif %}
+          <!-- Search bar -->
+          <div class="input-group input-group-sm mb-2">
+            <span class="input-group-text border-end-0 bg-transparent">
+              <i class="bi bi-search text-muted"></i>
+            </span>
+            <input type="text" name="q" class="form-control border-start-0 ps-0"
+                   placeholder="{{ _('Search tickets…') }}" value="{{ q }}"
+                   autocomplete="off">
+            {% if q %}
+            <button type="button" class="btn btn-outline-secondary"
+                    onclick="document.querySelector('[name=q]').value=''; this.closest('form').submit();">
+              <i class="bi bi-x-lg"></i>
+            </button>
+            {% endif %}
+          </div>
+          <!-- View toggle + filters row -->
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <div class="btn-group btn-group-sm" role="group">
+              <a href="{{ url_for('dashboard', view='mine', status=status_filter, company=company_filter, q=q or None) }}"
+                 class="btn {{ 'btn-primary' if view == 'mine' else 'btn-outline-primary' }}">
+                <i class="bi bi-person me-1"></i>{{ _('My Tickets') }}
+              </a>
+              <a href="{{ url_for('dashboard', view='all', status=status_filter, company=company_filter, q=q or None) }}"
+                 class="btn {{ 'btn-primary' if view == 'all' else 'btn-outline-primary' }}">
+                <i class="bi bi-grid me-1"></i>{{ _('All Tickets') }}
+              </a>
+              <a href="{{ url_for('dashboard', view='watched', status=status_filter, company=company_filter, q=q or None) }}"
+                 class="btn {{ 'btn-primary' if view == 'watched' else 'btn-outline-primary' }}">
+                <i class="bi bi-eye me-1"></i>{{ _('Watched') }}
+              </a>
+            </div>
+            <select name="status" class="form-select form-select-sm w-auto"
+                    onchange="this.form.submit()">
+              <option value="">{{ _('All Statuses') }}</option>
+              {% for s in status_choices %}
+              <option value="{{ s }}" {{ 'selected' if status_filter == s }}>
+                {{ status_label(s) }}
+              </option>
+              {% endfor %}
+            </select>
+            {% if companies %}
+            <select name="company" class="form-select form-select-sm w-auto"
+                    onchange="this.form.submit()">
+              <option value="">{{ _('All Companies') }}</option>
+              {% for co in companies %}
+              <option value="{{ co.name }}" {{ 'selected' if company_filter == co.name }}>{{ co.name }}</option>
+              {% endfor %}
+            </select>
+            {% endif %}
+            {% if q or status_filter or unassigned_filter or resolved_week_filter or company_filter %}
+            <a href="{{ url_for('dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
+            </a>
+            {% endif %}
+            {% if hide_closed %}
+            <a href="{{ url_for('dashboard', view=view, status='closed', company=company_filter, q=q or None) }}"
+               class="ms-auto text-muted small text-decoration-none">
+              <i class="bi bi-eye-slash me-1"></i>{{ _('Closed hidden') }}
+            </a>
+            {% endif %}
+          </div>
         </form>
       </div>
 
@@ -200,19 +224,19 @@
         <nav>
           <ul class="pagination pagination-sm mb-0">
             <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
-              <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', company=company_filter, page=pagination.prev_num) }}">‹</a>
+              <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', company=company_filter, page=pagination.prev_num) }}">‹</a>
             </li>
             {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
               {% if p %}
               <li class="page-item {{ 'active' if p == pagination.page }}">
-                <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', company=company_filter, page=p) }}">{{ p }}</a>
+                <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', company=company_filter, page=p) }}">{{ p }}</a>
               </li>
               {% else %}
               <li class="page-item disabled"><span class="page-link">…</span></li>
               {% endif %}
             {% endfor %}
             <li class="page-item {{ 'disabled' if not pagination.has_next }}">
-              <a class="page-link" href="{{ url_for('dashboard', view=view, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', company=company_filter, page=pagination.next_num) }}">›</a>
+              <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter, unassigned='1' if unassigned_filter else '', resolved_week='1' if resolved_week_filter else '', company=company_filter, page=pagination.next_num) }}">›</a>
             </li>
           </ul>
         </nav>
