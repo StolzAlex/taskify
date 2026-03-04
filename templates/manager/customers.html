@@ -24,9 +24,18 @@
                    required value="{{ request.form.email or '' }}">
           </div>
           <div class="mb-3">
-            <label for="company" class="form-label small fw-semibold">{{ _('Company') }}</label>
-            <input type="text" class="form-control form-control-sm" id="company" name="company"
-                   value="{{ request.form.company or '' }}">
+            <label class="form-label small fw-semibold">{{ _('Companies') }}</label>
+            {% if all_companies %}
+            <select multiple class="form-select form-select-sm mb-1" name="company_ids" size="3">
+              {% for co in all_companies %}
+              <option value="{{ co.id }}">{{ co.name }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text mb-1">{{ _('Hold Ctrl/Cmd to select multiple.') }}</div>
+            {% endif %}
+            <input type="text" class="form-control form-control-sm" name="new_company"
+                   placeholder="{{ _('Add new company\u2026') }}"
+                   value="{{ request.form.new_company or '' }}">
           </div>
           <div class="mb-3">
             <label for="password" class="form-label small fw-semibold">{{ _('Password') }}</label>
@@ -52,7 +61,7 @@
             <tr>
               <th>{{ _('Name') }}</th>
               <th>{{ _('Email') }}</th>
-              <th>{{ _('Company') }}</th>
+              <th>{{ _('Companies') }}</th>
               <th>{{ _('Status') }}</th>
               <th>{{ _('Created') }}</th>
               <th>{{ _('Created by') }}</th>
@@ -64,7 +73,15 @@
             <tr class="{{ 'table-danger' if not cust.is_active else '' }}">
               <td class="fw-semibold">{{ cust.name }}</td>
               <td class="text-muted small">{{ cust.email }}</td>
-              <td class="text-muted small">{{ cust.company or '—' }}</td>
+              <td class="small">
+                {% if cust.companies %}
+                  {% for co in cust.companies %}
+                  <span class="badge bg-secondary me-1">{{ co.name }}</span>
+                  {% endfor %}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
               <td>
                 {% if cust.is_active %}
                   <span class="badge bg-success">{{ _('Active') }}</span>
@@ -77,8 +94,11 @@
                 {{ cust.created_by.username if cust.created_by else '—' }}
               </td>
               <td class="text-nowrap">
-                <button type="button" class="btn btn-sm btn-outline-secondary"
-                        onclick="openEditUser('{{ url_for('edit_customer', cust_id=cust.id) }}', '{{ cust.name|e }}', '{{ cust.email|e }}', '{{ (cust.company or '')|e }}')"
+                <button type="button" class="btn btn-sm btn-outline-secondary edit-customer-btn"
+                        data-action="{{ url_for('edit_customer', cust_id=cust.id) }}"
+                        data-name="{{ cust.name|e }}"
+                        data-email="{{ cust.email|e }}"
+                        data-company-ids="{{ cust.companies|map(attribute='id')|list|tojson }}"
                         title="{{ _('Edit') }}">
                   <i class="bi bi-pencil"></i>
                 </button>
@@ -137,8 +157,17 @@
             <input type="email" name="email" id="editEmail" class="form-control form-control-sm" required>
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold">{{ _('Company') }}</label>
-            <input type="text" name="company" id="editCompany" class="form-control form-control-sm">
+            <label class="form-label small fw-semibold">{{ _('Companies') }}</label>
+            {% if all_companies %}
+            <select multiple class="form-select form-select-sm mb-1" name="company_ids" id="editCompanyIds" size="3">
+              {% for co in all_companies %}
+              <option value="{{ co.id }}">{{ co.name }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text mb-1">{{ _('Hold Ctrl/Cmd to select multiple.') }}</div>
+            {% endif %}
+            <input type="text" class="form-control form-control-sm" name="new_company"
+                   id="editNewCompany" placeholder="{{ _('Add new company\u2026') }}">
           </div>
           <div class="mb-1">
             <label class="form-label small fw-semibold">{{ _('New Password') }}</label>
@@ -158,13 +187,22 @@
 
 {% block scripts %}
 <script>
-function openEditUser(action, name, email, company) {
-  document.getElementById('editUserForm').action = action;
-  document.getElementById('editName').value = name;
-  document.getElementById('editEmail').value = email;
-  document.getElementById('editCompany').value = company || '';
-  document.querySelector('#editUserModal input[name=password]').value = '';
-  new bootstrap.Modal(document.getElementById('editUserModal')).show();
-}
+document.querySelectorAll('.edit-customer-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var companyIds = JSON.parse(this.dataset.companyIds || '[]');
+    document.getElementById('editUserForm').action = this.dataset.action;
+    document.getElementById('editName').value  = this.dataset.name;
+    document.getElementById('editEmail').value = this.dataset.email;
+    document.getElementById('editNewCompany').value = '';
+    document.querySelector('#editUserModal input[name=password]').value = '';
+    var sel = document.getElementById('editCompanyIds');
+    if (sel) {
+      for (var i = 0; i < sel.options.length; i++) {
+        sel.options[i].selected = companyIds.includes(parseInt(sel.options[i].value));
+      }
+    }
+    new bootstrap.Modal(document.getElementById('editUserModal')).show();
+  });
+});
 </script>
 {% endblock %}

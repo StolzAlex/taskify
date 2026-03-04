@@ -111,7 +111,7 @@
                   onchange="this.form.submit()">
             <option value="">{{ _('All Companies') }}</option>
             {% for co in companies %}
-            <option value="{{ co }}" {{ 'selected' if company_filter == co }}>{{ co }}</option>
+            <option value="{{ co.name }}" {{ 'selected' if company_filter == co.name }}>{{ co.name }}</option>
             {% endfor %}
           </select>
           {% endif %}
@@ -150,8 +150,10 @@
               </td>
               <td class="small">
                 {% set cust = customer_map.get(ticket.submitter_email.lower()) %}
-                {% if cust and cust.company %}
-                  <div class="fw-semibold text-dark">{{ cust.company }}</div>
+                {% if cust and cust.companies %}
+                  {% for co in cust.companies %}
+                  <div class="fw-semibold text-dark">{{ co.name }}</div>
+                  {% endfor %}
                   <div class="text-muted">{{ ticket.submitter_email }}</div>
                 {% else %}
                   <span class="text-muted">{{ ticket.submitter_email }}</span>

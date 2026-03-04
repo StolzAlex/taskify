@@ -52,19 +52,34 @@ class Employee(UserMixin, db.Model):
         return str(self.id)
 
 
+customer_companies = db.Table(
+    'customer_companies',
+    db.Column('customer_id', db.Integer, db.ForeignKey('customers.id'), primary_key=True),
+    db.Column('company_id',  db.Integer, db.ForeignKey('companies.id'),  primary_key=True),
+)
+
+
+class Company(db.Model):
+    __tablename__ = 'companies'
+
+    id         = db.Column(db.Integer, primary_key=True)
+    name       = db.Column(db.String(120), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 class Customer(db.Model):
     __tablename__ = 'customers'
 
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    name = db.Column(db.String(120), nullable=False)
-    company = db.Column(db.String(120), nullable=True)
+    id            = db.Column(db.Integer, primary_key=True)
+    email         = db.Column(db.String(120), unique=True, nullable=False)
+    name          = db.Column(db.String(120), nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    is_active     = db.Column(db.Boolean, default=True, nullable=False)
     created_by_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     created_by = db.relationship('Employee', backref='created_customers')
+    companies  = db.relationship('Company', secondary=customer_companies, backref='customers')
 
     def set_password(self, p):
         self.password_hash = generate_password_hash(p)

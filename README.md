@@ -331,8 +331,10 @@ taskify/
 Employee   — id, username, email, password_hash (nullable), is_admin, is_manager,
              is_active, github_id (unique), github_login, preferences (JSON),
              created_at
-Customer   — id, email (unique), name, company (optional), password_hash, is_active,
+Company    — id, name (unique), created_at
+Customer   — id, email (unique), name, password_hash, is_active,
              created_by_id FK → employees, created_at
+             ↔ companies  (many-to-many via customer_companies)
 Ticket     — id, token (UUID), submitter_email, subject, body, status,
              github_pr_url, github_pr_title, created_at, updated_at
 Assignment — ticket_id FK, employee_id FK          [one per ticket]
@@ -399,8 +401,29 @@ CREATE TABLE IF NOT EXISTS ticket_events (
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Added later: company field for customers
+-- Added later: company field for customers (superseded by many-to-many below)
 ALTER TABLE customers ADD COLUMN company VARCHAR(120);
+
+-- Added later: multi-company support
+CREATE TABLE IF NOT EXISTS companies (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       VARCHAR(120) UNIQUE NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS customer_companies (
+    customer_id INTEGER NOT NULL REFERENCES customers(id),
+    company_id  INTEGER NOT NULL REFERENCES companies(id),
+    PRIMARY KEY (customer_id, company_id)
+);
+-- Migrate existing single-company data:
+INSERT OR IGNORE INTO companies (name)
+    SELECT DISTINCT company FROM customers WHERE company IS NOT NULL AND company != '';
+INSERT OR IGNORE INTO customer_companies (customer_id, company_id)
+    SELECT c.id, co.id FROM customers c
+    JOIN companies co ON co.name = c.company
+    WHERE c.company IS NOT NULL AND c.company != '';
+-- The old company column can be dropped once data is verified:
+-- ALTER TABLE customers DROP COLUMN company;
 
 -- Added later: employee-assigned internal title for tickets
 ALTER TABLE tickets ADD COLUMN internal_title VARCHAR(200);

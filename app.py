@@ -18,7 +18,7 @@ from markupsafe import escape
 from werkzeug.utils import secure_filename
 
 from config import Config
-from models import db, Employee, Customer, Ticket, Assignment, Message, Attachment, TicketEvent, TicketWatch
+from models import db, Employee, Customer, Company, Ticket, Assignment, Message, Attachment, TicketEvent, TicketWatch
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -157,7 +157,6 @@ def send_email(subject, recipients, body_text, body_html=None):
                     addr=', '.join(recipients)), 'warning')
             return False
         app.logger.info(f'Email sent to {recipients}: {subject}')
-        flash(_('Email sent to %(addr)s.', addr=', '.join(recipients)), 'info')
         return True
     except Exception as e:
         server = f"{app.config.get('MAIL_SERVER')}:{app.config.get('MAIL_PORT')}"
@@ -192,7 +191,10 @@ def notify_submitter_update(ticket, extra_message=None):
     )
     if extra_message:
         body += f"Message from support:\n{extra_message}\n\n"
-    body += f"View your ticket at:\n{status_url}"
+    if ticket.status in ('resolved', 'closed'):
+        body += "This ticket is now closed. No further action is required on your part."
+    else:
+        body += f"View your ticket at:\n{status_url}"
     send_email(
         subject=f"[Taskify] Ticket #{ticket.id} updated – {ticket.subject}",
         recipients=[ticket.submitter_email],
@@ -238,13 +240,12 @@ def notify_assignee_assigned(ticket, employee):
 
 
 def notify_watchers(ticket, subject, body, exclude_employee_id=None):
+    assignee_id = ticket.assignment.employee_id if ticket.assignment else None
+    excluded = {eid for eid in [exclude_employee_id, assignee_id] if eid}
     watches = TicketWatch.query.filter_by(ticket_id=ticket.id).all()
-    recipients = [
-        w.employee.email for w in watches
-        if w.employee_id != exclude_employee_id and w.employee.is_active
-    ]
-    if recipients:
-        send_email(subject=subject, recipients=recipients, body_text=body)
+    for w in watches:
+        if w.employee_id not in excluded and w.employee.is_active:
+            send_email(subject=subject, recipients=[w.employee.email], body_text=body)
 
 
 def send_customer_welcome_email(customer, plain_password):
@@ -360,11 +361,10 @@ def customer_reply(token):
         return redirect(url_for('login'))
     ticket = Ticket.query.filter_by(token=token).first_or_404()
     body = request.form.get('body', '').strip()
-    if not body:
+    if not body or body == '<p><br></p>':
         flash(_('Reply cannot be empty.'), 'danger')
         return redirect(url_for('ticket_status', token=token))
-    safe_body = '<p>' + str(escape(body)).replace('\n\n', '</p><p>').replace('\n', '<br>') + '</p>'
-    msg = Message(ticket_id=ticket.id, employee_id=None, body=safe_body,
+    msg = Message(ticket_id=ticket.id, employee_id=None, body=body,
                   is_customer_visible=False, is_customer_reply=True)
     db.session.add(msg)
     ticket.updated_at = datetime.utcnow()
@@ -538,29 +538,49 @@ def serve_attachment_customer(ticket_id, filename):
 # Manager routes
 # ---------------------------------------------------------------------------
 
+def _resolve_companies(company_ids, new_name):
+    """Return a list of Company objects from selected IDs + optional new name."""
+    selected = Company.query.filter(Company.id.in_(company_ids)).all() if company_ids else []
+    if new_name:
+        existing = Company.query.filter(Company.name.ilike(new_name)).first()
+        if existing:
+            if existing not in selected:
+                selected.append(existing)
+        else:
+            co = Company(name=new_name)
+            db.session.add(co)
+            db.session.flush()
+            selected.append(co)
+    return selected
+
+
 @app.route('/manager/customers', methods=['GET', 'POST'])
 @login_required
 @manager_required
 def manager_customers():
     if request.method == 'POST':
-        name = request.form.get('name', '').strip()
-        email = request.form.get('email', '').strip()
+        name     = request.form.get('name', '').strip()
+        email    = request.form.get('email', '').strip()
         password = request.form.get('password', '')
-        company = request.form.get('company', '').strip() or None
         if not name or not email or not password:
             flash(_('All fields are required.'), 'danger')
         elif Customer.query.filter(Customer.email.ilike(email)).first():
             flash(_('Email already in use.'), 'danger')
         else:
-            customer = Customer(name=name, email=email, company=company, created_by_id=current_user.id)
+            customer = Customer(name=name, email=email, created_by_id=current_user.id)
             customer.set_password(password)
+            customer.companies = _resolve_companies(
+                request.form.getlist('company_ids', type=int),
+                request.form.get('new_company', '').strip(),
+            )
             db.session.add(customer)
             db.session.commit()
             send_customer_welcome_email(customer, password)
             flash(_('Customer "%(name)s" created.', name=name), 'success')
         return redirect(url_for('manager_customers'))
-    customers = Customer.query.order_by(Customer.created_at.desc()).all()
-    return render_template('manager/customers.html', customers=customers)
+    customers    = Customer.query.order_by(Customer.created_at.desc()).all()
+    all_companies = Company.query.order_by(Company.name).all()
+    return render_template('manager/customers.html', customers=customers, all_companies=all_companies)
 
 
 @app.route('/manager/customers/<int:cust_id>/toggle', methods=['POST'])
@@ -625,9 +645,10 @@ def dashboard():
             Ticket.updated_at >= week_ago_filter
         )
     if company_filter:
-        company_emails = db.session.query(db.func.lower(Customer.email)).filter_by(
-            company=company_filter)
-        query = query.filter(db.func.lower(Ticket.submitter_email).in_(company_emails))
+        co = Company.query.filter_by(name=company_filter).first()
+        if co:
+            co_emails = [c.email.lower() for c in co.customers]
+            query = query.filter(db.func.lower(Ticket.submitter_email).in_(co_emails))
     watched_ids = {w.ticket_id for w in TicketWatch.query.filter_by(employee_id=current_user.id).all()}
     if view == 'mine':
         query = query.join(Assignment).filter(Assignment.employee_id == current_user.id)
@@ -648,9 +669,8 @@ def dashboard():
     else:
         customer_map = {}
 
-    # All distinct companies for filter dropdown
-    companies = sorted({c.company for c in Customer.query.filter(
-        Customer.company.isnot(None)).all()})
+    # All companies for filter dropdown
+    companies = Company.query.order_by(Company.name).all()
 
     if view == 'mine':
         my_ticket_ids = db.session.query(Assignment.ticket_id).filter(
@@ -703,6 +723,84 @@ def dashboard():
                            recent_events=recent_events,
                            stats=stats,
                            watched_ids=watched_ids)
+
+
+@app.route('/search')
+@login_required
+def search():
+    q           = request.args.get('q', '').strip()
+    status_f    = request.args.get('status', '')
+    date_from   = request.args.get('date_from', '')
+    date_to     = request.args.get('date_to', '')
+    assignee_id = request.args.get('assignee', '')
+    company_f   = request.args.get('company', '')
+
+    performed = bool(q or status_f or date_from or date_to or assignee_id or company_f)
+
+    tickets    = []
+    pagination = None
+
+    if performed:
+        query = Ticket.query
+
+        if q:
+            msg_ids = db.session.query(Message.ticket_id).filter(Message.body.ilike(f'%{q}%'))
+            query = query.filter(db.or_(
+                Ticket.subject.ilike(f'%{q}%'),
+                Ticket.body.ilike(f'%{q}%'),
+                Ticket.internal_title.ilike(f'%{q}%'),
+                Ticket.submitter_email.ilike(f'%{q}%'),
+                Ticket.id.in_(msg_ids),
+            ))
+
+        if status_f:
+            query = query.filter(Ticket.status == status_f)
+
+        if date_from:
+            try:
+                query = query.filter(Ticket.created_at >= datetime.strptime(date_from, '%Y-%m-%d'))
+            except ValueError:
+                pass
+
+        if date_to:
+            try:
+                dt = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+                query = query.filter(Ticket.created_at < dt)
+            except ValueError:
+                pass
+
+        if assignee_id:
+            try:
+                query = query.join(Assignment).filter(Assignment.employee_id == int(assignee_id))
+            except ValueError:
+                pass
+
+        if company_f:
+            co = Company.query.filter_by(name=company_f).first()
+            if co:
+                co_emails = [c.email.lower() for c in co.customers]
+                query = query.filter(db.func.lower(Ticket.submitter_email).in_(co_emails))
+
+        page     = request.args.get('page', 1, type=int)
+        per_page = 25
+        pagination = query.order_by(Ticket.updated_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False)
+        tickets = pagination.items
+
+    submitter_emails = [t.submitter_email.lower() for t in tickets]
+    customer_map = {c.email.lower(): c for c in Customer.query.filter(
+        db.func.lower(Customer.email).in_(submitter_emails)).all()} if submitter_emails else {}
+
+    employees = Employee.query.filter_by(is_active=True).order_by(Employee.username).all()
+    companies = Company.query.order_by(Company.name).all()
+
+    return render_template('search.html',
+                           tickets=tickets, pagination=pagination, per_page=25,
+                           q=q, status_filter=status_f, date_from=date_from, date_to=date_to,
+                           assignee_id=assignee_id, company_filter=company_f,
+                           employees=employees, companies=companies,
+                           status_choices=Ticket.STATUS_CHOICES,
+                           customer_map=customer_map, performed=performed)
 
 
 def _sync_github_issue(ticket):
@@ -1251,10 +1349,12 @@ def edit_customer(cust_id):
     if Customer.query.filter(Customer.email == email, Customer.id != customer.id).first():
         flash(_('Email already in use.'), 'danger')
         return redirect(url_for('manager_customers'))
-    company = request.form.get('company', '').strip() or None
-    customer.name    = name
-    customer.email   = email
-    customer.company = company
+    customer.name      = name
+    customer.email     = email
+    customer.companies = _resolve_companies(
+        request.form.getlist('company_ids', type=int),
+        request.form.get('new_company', '').strip(),
+    )
     if password:
         customer.set_password(password)
     db.session.commit()

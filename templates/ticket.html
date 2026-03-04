@@ -280,7 +280,8 @@
       </div>
     </div>
 
-    <!-- Watch -->
+    <!-- Watch (hidden when current user is the assignee — they already receive all notifications) -->
+    {% if not (ticket.assignee and ticket.assignee.id == current_user.id) %}
     <div class="card shadow-sm mb-3">
       <div class="card-body p-2">
         <form method="post" action="{{ url_for('toggle_watch', ticket_id=ticket.id) }}">
@@ -296,6 +297,7 @@
         </form>
       </div>
     </div>
+    {% endif %}
 
     <!-- Internal title -->
     <div class="card shadow-sm mb-3">

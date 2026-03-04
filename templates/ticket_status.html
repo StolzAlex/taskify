@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}{{ _('Ticket #%(id)s Status', id=ticket.id) }} – Taskify{% endblock %}
 
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-lg-8">
@@ -89,11 +93,9 @@
         <h6 class="mb-0"><i class="bi bi-reply me-1"></i>{{ _('Reply') }}</h6>
       </div>
       <div class="card-body">
-        <form method="post" action="{{ url_for('customer_reply', token=ticket.token) }}">
-          <div class="mb-3">
-            <textarea class="form-control" name="body" rows="4"
-                      placeholder="{{ _('Write your reply\u2026') }}" required></textarea>
-          </div>
+        <form method="post" action="{{ url_for('customer_reply', token=ticket.token) }}" id="replyForm">
+          <input type="hidden" name="body" id="replyBody">
+          <div id="quill-reply" style="min-height: 120px;" class="mb-3"></div>
           <button type="submit" class="btn btn-primary btn-sm">
             <i class="bi bi-send me-1"></i>{{ _('Send Reply') }}
           </button>
@@ -112,4 +114,35 @@
     </p>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script>
+  const replyQuill = new Quill('#quill-reply', {
+    theme: 'snow',
+    placeholder: '{{ _("Write your reply\u2026") }}',
+    modules: {
+      toolbar: [
+        ['bold', 'italic', 'underline'],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        ['link', 'blockquote'],
+        ['clean']
+      ]
+    }
+  });
+
+  document.getElementById('replyForm').addEventListener('submit', function (e) {
+    if (replyQuill.getText().trim().length === 0) {
+      e.preventDefault();
+      replyQuill.root.classList.add('is-invalid');
+      return;
+    }
+    document.getElementById('replyBody').value = replyQuill.root.innerHTML;
+  });
+
+  replyQuill.on('text-change', function () {
+    replyQuill.root.classList.remove('is-invalid');
+  });
+</script>
 {% endblock %}
