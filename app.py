@@ -544,44 +544,107 @@ def customer_logout():
 @customer_required
 def customer_dashboard():
     customer = get_current_customer()
-    tickets = Ticket.query.filter(
+
+    view          = request.args.get('view', 'all')
+    if view not in ('all', 'awaiting', 'closed'):
+        view = 'all'
+    status_filter = request.args.get('status', '')
+    q             = request.args.get('q', '').strip()
+
+    base_query = Ticket.query.filter(Ticket.submitter_email.ilike(customer.email))
+
+    # Tickets where the last customer-visible message is from support (not the customer)
+    cust_ticket_ids_sq = db.session.query(Ticket.id).filter(
         Ticket.submitter_email.ilike(customer.email)
-    ).order_by(Ticket.updated_at.desc()).all()
-
-    # Per-ticket metadata
-    ticket_meta = {}
-    for t in tickets:
-        visible = t.messages.filter_by(is_customer_visible=True)
-        last_msg = (Message.query
-                    .filter(Message.ticket_id == t.id,
-                            db.or_(Message.is_customer_visible == True,
-                                   Message.is_customer_reply == True))
-                    .order_by(Message.created_at.desc())
-                    .first())
-        ticket_meta[t.id] = {
-            'reply_count':    visible.count(),
-            'awaiting_reply': last_msg is not None and not last_msg.is_customer_reply,
-        }
-
-    stats = {
-        'open':           sum(1 for t in tickets if t.status == 'open'),
-        'in_progress':    sum(1 for t in tickets if t.status == 'in_progress'),
-        'awaiting_reply': sum(1 for t in tickets if ticket_meta[t.id]['awaiting_reply']),
-        'resolved':       sum(1 for t in tickets if t.status == 'resolved'),
-        'closed':         sum(1 for t in tickets if t.status == 'closed'),
+    )
+    latest_msg_sq = (
+        db.session.query(Message.ticket_id, db.func.max(Message.id).label('max_id'))
+        .filter(db.or_(Message.is_customer_visible == True, Message.is_customer_reply == True))
+        .group_by(Message.ticket_id)
+        .subquery()
+    )
+    awaiting_reply_ids = {
+        row[0] for row in
+        db.session.query(Message.ticket_id)
+        .join(latest_msg_sq, db.and_(
+            Message.ticket_id == latest_msg_sq.c.ticket_id,
+            Message.id == latest_msg_sq.c.max_id,
+        ))
+        .filter(
+            Message.is_customer_reply == False,
+            Message.ticket_id.in_(cust_ticket_ids_sq),
+        )
+        .all()
     }
 
-    ticket_ids = [t.id for t in tickets]
+    query = base_query
+    hide_closed = False
+
+    if view == 'awaiting':
+        query = query.filter(Ticket.id.in_(awaiting_reply_ids))
+    elif view == 'closed':
+        query = query.filter(Ticket.status.in_(['resolved', 'closed']))
+    else:
+        if not status_filter:
+            query = query.filter(Ticket.status.notin_(['resolved', 'closed']))
+            hide_closed = True
+
+    if status_filter:
+        query = query.filter(Ticket.status == status_filter)
+
+    if q:
+        query = query.filter(db.or_(
+            Ticket.subject.ilike(f'%{q}%'),
+            Ticket.body.ilike(f'%{q}%'),
+        ))
+
+    page     = request.args.get('page', 1, type=int)
+    per_page = 20
+    pagination = query.order_by(Ticket.updated_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False)
+    tickets = pagination.items
+
+    # Stats computed from the full unfiltered set
+    all_tickets = base_query.all()
+    stats = {
+        'open':           sum(1 for t in all_tickets if t.status == 'open'),
+        'in_progress':    sum(1 for t in all_tickets if t.status == 'in_progress'),
+        'awaiting_reply': sum(1 for t in all_tickets
+                              if t.id in awaiting_reply_ids and t.status not in ('resolved', 'closed')),
+        'closed':         sum(1 for t in all_tickets if t.status in ('resolved', 'closed')),
+    }
+
+    # Per-ticket metadata for the displayed page only
+    ticket_meta = {
+        t.id: {
+            'reply_count':    t.messages.filter_by(is_customer_visible=True).count(),
+            'awaiting_reply': t.id in awaiting_reply_ids,
+        }
+        for t in tickets
+    }
+
+    all_ticket_ids = [t.id for t in all_tickets]
     recent_events = (TicketEvent.query
                      .filter(
-                         TicketEvent.ticket_id.in_(ticket_ids),
+                         TicketEvent.ticket_id.in_(all_ticket_ids),
                          TicketEvent.event_type.in_(['status', 'customer_reply', 'attachment', 'assignment'])
                      )
                      .order_by(TicketEvent.created_at.desc())
-                     .limit(15).all()) if ticket_ids else []
+                     .limit(15).all()) if all_ticket_ids else []
 
-    return render_template('customer/dashboard.html', customer=customer, tickets=tickets,
-                           ticket_meta=ticket_meta, stats=stats, recent_events=recent_events)
+    return render_template('customer/dashboard.html',
+                           customer=customer,
+                           tickets=tickets,
+                           pagination=pagination, per_page=per_page,
+                           ticket_meta=ticket_meta,
+                           stats=stats,
+                           recent_events=recent_events,
+                           view=view,
+                           status_filter=status_filter,
+                           status_choices=Ticket.STATUS_CHOICES,
+                           q=q,
+                           hide_closed=hide_closed,
+                           awaiting_reply_ids=awaiting_reply_ids)
 
 
 @app.route('/customer/uploads/<int:ticket_id>/<filename>')
@@ -729,6 +792,23 @@ def dashboard():
             co_emails = [c.email.lower() for c in co.customers]
             query = query.filter(db.func.lower(Ticket.submitter_email).in_(co_emails))
     watched_ids = {w.ticket_id for w in TicketWatch.query.filter_by(employee_id=current_user.id).all()}
+
+    # Tickets where the most recent message is a customer reply (needs a response)
+    latest_msg_sq = (
+        db.session.query(Message.ticket_id, db.func.max(Message.id).label('max_id'))
+        .group_by(Message.ticket_id).subquery()
+    )
+    awaiting_reply_ids = {
+        row[0] for row in
+        db.session.query(Message.ticket_id)
+        .join(latest_msg_sq, db.and_(
+            Message.ticket_id == latest_msg_sq.c.ticket_id,
+            Message.id == latest_msg_sq.c.max_id,
+        ))
+        .filter(Message.is_customer_reply == True)
+        .all()
+    }
+
     if view == 'mine':
         query = query.join(Assignment).filter(Assignment.employee_id == current_user.id)
     elif view == 'watched':
@@ -803,6 +883,7 @@ def dashboard():
                            recent_events=recent_events,
                            stats=stats,
                            watched_ids=watched_ids,
+                           awaiting_reply_ids=awaiting_reply_ids,
                            hide_closed=hide_closed)
 
 

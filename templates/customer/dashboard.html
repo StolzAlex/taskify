@@ -3,55 +3,53 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h3 mb-0">
-    <i class="bi bi-ticket me-1"></i>{{ _('My Tickets') }}
-  </h1>
+  <h1 class="h3 mb-0"><i class="bi bi-ticket me-1"></i>{{ _('My Tickets') }}</h1>
   <a href="{{ url_for('submit') }}" class="btn btn-outline-primary btn-sm">
     <i class="bi bi-plus-lg me-1"></i>{{ _('New Ticket') }}
   </a>
 </div>
 
-<!-- Stats -->
-<div class="row g-3 mb-4">
-  <div class="col-6 col-md-4 col-xl">
-    <div class="card shadow-sm h-100 border-secondary border-opacity-75">
-      <div class="card-body text-center py-3">
-        <div class="fs-2 fw-bold text-secondary">{{ stats.open }}</div>
-        <div class="small text-muted">{{ _('Open') }}</div>
+<!-- Stats row -->
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-3">
+    <a href="{{ url_for('customer_dashboard', view='all', status='open') }}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 {{ 'border-secondary border-2' if status_filter == 'open' }}">
+        <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
+          <span class="fs-3 fw-bold text-secondary lh-1">{{ stats.open }}</span>
+          <span class="small text-muted">{{ _('Open') }}</span>
+        </div>
       </div>
-    </div>
+    </a>
   </div>
-  <div class="col-6 col-md-4 col-xl">
-    <div class="card shadow-sm h-100 border-primary border-opacity-75">
-      <div class="card-body text-center py-3">
-        <div class="fs-2 fw-bold text-primary">{{ stats.in_progress }}</div>
-        <div class="small text-muted">{{ _('In Progress') }}</div>
+  <div class="col-6 col-md-3">
+    <a href="{{ url_for('customer_dashboard', view='all', status='in_progress') }}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 {{ 'border-primary border-2' if status_filter == 'in_progress' }}">
+        <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
+          <span class="fs-3 fw-bold text-primary lh-1">{{ stats.in_progress }}</span>
+          <span class="small text-muted">{{ _('In Progress') }}</span>
+        </div>
       </div>
-    </div>
+    </a>
   </div>
-  <div class="col-6 col-md-4 col-xl">
-    <div class="card shadow-sm h-100 border-warning border-opacity-75">
-      <div class="card-body text-center py-3">
-        <div class="fs-2 fw-bold {{ 'text-warning' if stats.awaiting_reply else 'text-muted' }}">{{ stats.awaiting_reply }}</div>
-        <div class="small text-muted">{{ _('Awaiting your reply') }}</div>
+  <div class="col-6 col-md-3">
+    <a href="{{ url_for('customer_dashboard', view='awaiting') }}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 {{ 'border-warning border-2' if view == 'awaiting' }}">
+        <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
+          <span class="fs-3 fw-bold lh-1 {{ 'text-warning' if stats.awaiting_reply else 'text-muted' }}">{{ stats.awaiting_reply }}</span>
+          <span class="small text-muted">{{ _('Awaiting reply') }}</span>
+        </div>
       </div>
-    </div>
+    </a>
   </div>
-  <div class="col-6 col-md-4 col-xl">
-    <div class="card shadow-sm h-100 border-success border-opacity-75">
-      <div class="card-body text-center py-3">
-        <div class="fs-2 fw-bold text-success">{{ stats.resolved }}</div>
-        <div class="small text-muted">{{ _('Resolved') }}</div>
+  <div class="col-6 col-md-3">
+    <a href="{{ url_for('customer_dashboard', view='closed') }}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 {{ 'border-success border-2' if view == 'closed' }}">
+        <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
+          <span class="fs-3 fw-bold text-success lh-1">{{ stats.closed }}</span>
+          <span class="small text-muted">{{ _('Resolved / Closed') }}</span>
+        </div>
       </div>
-    </div>
-  </div>
-  <div class="col-6 col-md-4 col-xl">
-    <div class="card shadow-sm h-100 border-dark border-opacity-75">
-      <div class="card-body text-center py-3">
-        <div class="fs-2 fw-bold text-dark">{{ stats.closed }}</div>
-        <div class="small text-muted">{{ _('Closed') }}</div>
-      </div>
-    </div>
+    </a>
   </div>
 </div>
 
@@ -60,27 +58,92 @@
   <!-- Ticket list -->
   <div class="col-lg-8">
     <div class="card shadow-sm">
-      <div class="card-header">
-        <h6 class="mb-0">{{ _('Welcome, %(name)s!', name=customer.name) }}</h6>
+
+      <!-- Tabs + filters -->
+      <div class="card-header p-0">
+
+        <!-- View tabs -->
+        <ul class="nav nav-tabs card-header-tabs px-3 pt-2">
+          <li class="nav-item">
+            <a class="nav-link {{ 'active' if view == 'all' }}"
+               href="{{ url_for('customer_dashboard', view='all', status=status_filter or None, q=q or None) }}">
+              <i class="bi bi-grid me-1"></i>{{ _('All') }}
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {{ 'active' if view == 'awaiting' }}"
+               href="{{ url_for('customer_dashboard', view='awaiting') }}">
+              <i class="bi bi-chat-dots me-1"></i>{{ _('Awaiting reply') }}
+              {% if stats.awaiting_reply %}
+              <span class="badge rounded-pill bg-warning text-dark ms-1">{{ stats.awaiting_reply }}</span>
+              {% endif %}
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {{ 'active' if view == 'closed' }}"
+               href="{{ url_for('customer_dashboard', view='closed', q=q or None) }}">
+              <i class="bi bi-check-circle me-1"></i>{{ _('Resolved / Closed') }}
+            </a>
+          </li>
+        </ul>
+
+        <!-- Filter row -->
+        <form method="get" class="px-3 py-2 d-flex flex-wrap align-items-center gap-2">
+          <input type="hidden" name="view" value="{{ view }}">
+          <div class="input-group input-group-sm" style="max-width:260px;">
+            <span class="input-group-text border-end-0 bg-transparent">
+              <i class="bi bi-search text-muted"></i>
+            </span>
+            <input type="text" name="q" class="form-control border-start-0 ps-0"
+                   placeholder="{{ _('Search tickets…') }}" value="{{ q }}" autocomplete="off">
+            {% if q %}
+            <button type="button" class="btn btn-outline-secondary"
+                    onclick="document.querySelector('[name=q]').value=''; this.closest('form').submit();">
+              <i class="bi bi-x-lg"></i>
+            </button>
+            {% endif %}
+          </div>
+
+          {% if view != 'awaiting' %}
+          <select name="status" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+            <option value="">{{ _('All Statuses') }}</option>
+            {% for s in status_choices %}
+            <option value="{{ s }}" {{ 'selected' if status_filter == s }}>{{ status_label(s) }}</option>
+            {% endfor %}
+          </select>
+          {% endif %}
+
+          {% if q or status_filter %}
+          <a href="{{ url_for('customer_dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
+          </a>
+          {% endif %}
+
+          {% if hide_closed %}
+          <span class="ms-auto text-muted small text-nowrap">
+            <i class="bi bi-eye-slash me-1"></i>{{ _('Closed hidden') }}
+          </span>
+          {% endif %}
+        </form>
       </div>
 
       {% if tickets %}
-      <div class="table-responsive pb-2">
+      <div class="table-responsive">
         <table class="table table-hover table-sm align-middle mb-0">
           <thead class="table-light">
             <tr>
-              <th>#</th>
+              <th class="ps-3" style="width:3rem">#</th>
               <th>{{ _('Subject') }}</th>
               <th>{{ _('Status') }}</th>
               <th class="text-center">{{ _('Replies') }}</th>
-              <th>{{ _('Updated') }}</th>
+              <th class="text-nowrap">{{ _('Updated') }}</th>
             </tr>
           </thead>
           <tbody>
             {% for ticket in tickets %}
             {% set meta = ticket_meta[ticket.id] %}
             <tr>
-              <td class="text-muted small">{{ ticket.id }}</td>
+              <td class="text-muted small ps-3">{{ ticket.id }}</td>
               <td>
                 {% if ticket.status in ('resolved', 'closed') %}
                   <span class="text-muted">{{ ticket.subject }}</span>
@@ -89,40 +152,81 @@
                      class="text-decoration-none fw-semibold">
                     {{ ticket.subject }}
                   </a>
-                  {% if meta.awaiting_reply %}
-                    <span class="badge bg-warning text-dark ms-1" title="{{ _('Support replied — awaiting your response') }}">
-                      <i class="bi bi-chat-dots-fill"></i>
-                    </span>
-                  {% endif %}
+                {% endif %}
+                {% if meta.awaiting_reply %}
+                <span class="badge bg-warning text-dark ms-1">
+                  <i class="bi bi-chat-dots-fill me-1"></i>{{ _('Reply from support') }}
+                </span>
                 {% endif %}
               </td>
               <td>
-                <span class="badge bg-{{ ticket.status_badge }}">
-                  {{ status_label(ticket.status) }}
-                </span>
+                <span class="badge bg-{{ ticket.status_badge }}">{{ status_label(ticket.status) }}</span>
               </td>
               <td class="text-center text-muted small">{{ meta.reply_count }}</td>
-              <td class="text-muted small">{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td class="text-muted small text-nowrap"
+                  title="{{ _('Created') }}: {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}">
+                {{ ticket.updated_at.strftime('%d.%m. %H:%M') }}
+              </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+
       {% else %}
-      <div class="card-body text-muted text-center">
-        <i class="bi bi-inbox me-2"></i>{{ _("You haven't submitted any tickets yet.") }}
-        <a href="{{ url_for('submit') }}" class="ms-1">{{ _('Submit your first ticket') }}</a>
+      <div class="card-body text-center text-muted py-5">
+        <i class="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
+        {% if view == 'awaiting' %}
+          {{ _('No tickets are awaiting your reply.') }}
+        {% elif view == 'closed' %}
+          {{ _('No resolved or closed tickets.') }}
+        {% elif q or status_filter %}
+          {{ _('No tickets match your filters.') }}
+        {% else %}
+          {{ _("You haven't submitted any tickets yet.") }}
+          <div class="mt-2">
+            <a href="{{ url_for('submit') }}">{{ _('Submit your first ticket') }}</a>
+          </div>
+        {% endif %}
       </div>
       {% endif %}
 
-      <div class="card-footer small text-muted py-2">
-        {% set total = tickets | length %}
-        {% if total == 1 %}
-          {{ _('1 ticket') }}
-        {% else %}
-          {{ _('%(n)s tickets', n=total) }}
+      <!-- Footer: count + pagination -->
+      <div class="card-footer d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
+        <span class="small text-muted">
+          {% if pagination.total == 0 %}
+            {{ _('No tickets') }}
+          {% elif pagination.pages == 1 %}
+            {{ _('%(total)s tickets', total=pagination.total) }}
+          {% else %}
+            {% set first = (pagination.page - 1) * per_page + 1 %}
+            {% set last  = [pagination.page * per_page, pagination.total] | min %}
+            {{ _('%(first)s–%(last)s of %(total)s tickets', first=first, last=last, total=pagination.total) }}
+          {% endif %}
+        </span>
+        {% if pagination.pages > 1 %}
+        <nav>
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+              <a class="page-link" href="{{ url_for('customer_dashboard', view=view, q=q or None, status=status_filter or None, page=pagination.prev_num) }}">‹</a>
+            </li>
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if p %}
+              <li class="page-item {{ 'active' if p == pagination.page }}">
+                <a class="page-link" href="{{ url_for('customer_dashboard', view=view, q=q or None, status=status_filter or None, page=p) }}">{{ p }}</a>
+              </li>
+              {% else %}
+              <li class="page-item disabled"><span class="page-link">…</span></li>
+              {% endif %}
+            {% endfor %}
+            <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+              <a class="page-link" href="{{ url_for('customer_dashboard', view=view, q=q or None, status=status_filter or None, page=pagination.next_num) }}">›</a>
+            </li>
+          </ul>
+        </nav>
         {% endif %}
       </div>
+
     </div>
   </div><!-- /col-lg-8 -->
 
@@ -180,7 +284,7 @@
         {% endfor %}
       </ul>
       {% else %}
-      <div class="card-body text-muted text-center small">
+      <div class="card-body text-muted text-center small py-4">
         <i class="bi bi-clock-history me-1"></i>{{ _('No activity yet.') }}
       </div>
       {% endif %}

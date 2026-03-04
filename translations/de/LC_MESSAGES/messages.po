@@ -784,3 +784,39 @@ msgstr "Zu viele Anfragen. Bitte warten Sie einen Moment."
 
 msgid "An unexpected error occurred."
 msgstr "Ein unerwarteter Fehler ist aufgetreten."
+
+msgid "All"
+msgstr "Alle"
+
+msgid "Mine"
+msgstr "Meine"
+
+msgid "Reply pending"
+msgstr "Antwort ausstehend"
+
+msgid "No tickets are currently assigned to you."
+msgstr "Ihnen sind derzeit keine Tickets zugewiesen."
+
+msgid "You are not watching any tickets yet."
+msgstr "Sie beobachten noch keine Tickets."
+
+msgid "No open tickets."
+msgstr "Keine offenen Tickets."
+
+msgid "Created"
+msgstr "Erstellt"
+
+msgid "Awaiting reply"
+msgstr "Antwort ausstehend"
+
+msgid "Resolved / Closed"
+msgstr "Gelöst / Geschlossen"
+
+msgid "Reply from support"
+msgstr "Antwort vom Support"
+
+msgid "No tickets are awaiting your reply."
+msgstr "Keine Tickets warten auf Ihre Antwort."
+
+msgid "No resolved or closed tickets."
+msgstr "Keine gelösten oder geschlossenen Tickets."
