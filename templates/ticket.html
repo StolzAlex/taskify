@@ -343,6 +343,20 @@
         </div>
         {% endif %}
 
+        {# Status sync toggle #}
+        <form method="post" action="{{ url_for('set_github_sync', ticket_id=ticket.id) }}"
+              class="mb-3">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch"
+                   id="ghSyncToggle" name="enabled" value="1"
+                   {{ 'checked' if ticket.github_sync }}
+                   onchange="this.form.submit()">
+            <label class="form-check-label small text-muted" for="ghSyncToggle">
+              {{ _('Sync status from GitHub') }}
+            </label>
+          </div>
+        </form>
+
         {# Search / link #}
         <div class="{{ 'mb-0' if not (github_token_configured and github_org) else 'mb-3' }}">
           <div class="form-label small fw-semibold text-muted mb-1">{{ _('Link PR / Issue') }}</div>

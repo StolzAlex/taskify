@@ -821,6 +821,9 @@ msgstr "Keine Tickets warten auf Ihre Antwort."
 msgid "No resolved or closed tickets."
 msgstr "Keine gelösten oder geschlossenen Tickets."
 
+msgid "Sync status from GitHub"
+msgstr "Status von GitHub synchronisieren"
+
 msgid "Link PR / Issue"
 msgstr "PR / Issue verknüpfen"
 

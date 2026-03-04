@@ -1051,7 +1051,8 @@ def _sync_github_ref(ticket):
 @login_required
 def ticket_detail(ticket_id):
     ticket = db.session.get(Ticket, ticket_id) or abort(404)
-    _sync_github_ref(ticket)
+    if ticket.github_sync:
+        _sync_github_ref(ticket)
     employees = Employee.query.filter_by(is_active=True).all()
     events = ticket.events.all()
     is_watching = TicketWatch.query.filter_by(
@@ -1223,6 +1224,15 @@ def set_github_pr(ticket_id):
               actor_id=current_user.id)
     db.session.commit()
     flash(_('GitHub link updated.'), 'success')
+    return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+
+
+@app.route('/tickets/<int:ticket_id>/github_sync', methods=['POST'])
+@login_required
+def set_github_sync(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    ticket.github_sync = request.form.get('enabled') == '1'
+    db.session.commit()
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 
 

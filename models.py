@@ -98,6 +98,7 @@ class Ticket(db.Model):
     body = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(20), nullable=False, default='open')
     locale = db.Column(db.String(10), nullable=False, default='en', server_default='en')
+    github_sync = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
     internal_title = db.Column(db.String(200), nullable=True)
     github_pr_url = db.Column(db.String(500), nullable=True)
     github_pr_title = db.Column(db.String(500), nullable=True)
