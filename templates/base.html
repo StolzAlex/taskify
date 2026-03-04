@@ -124,6 +124,45 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+  // Shared password strength checker — used by any form with a password field.
+  // Returns a translated error string, or null if the password is acceptable.
+  var PW_MSGS = {
+    length:    "{{ _('Password must be at least 12 characters long.') }}",
+    upper:     "{{ _('Password must contain at least one uppercase letter.') }}",
+    lower:     "{{ _('Password must contain at least one lowercase letter.') }}",
+    digit:     "{{ _('Password must contain at least one digit.') }}",
+    special:   "{{ _('Password must contain at least one special character.') }}"
+  };
+  function checkPasswordStrength(pw) {
+    if (pw.length < 12)           return PW_MSGS.length;
+    if (!/[A-Z]/.test(pw))        return PW_MSGS.upper;
+    if (!/[a-z]/.test(pw))        return PW_MSGS.lower;
+    if (!/\d/.test(pw))           return PW_MSGS.digit;
+    if (!/[^A-Za-z0-9]/.test(pw)) return PW_MSGS.special;
+    return null;
+  }
+  // Attach password validation to a form.
+  // input: the <input type="password"> element
+  // errorEl: a <div class="invalid-feedback"> element to show the message in
+  // required: if false, skip validation when field is empty (edit forms)
+  function attachPasswordValidation(form, input, errorEl, required) {
+    form.addEventListener('submit', function (e) {
+      var pw = input.value;
+      if (!pw && !required) return;   // optional field left blank → keep current
+      var err = checkPasswordStrength(pw);
+      if (err) {
+        e.preventDefault();
+        input.classList.add('is-invalid');
+        errorEl.textContent = err;
+        input.focus();
+      }
+    });
+    input.addEventListener('input', function () {
+      input.classList.remove('is-invalid');
+      errorEl.textContent = '';
+    });
+  }
+
   (function () {
     const html = document.getElementById('htmlRoot');
     const icon = document.getElementById('themeIcon');

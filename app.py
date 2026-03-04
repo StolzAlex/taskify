@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime, timedelta
 from email.header import decode_header as _decode_header
 from functools import wraps
+from urllib.parse import urlparse, urljoin
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -17,6 +18,8 @@ import requests as http_requests
 from authlib.integrations.flask_client import OAuth
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, abort, send_from_directory, session, jsonify)
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message as MailMessage
 from flask_babel import Babel, gettext as _, lazy_gettext as _l, get_locale
@@ -29,8 +32,32 @@ from models import db, Employee, Customer, Company, Ticket, Assignment, Message,
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Warn loudly if the dev SECRET_KEY slips into production.
+if not app.debug and app.config['SECRET_KEY'] == 'dev-secret-change-in-production':
+    import warnings
+    warnings.warn(
+        'SECRET_KEY is set to the insecure default. Set a strong random value in production!',
+        stacklevel=1,
+    )
+
 db.init_app(app)
 mail = Mail(app)
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=[],          # no blanket limit; apply selectively per route
+    storage_uri='memory://',
+)
+
+
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return response
+
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -74,6 +101,31 @@ def status_label(status):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _safe_next(fallback):
+    """Return the ?next= URL only if it points to the same host (prevent open redirect)."""
+    target = request.args.get('next') or ''
+    ref = urlparse(request.host_url)
+    test = urlparse(urljoin(request.host_url, target))
+    if target and test.scheme in ('http', 'https') and test.netloc == ref.netloc:
+        return target
+    return fallback
+
+
+def _validate_password(password):
+    """Return a translated error string if the password is too weak, else None."""
+    if len(password) < 12:
+        return _('Password must be at least 12 characters long.')
+    if not re.search(r'[A-Z]', password):
+        return _('Password must contain at least one uppercase letter.')
+    if not re.search(r'[a-z]', password):
+        return _('Password must contain at least one lowercase letter.')
+    if not re.search(r'\d', password):
+        return _('Password must contain at least one digit.')
+    if not re.search(r'[^A-Za-z0-9]', password):
+        return _('Password must contain at least one special character.')
+    return None
+
 
 def get_current_customer():
     cid = session.get('customer_id')
@@ -299,6 +351,10 @@ def setup():
         if not username or not email or not password:
             flash(_('All fields are required.'), 'danger')
             return render_template('setup.html')
+        pw_error = _validate_password(password)
+        if pw_error:
+            flash(pw_error, 'danger')
+            return render_template('setup.html')
         emp = Employee(username=username, email=email, is_admin=True, is_active=True)
         emp.set_password(password)
         db.session.add(emp)
@@ -394,6 +450,7 @@ def customer_reply(token):
 # ---------------------------------------------------------------------------
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit('20 per minute')
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
@@ -407,14 +464,12 @@ def login():
         if emp and emp.is_active and emp.check_password(password):
             login_user(emp, remember=request.form.get('remember') == 'on')
             session.pop('customer_id', None)
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('dashboard'))
+            return redirect(_safe_next(url_for('dashboard')))
         # Try customer by email
         customer = Customer.query.filter(Customer.email.ilike(email)).first()
         if customer and customer.is_active and customer.check_password(password):
             session['customer_id'] = customer.id
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('customer_dashboard'))
+            return redirect(_safe_next(url_for('customer_dashboard')))
         flash(_('Invalid credentials or account disabled.'), 'danger')
     return render_template('login.html')
 
@@ -569,8 +624,11 @@ def manager_customers():
         name     = request.form.get('name', '').strip()
         email    = request.form.get('email', '').strip()
         password = request.form.get('password', '')
+        pw_error = _validate_password(password) if password else None
         if not name or not email or not password:
             flash(_('All fields are required.'), 'danger')
+        elif pw_error:
+            flash(pw_error, 'danger')
         elif Customer.query.filter(Customer.email.ilike(email)).first():
             flash(_('Email already in use.'), 'danger')
         else:
@@ -1235,8 +1293,11 @@ def admin_employees():
         password = request.form.get('password', '')
         is_admin = request.form.get('is_admin') == 'on'
         is_manager = request.form.get('is_manager') == 'on'
+        pw_error = _validate_password(password) if password else None
         if not username or not email or not password:
             flash(_('All fields are required.'), 'danger')
+        elif pw_error:
+            flash(pw_error, 'danger')
         elif Employee.query.filter_by(username=username).first():
             flash(_('Username already taken.'), 'danger')
         elif Employee.query.filter_by(email=email).first():
@@ -1352,6 +1413,10 @@ def edit_employee(emp_id):
     emp.username = username
     emp.email    = email
     if password:
+        pw_error = _validate_password(password)
+        if pw_error:
+            flash(pw_error, 'danger')
+            return redirect(url_for('admin_employees'))
         emp.set_password(password)
     db.session.commit()
     flash(_('Employee "%(name)s" updated.', name=emp.username), 'success')
@@ -1379,6 +1444,10 @@ def edit_customer(cust_id):
         request.form.get('new_company', '').strip(),
     )
     if password:
+        pw_error = _validate_password(password)
+        if pw_error:
+            flash(pw_error, 'danger')
+            return redirect(url_for('manager_customers'))
         customer.set_password(password)
     db.session.commit()
     flash(_('Customer "%(name)s" updated.', name=customer.name), 'success')
@@ -1484,6 +1553,24 @@ def forbidden(e):
 @app.errorhandler(404)
 def not_found(e):
     return render_template('error.html', code=404, message=_('Page not found')), 404
+
+
+@app.errorhandler(429)
+def too_many_requests(e):
+    return render_template('error.html', code=429, message=_('Too many requests. Please wait a moment.')), 429
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    db.session.rollback()
+    app.logger.exception('Unhandled exception')
+    return render_template('error.html', code=500, message=_('An unexpected error occurred.')), 500
+
+
+@app.route('/healthz')
+def healthz():
+    """Lightweight liveness probe — no DB query, just confirms the process is up."""
+    return jsonify(status='ok'), 200
 
 
 # ---------------------------------------------------------------------------
@@ -1625,13 +1712,18 @@ def _process_imap_inbox():
 def _imap_poll_loop():
     interval = app.config.get('IMAP_POLL_INTERVAL', 60)
     app.logger.info(f'[IMAP] Polling {app.config["IMAP_HOST"]} every {interval}s.')
+    failures = 0
     while True:
         try:
             with app.app_context():
                 _process_imap_inbox()
+            failures = 0
+            time.sleep(interval)
         except Exception as exc:
-            app.logger.error(f'[IMAP] Poll loop error: {exc}')
-        time.sleep(interval)
+            failures += 1
+            backoff = min(interval * (2 ** failures), 3600)
+            app.logger.error(f'[IMAP] Poll loop error (attempt {failures}, retry in {backoff}s): {exc}')
+            time.sleep(backoff)
 
 
 @app.cli.command('poll-imap')
@@ -1773,13 +1865,18 @@ def _process_graph_inbox():
 def _graph_poll_loop():
     interval = app.config.get('GRAPH_POLL_INTERVAL', 60)
     app.logger.info(f'[Graph] Polling {app.config["GRAPH_MAILBOX"]} every {interval}s.')
+    failures = 0
     while True:
         try:
             with app.app_context():
                 _process_graph_inbox()
+            failures = 0
+            time.sleep(interval)
         except Exception as exc:
-            app.logger.error(f'[Graph] Poll loop error: {exc}')
-        time.sleep(interval)
+            failures += 1
+            backoff = min(interval * (2 ** failures), 3600)
+            app.logger.error(f'[Graph] Poll loop error (attempt {failures}, retry in {backoff}s): {exc}')
+            time.sleep(backoff)
 
 
 @app.cli.command('poll-graph')

@@ -41,6 +41,8 @@
             <label for="password" class="form-label small fw-semibold">{{ _('Password') }}</label>
             <input type="password" class="form-control form-control-sm" id="password" name="password"
                    required autocomplete="new-password">
+            <div class="invalid-feedback" id="createPwError"></div>
+            <div class="form-text">{{ _('Min. 12 characters, including uppercase, lowercase, digit and special character.') }}</div>
           </div>
           <button type="submit" class="btn btn-primary btn-sm w-100">
             <i class="bi bi-person-plus me-1"></i>{{ _('Create') }}
@@ -171,8 +173,10 @@
           </div>
           <div class="mb-1">
             <label class="form-label small fw-semibold">{{ _('New Password') }}</label>
-            <input type="password" name="password" class="form-control form-control-sm"
+            <input type="password" name="password" id="editPwInput" class="form-control form-control-sm"
                    placeholder="{{ _('Leave blank to keep current') }}" autocomplete="new-password">
+            <div class="invalid-feedback" id="editPwError"></div>
+            <div class="form-text">{{ _('Min. 12 characters, including uppercase, lowercase, digit and special character.') }}</div>
           </div>
         </div>
         <div class="modal-footer py-2">
@@ -187,6 +191,20 @@
 
 {% block scripts %}
 <script>
+(function () {
+  // Create form
+  var createForm  = document.querySelector('.card form');
+  var createInput = document.getElementById('password');
+  var createErr   = document.getElementById('createPwError');
+  attachPasswordValidation(createForm, createInput, createErr, true);
+
+  // Edit modal form
+  var editForm  = document.getElementById('editUserForm');
+  var editInput = document.getElementById('editPwInput');
+  var editErr   = document.getElementById('editPwError');
+  attachPasswordValidation(editForm, editInput, editErr, false);
+})();
+
 document.querySelectorAll('.edit-customer-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var companyIds = JSON.parse(this.dataset.companyIds || '[]');
@@ -194,7 +212,10 @@ document.querySelectorAll('.edit-customer-btn').forEach(function(btn) {
     document.getElementById('editName').value  = this.dataset.name;
     document.getElementById('editEmail').value = this.dataset.email;
     document.getElementById('editNewCompany').value = '';
-    document.querySelector('#editUserModal input[name=password]').value = '';
+    var pw = document.getElementById('editPwInput');
+    pw.value = '';
+    pw.classList.remove('is-invalid');
+    document.getElementById('editPwError').textContent = '';
     var sel = document.getElementById('editCompanyIds');
     if (sel) {
       for (var i = 0; i < sel.options.length; i++) {

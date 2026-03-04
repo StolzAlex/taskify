@@ -25,6 +25,8 @@
             <label for="password" class="form-label">{{ _('Password') }}</label>
             <input type="password" class="form-control" id="password" name="password"
                    required autocomplete="new-password">
+            <div class="invalid-feedback" id="pwError"></div>
+            <div class="form-text">{{ _('Min. 12 characters, including uppercase, lowercase, digit and special character.') }}</div>
           </div>
           <div class="d-grid">
             <button type="submit" class="btn btn-success">
@@ -36,4 +38,15 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var form  = document.querySelector('form');
+    var input = document.getElementById('password');
+    var err   = document.getElementById('pwError');
+    attachPasswordValidation(form, input, err, true);
+  })();
+</script>
 {% endblock %}

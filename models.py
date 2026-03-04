@@ -41,7 +41,7 @@ class Employee(UserMixin, db.Model):
         self.preferences = json.dumps(prefs)
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = generate_password_hash(password, method='scrypt')
 
     def check_password(self, password):
         if self.password_hash is None:
@@ -82,7 +82,7 @@ class Customer(db.Model):
     companies  = db.relationship('Company', secondary=customer_companies, backref='customers')
 
     def set_password(self, p):
-        self.password_hash = generate_password_hash(p)
+        self.password_hash = generate_password_hash(p, method='scrypt')
 
     def check_password(self, p):
         return check_password_hash(self.password_hash, p)

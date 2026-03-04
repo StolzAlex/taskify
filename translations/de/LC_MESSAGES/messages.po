@@ -760,3 +760,27 @@ msgstr "Wird beobachtet"
 
 msgid "Closed hidden"
 msgstr "Geschlossen ausgeblendet"
+
+msgid "Password must be at least 12 characters long."
+msgstr "Das Passwort muss mindestens 12 Zeichen lang sein."
+
+msgid "Password must contain at least one uppercase letter."
+msgstr "Das Passwort muss mindestens einen Großbuchstaben enthalten."
+
+msgid "Password must contain at least one lowercase letter."
+msgstr "Das Passwort muss mindestens einen Kleinbuchstaben enthalten."
+
+msgid "Password must contain at least one digit."
+msgstr "Das Passwort muss mindestens eine Ziffer enthalten."
+
+msgid "Password must contain at least one special character."
+msgstr "Das Passwort muss mindestens ein Sonderzeichen enthalten."
+
+msgid "Min. 12 characters, including uppercase, lowercase, digit and special character."
+msgstr "Mind. 12 Zeichen, mit Groß-, Kleinbuchstaben, Ziffer und Sonderzeichen."
+
+msgid "Too many requests. Please wait a moment."
+msgstr "Zu viele Anfragen. Bitte warten Sie einen Moment."
+
+msgid "An unexpected error occurred."
+msgstr "Ein unerwarteter Fehler ist aufgetreten."
