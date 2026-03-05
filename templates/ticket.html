@@ -251,7 +251,10 @@
 
     <!-- Status -->
     <div class="card shadow-sm mb-3">
-      <div class="card-header"><h6 class="mb-0"><i class="bi bi-arrow-repeat me-1"></i>{{ _('Change Status') }}</h6></div>
+      <div class="card-header"><h6 class="mb-0"><i class="bi bi-arrow-repeat me-1"></i>{{ _('Change Status') }}
+        <i class="bi bi-info-circle text-muted ms-1 fw-normal" data-bs-toggle="tooltip"
+           data-bs-title="{{ _('Open → In Progress → Resolved → Closed. Setting Resolved or Closed sends an email to the submitter.') }}"></i>
+      </h6></div>
       <div class="card-body">
         <form method="post" action="{{ url_for('change_status', ticket_id=ticket.id) }}">
           <select name="status" class="form-select form-select-sm mb-2">
@@ -270,7 +273,10 @@
 
     <!-- Assignment -->
     <div class="card shadow-sm mb-3">
-      <div class="card-header"><h6 class="mb-0"><i class="bi bi-person-check me-1"></i>{{ _('Assignee') }}</h6></div>
+      <div class="card-header"><h6 class="mb-0"><i class="bi bi-person-check me-1"></i>{{ _('Assignee') }}
+        <i class="bi bi-info-circle text-muted ms-1 fw-normal" data-bs-toggle="tooltip"
+           data-bs-title="{{ _('The assigned employee receives email notifications for all activity on this ticket.') }}"></i>
+      </h6></div>
       <div class="card-body">
         <form method="post" action="{{ url_for('assign_ticket', ticket_id=ticket.id) }}">
           <select name="employee_id" class="form-select form-select-sm mb-2">
@@ -295,11 +301,13 @@
       <div class="card-body p-2">
         <form method="post" action="{{ url_for('toggle_watch', ticket_id=ticket.id) }}">
           {% if is_watching %}
-          <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+          <button type="submit" class="btn btn-outline-secondary btn-sm w-100"
+                  data-bs-toggle="tooltip" data-bs-title="{{ _('Stop receiving email updates for this ticket.') }}">
             <i class="bi bi-eye-slash me-1"></i>{{ _('Unwatch') }}
           </button>
           {% else %}
-          <button type="submit" class="btn btn-outline-info btn-sm w-100">
+          <button type="submit" class="btn btn-outline-info btn-sm w-100"
+                  data-bs-toggle="tooltip" data-bs-title="{{ _('Receive email updates for this ticket without being its assignee.') }}">
             <i class="bi bi-eye me-1"></i>{{ _('Watch') }}
           </button>
           {% endif %}
@@ -310,7 +318,10 @@
 
     <!-- Internal title -->
     <div class="card shadow-sm mb-3">
-      <div class="card-header"><h6 class="mb-0"><i class="bi bi-tag me-1"></i>{{ _('Internal Title') }}</h6></div>
+      <div class="card-header"><h6 class="mb-0"><i class="bi bi-tag me-1"></i>{{ _('Internal Title') }}
+        <i class="bi bi-info-circle text-muted ms-1 fw-normal" data-bs-toggle="tooltip"
+           data-bs-title="{{ _('Staff-only label shown in the ticket list instead of the customer\'s subject. Also used as the GitHub issue title.') }}"></i>
+      </h6></div>
       <div class="card-body">
         <form method="post" action="{{ url_for('set_internal_title', ticket_id=ticket.id) }}">
           <input type="text" name="internal_title" class="form-control form-control-sm mb-2"
@@ -362,6 +373,8 @@
                    onchange="this.form.submit()">
             <label class="form-check-label small text-muted" for="ghSyncToggle">
               {{ _('Sync status from GitHub') }}
+              <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip"
+                 data-bs-title="{{ _('Automatically sets the ticket to Resolved when the linked PR or issue is closed or merged.') }}"></i>
             </label>
           </div>
         </form>
@@ -409,7 +422,10 @@
         <p class="mb-1"><strong>{{ _('Created') }}:</strong> {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
         <p class="mb-1"><strong>{{ _('Updated') }}:</strong> {{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
         <p class="mb-0">
-          <strong>{{ _('Public link') }}:</strong><br>
+          <strong>{{ _('Public link') }}
+            <i class="bi bi-info-circle text-muted ms-1 fw-normal" data-bs-toggle="tooltip"
+               data-bs-title="{{ _('Share with the customer to let them view and reply to this ticket without logging in.') }}"></i>:
+          </strong><br>
           <a href="{{ url_for('ticket_status', token=ticket.token) }}" target="_blank" class="text-break">
             /status/{{ ticket.token }}
           </a>

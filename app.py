@@ -1540,8 +1540,8 @@ def admin_employees():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip()
-        is_admin = request.form.get('is_admin') == 'on'
-        is_manager = request.form.get('is_manager') == 'on'
+        is_admin   = request.form.get('is_admin') == 'on'
+        is_manager = request.form.get('is_manager') == 'on' and not is_admin
         if not username or not email:
             flash(_('All fields are required.'), 'danger')
         elif Employee.query.filter_by(username=username).first():
@@ -1669,7 +1669,7 @@ def edit_employee(emp_id):
         emp.set_password(password)
     if current_user.is_admin and emp.id != current_user.id:
         new_is_admin   = 'is_admin'   in request.form
-        new_is_manager = 'is_manager' in request.form
+        new_is_manager = 'is_manager' in request.form and not new_is_admin
         if emp.is_admin and not new_is_admin:
             remaining = Employee.query.filter_by(is_admin=True, is_active=True).filter(
                 Employee.id != emp.id

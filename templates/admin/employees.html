@@ -26,12 +26,18 @@
           <div class="mb-2 form-check">
             <input type="checkbox" class="form-check-input" id="is_admin" name="is_admin"
                    {{ 'checked' if request.form.is_admin }}>
-            <label class="form-check-label small" for="is_admin">{{ _('Admin privileges') }}</label>
+            <label class="form-check-label small" for="is_admin">{{ _('Admin privileges') }}
+              <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 data-bs-title="{{ _('Full access: employee management, system configuration, deleting tickets, and everything managers and staff can do.') }}"></i>
+            </label>
           </div>
           <div class="mb-3 form-check">
             <input type="checkbox" class="form-check-input" id="is_manager" name="is_manager"
                    {{ 'checked' if request.form.is_manager }}>
-            <label class="form-check-label small" for="is_manager">{{ _('Manager privileges') }}</label>
+            <label class="form-check-label small" for="is_manager">{{ _('Manager privileges') }}
+              <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 data-bs-title="{{ _('Can manage customers and groups, and edit staff employees. Cannot access system settings.') }}"></i>
+            </label>
           </div>
           <button type="submit" class="btn btn-primary btn-sm w-100">
             <i class="bi bi-person-plus me-1"></i>{{ _('Create') }}
@@ -82,7 +88,7 @@
                     </span>
                     <input type="hidden" name="github_username" value="">
                     <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1"
-                            title="{{ _('Unlink') }}">
+                            data-bs-toggle="tooltip" data-bs-title="{{ _('Remove GitHub login link. Password login is unaffected.') }}">
                       <i class="bi bi-x-lg"></i>
                     </button>
                   {% else %}
@@ -90,7 +96,8 @@
                            class="form-control form-control-sm"
                            style="width:130px"
                            placeholder="{{ _('GitHub username') }}">
-                    <button type="submit" class="btn btn-outline-dark btn-sm text-nowrap">
+                    <button type="submit" class="btn btn-outline-dark btn-sm text-nowrap"
+                            data-bs-toggle="tooltip" data-bs-title="{{ _('Link this employee\'s GitHub account so they can log in with GitHub OAuth.') }}">
                       <i class="bi bi-search me-1"></i>{{ _('Link') }}
                     </button>
                   {% endif %}
@@ -135,7 +142,9 @@
                   <form method="post" action="{{ url_for('toggle_employee', emp_id=emp.id) }}"
                         class="d-inline"
                         onsubmit="return confirm('{{ _('Are you sure?') }}')">
-                    <button type="submit" class="btn btn-sm {{ 'btn-outline-danger' if emp.is_active else 'btn-outline-success' }} ms-1">
+                    <button type="submit" class="btn btn-sm {{ 'btn-outline-danger' if emp.is_active else 'btn-outline-success' }} ms-1"
+                            data-bs-toggle="tooltip"
+                            data-bs-title="{{ _('Blocks login without deleting the account or its tickets. Reversible.') if emp.is_active else _('Restores login access for this employee.') }}">
                       {% if emp.is_active %}
                         <i class="bi bi-person-dash me-1"></i>{{ _('Deactivate') }}
                       {% else %}
@@ -146,7 +155,8 @@
                   <form method="post" action="{{ url_for('delete_employee', emp_id=emp.id) }}"
                         class="d-inline"
                         onsubmit="return confirm('{{ _('Permanently delete this employee? This cannot be undone.') }}')">
-                    <button type="submit" class="btn btn-sm btn-outline-danger ms-1">
+                    <button type="submit" class="btn btn-sm btn-outline-danger ms-1"
+                            data-bs-toggle="tooltip" data-bs-title="{{ _('Permanently delete this employee. Must be deactivated first. Cannot be undone.') }}">
                       <i class="bi bi-trash"></i>
                     </button>
                   </form>
@@ -192,11 +202,17 @@
             <label class="form-label small fw-semibold">{{ _('Role') }}</label>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" name="is_admin" id="editIsAdmin" value="1">
-              <label class="form-check-label small" for="editIsAdmin">{{ _('Admin privileges') }}</label>
+              <label class="form-check-label small" for="editIsAdmin">{{ _('Admin privileges') }}
+                <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+                   data-bs-title="{{ _('Full access: employee management, system configuration, deleting tickets, and everything managers and staff can do.') }}"></i>
+              </label>
             </div>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" name="is_manager" id="editIsManager" value="1">
-              <label class="form-check-label small" for="editIsManager">{{ _('Manager privileges') }}</label>
+              <label class="form-check-label small" for="editIsManager">{{ _('Manager privileges') }}
+                <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+                   data-bs-title="{{ _('Can manage customers and groups, and edit staff employees. Cannot access system settings.') }}"></i>
+              </label>
             </div>
           </div>
           {% endif %}

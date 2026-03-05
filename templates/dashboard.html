@@ -37,7 +37,10 @@
       <div class="card shadow-sm h-100 {{ 'border-danger border-2' if unassigned_filter }}">
         <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
           <span class="fs-3 fw-bold lh-1 {{ 'text-danger' if stats.unassigned else 'text-muted' }}">{{ stats.unassigned }}</span>
-          <span class="small text-muted">{{ _('Unassigned') }}</span>
+          <span class="small text-muted">{{ _('Unassigned') }}
+            <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip"
+               data-bs-title="{{ _('Open tickets with no staff member assigned yet.') }}"></i>
+          </span>
         </div>
       </div>
     </a>
@@ -48,7 +51,10 @@
       <div class="card shadow-sm h-100 {{ 'border-success border-2' if resolved_week_filter }}">
         <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
           <span class="fs-3 fw-bold text-success lh-1">{{ stats.resolved_week }}</span>
-          <span class="small text-muted">{{ _('Resolved this week') }}</span>
+          <span class="small text-muted">{{ _('Resolved this week') }}
+            <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip"
+               data-bs-title="{{ _('Tickets marked Resolved or Closed in the last 7 days.') }}"></i>
+          </span>
         </div>
       </div>
     </a>
@@ -76,6 +82,8 @@
             <a class="nav-link {{ 'active' if view == 'mine' }}"
                href="{{ url_for('dashboard', view='mine', status=status_filter or None, group=group_filter or None, q=q or None) }}">
               <i class="bi bi-person me-1"></i>{{ _('Mine') }}
+              <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 data-bs-title="{{ _('Tickets assigned to you.') }}"></i>
               {% if stats.mine %}
               <span class="badge rounded-pill bg-info ms-1">{{ stats.mine }}</span>
               {% endif %}
@@ -85,6 +93,8 @@
             <a class="nav-link {{ 'active' if view == 'watched' }}"
                href="{{ url_for('dashboard', view='watched', status=status_filter or None, group=group_filter or None, q=q or None) }}">
               <i class="bi bi-eye me-1"></i>{{ _('Watched') }}
+              <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 data-bs-title="{{ _('Tickets you are watching for updates, but are not assigned to.') }}"></i>
               {% if stats.watched %}
               <span class="badge rounded-pill bg-secondary ms-1">{{ stats.watched }}</span>
               {% endif %}
@@ -133,7 +143,8 @@
 
           {% if hide_closed %}
           <a href="{{ url_for('dashboard', view=view, status='closed', group=group_filter or None, q=q or None) }}"
-             class="ms-auto text-muted small text-decoration-none text-nowrap">
+             class="ms-auto text-muted small text-decoration-none text-nowrap"
+             data-bs-toggle="tooltip" data-bs-title="{{ _('Closed tickets are hidden by default. Click to show them.') }}">
             <i class="bi bi-eye-slash me-1"></i>{{ _('Closed hidden') }}
           </a>
           {% endif %}
@@ -166,7 +177,8 @@
                 <div class="small text-muted">{{ ticket.subject }}</div>
                 {% endif %}
                 {% if ticket.id in awaiting_reply_ids %}
-                <span class="badge bg-warning text-dark ms-1">
+                <span class="badge bg-warning text-dark ms-1" data-bs-toggle="tooltip"
+                      data-bs-title="{{ _('The customer has replied and is waiting for a staff response.') }}">
                   <i class="bi bi-reply-fill me-1"></i>{{ _('Reply pending') }}
                 </span>
                 {% endif %}

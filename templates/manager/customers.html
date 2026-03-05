@@ -24,7 +24,10 @@
                    required value="{{ request.form.email or '' }}">
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold">{{ _('Groups') }}</label>
+            <label class="form-label small fw-semibold">{{ _('Groups') }}
+              <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 data-bs-title="{{ _('Groups organise customers by company or team and can be used to filter tickets on the dashboard.') }}"></i>
+            </label>
             {% if all_groups %}
             <select multiple class="form-select form-select-sm mb-1" name="group_ids" size="3">
               {% for grp in all_groups %}

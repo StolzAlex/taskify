@@ -243,6 +243,13 @@
       syncIcon();
     });
   })();
+
+  // Bootstrap tooltip initialisation (picked up by every page)
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+      new bootstrap.Tooltip(el);
+    });
+  });
 </script>
 {% block scripts %}{% endblock %}
 </body>
