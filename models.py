@@ -108,6 +108,9 @@ class Ticket(db.Model):
     github_pr_title = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    satisfaction_rating       = db.Column(db.Integer, nullable=True)
+    satisfaction_comment      = db.Column(db.Text, nullable=True)
+    satisfaction_submitted_at = db.Column(db.DateTime, nullable=True)
 
     messages = db.relationship('Message', backref='ticket', lazy='dynamic', order_by='Message.created_at')
     attachments = db.relationship('Attachment', backref='ticket', lazy='dynamic')

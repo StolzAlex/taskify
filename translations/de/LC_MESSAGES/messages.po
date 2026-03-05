@@ -1361,14 +1361,12 @@ msgid "File attached"
 msgstr "Datei angehängt"
 
 #: templates/customer/dashboard.html:264
-#, fuzzy
 msgid "Assigned to"
-msgstr "zugewiesen an"
+msgstr "Zugewiesen an"
 
 #: templates/customer/dashboard.html:266
-#, fuzzy
 msgid "Assignment removed"
-msgstr "Zuweisung aktualisiert."
+msgstr "Zuweisung entfernt"
 
 #: templates/customer/login.html:2 templates/customer/login.html:10
 msgid "Customer Login"
@@ -1479,6 +1477,46 @@ msgstr "Alter"
 #: templates/admin/employees.html
 msgid "No employees yet."
 msgstr "Noch keine Mitarbeiter."
+
+#: templates/ticket_status.html
+msgid "How did we do?"
+msgstr "Wie haben wir abgeschnitten?"
+
+#: templates/ticket_status.html
+msgid "Your ticket has been resolved. We'd love to hear how satisfied you are with our support."
+msgstr "Ihr Ticket wurde gelöst. Wir würden uns freuen zu hören, wie zufrieden Sie mit unserem Support sind."
+
+#: templates/ticket_status.html
+msgid "Optional comment…"
+msgstr "Optionaler Kommentar…"
+
+#: templates/ticket_status.html
+msgid "Submit Rating"
+msgstr "Bewertung senden"
+
+#: templates/ticket_status.html
+msgid "Your rating"
+msgstr "Ihre Bewertung"
+
+#: templates/ticket_status.html
+msgid "Thank you for your feedback!"
+msgstr "Vielen Dank für Ihr Feedback!"
+
+#: templates/ticket_status.html
+msgid "optional"
+msgstr "optional"
+
+#: templates/ticket.html
+msgid "Customer Rating"
+msgstr "Kundenbewertung"
+
+#: app.py
+msgid "You have already rated this ticket."
+msgstr "Sie haben dieses Ticket bereits bewertet."
+
+#: app.py
+msgid "Please select a rating."
+msgstr "Bitte wählen Sie eine Bewertung."
 
 #~ msgid "Employee \"%(name)s\" created."
 #~ msgstr "Mitarbeiter \"%(name)s\" erstellt."

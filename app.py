@@ -571,6 +571,30 @@ def customer_reply(token):
     db.session.add(msg)
     ticket.updated_at = datetime.utcnow()
     log_event(ticket, 'customer_reply')
+    db.session.flush()  # get msg.id before file save
+
+    f = request.files.get('file')
+    if f and f.filename:
+        try:
+            original_name = secure_filename(f.filename)
+            ext = os.path.splitext(original_name)[1]
+            stored_name = f'{uuid.uuid4().hex}{ext}'
+            upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket.id))
+            os.makedirs(upload_dir, exist_ok=True)
+            filepath = os.path.join(upload_dir, stored_name)
+            f.save(filepath)
+            size = os.path.getsize(filepath)
+            attachment = Attachment(ticket_id=ticket.id, message_id=msg.id,
+                                    filename=stored_name, original_filename=original_name,
+                                    size=size)
+            db.session.add(attachment)
+            log_event(ticket, 'attachment', to_value=original_name)
+        except Exception as e:
+            db.session.rollback()
+            app.logger.warning(f'Customer file upload failed: {e}')
+            flash(_('File upload failed.'), 'danger')
+            return redirect(url_for('ticket_status', token=token))
+
     db.session.commit()
     notify_assignee_customer_reply(ticket)
     notify_watchers(
@@ -581,6 +605,26 @@ def customer_reply(token):
               f"Ticket ansehen: {url_for('ticket_detail', ticket_id=ticket.id, _external=True)}"),
     )
     flash(_('Your reply has been sent.'), 'success')
+    return redirect(url_for('ticket_status', token=token))
+
+
+@app.route('/status/<token>/rate', methods=['POST'])
+def rate_ticket(token):
+    ticket = Ticket.query.filter_by(token=token).first_or_404()
+    if ticket.status not in ('resolved', 'closed'):
+        abort(400)
+    if ticket.satisfaction_rating is not None:
+        flash(_('You have already rated this ticket.'), 'info')
+        return redirect(url_for('ticket_status', token=token))
+    rating = request.form.get('rating', type=int)
+    if not rating or not (1 <= rating <= 5):
+        flash(_('Please select a rating.'), 'danger')
+        return redirect(url_for('ticket_status', token=token))
+    ticket.satisfaction_rating       = rating
+    ticket.satisfaction_comment      = request.form.get('comment', '').strip() or None
+    ticket.satisfaction_submitted_at = datetime.utcnow()
+    db.session.commit()
+    flash(_('Thank you for your feedback!'), 'success')
     return redirect(url_for('ticket_status', token=token))
 
 
@@ -3090,6 +3134,19 @@ def _startup_checks():
         log.warning('[startup] WARN – MAIL_SUPPRESS_SEND=True; outbound emails are suppressed')
     elif not app.config.get('MAIL_SERVER'):
         log.warning('[startup] WARN – MAIL_SERVER not configured; outbound email is disabled')
+
+    # 6. Auto-migrate: satisfaction rating columns on tickets table
+    for col, defn in [
+        ('satisfaction_rating',       'INTEGER'),
+        ('satisfaction_comment',      'TEXT'),
+        ('satisfaction_submitted_at', 'DATETIME'),
+    ]:
+        try:
+            db.session.execute(_text(f'ALTER TABLE tickets ADD COLUMN {col} {defn}'))
+            db.session.commit()
+            log.info('[startup] Added column tickets.%s', col)
+        except Exception:
+            db.session.rollback()
 
     return ok
 

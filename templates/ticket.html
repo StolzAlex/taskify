@@ -423,6 +423,18 @@
         <p class="mb-1"><strong>{{ _('ID') }}:</strong> #{{ ticket.id }}</p>
         <p class="mb-1"><strong>{{ _('Created') }}:</strong> {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
         <p class="mb-1"><strong>{{ _('Updated') }}:</strong> {{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        {% if ticket.satisfaction_rating %}
+        <p class="mb-1">
+          <strong>{{ _('Customer Rating') }}:</strong><br>
+          {% for i in range(1, 6) %}
+          <i class="bi {{ 'bi-star-fill text-warning' if i <= ticket.satisfaction_rating else 'bi-star text-muted' }}"></i>
+          {% endfor %}
+          <span class="ms-1 text-muted small">({{ ticket.satisfaction_rating }}/5)</span>
+          {% if ticket.satisfaction_comment %}
+          <br><span class="text-muted small fst-italic">"{{ ticket.satisfaction_comment }}"</span>
+          {% endif %}
+        </p>
+        {% endif %}
         <p class="{{ 'mb-0' if not current_user.is_admin else 'mb-3' }}">
           <strong>{{ _('Public link') }}
             <i class="bi bi-info-circle text-muted ms-1 fw-normal" data-bs-toggle="tooltip"

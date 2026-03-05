@@ -48,6 +48,24 @@
               <i class="bi bi-clock me-1"></i>{{ msg.created_at.strftime('%Y-%m-%d %H:%M') }}
             </p>
             <div class="message-body">{{ msg.body|safe }}</div>
+            {% set msg_attachments = msg.attachments.all() %}
+            {% if msg_attachments %}
+            <div class="mt-2 pt-2 border-top">
+              {% for att in msg_attachments %}
+              <span class="me-3 small">
+                <i class="bi bi-file-earmark me-1 text-muted"></i>
+                {% if current_customer and current_customer.email|lower == ticket.submitter_email|lower %}
+                <a href="{{ url_for('serve_attachment_customer', ticket_id=ticket.id, filename=att.filename) }}">
+                  {{ att.original_filename }}
+                </a>
+                {% else %}
+                {{ att.original_filename }}
+                {% endif %}
+                <span class="text-muted">({{ (att.size / 1024) | round(1) }} KB)</span>
+              </span>
+              {% endfor %}
+            </div>
+            {% endif %}
           </div>
         </div>
         {% else %}
@@ -93,9 +111,17 @@
         <h6 class="mb-0"><i class="bi bi-reply me-1"></i>{{ _('Reply') }}</h6>
       </div>
       <div class="card-body">
-        <form method="post" action="{{ url_for('customer_reply', token=ticket.token) }}" id="replyForm">
+        <form method="post" action="{{ url_for('customer_reply', token=ticket.token) }}"
+              id="replyForm" enctype="multipart/form-data">
           <input type="hidden" name="body" id="replyBody">
           <div id="quill-reply" style="min-height: 120px;" class="mb-3"></div>
+          <div class="mb-3">
+            <label class="form-label small text-muted">
+              <i class="bi bi-paperclip me-1"></i>{{ _('Attach file') }}
+              <span class="text-muted">({{ _('optional') }})</span>
+            </label>
+            <input type="file" name="file" class="form-control form-control-sm">
+          </div>
           <button type="submit" class="btn btn-primary btn-sm">
             <i class="bi bi-send me-1"></i>{{ _('Send Reply') }}
           </button>
@@ -106,6 +132,55 @@
     <div class="alert alert-secondary mt-2">
       <i class="bi bi-lock me-2"></i>{{ _('This ticket is %(status)s \u2014 replies are disabled.', status=status_label(ticket.status)) }}
     </div>
+
+    <!-- CSAT satisfaction rating -->
+    {% if ticket.satisfaction_rating is none %}
+    <div class="card shadow-sm mt-3 border-success">
+      <div class="card-header bg-success bg-opacity-10">
+        <h6 class="mb-0 text-success">
+          <i class="bi bi-emoji-smile me-1"></i>{{ _('How did we do?') }}
+        </h6>
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">{{ _('Your ticket has been resolved. We\'d love to hear how satisfied you are with our support.') }}</p>
+        <form method="post" action="{{ url_for('rate_ticket', token=ticket.token) }}" id="csatForm">
+          <input type="hidden" name="rating" id="csatRating">
+          <div class="d-flex gap-2 mb-3" id="starWidget">
+            {% for i in range(1, 6) %}
+            <button type="button" class="btn p-0 border-0 star-btn" data-value="{{ i }}"
+                    title="{{ i }}/5">
+              <i class="bi bi-star fs-2 text-warning"></i>
+            </button>
+            {% endfor %}
+          </div>
+          <div class="mb-3">
+            <textarea name="comment" class="form-control form-control-sm" rows="2"
+                      placeholder="{{ _('Optional comment\u2026') }}"></textarea>
+          </div>
+          <button type="submit" class="btn btn-success btn-sm" id="csatSubmit" disabled>
+            <i class="bi bi-send me-1"></i>{{ _('Submit Rating') }}
+          </button>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm mt-3">
+      <div class="card-body py-3 text-center">
+        <p class="text-muted small mb-1">{{ _('Your rating') }}</p>
+        <div class="mb-1">
+          {% for i in range(1, 6) %}
+          <i class="bi {{ 'bi-star-fill text-warning' if i <= ticket.satisfaction_rating else 'bi-star text-muted' }} fs-4"></i>
+          {% endfor %}
+        </div>
+        {% if ticket.satisfaction_comment %}
+        <p class="small text-muted mb-0 mt-2 fst-italic">"{{ ticket.satisfaction_comment }}"</p>
+        {% endif %}
+        <p class="text-muted small mt-1 mb-0">
+          <i class="bi bi-check-circle-fill text-success me-1"></i>{{ _('Thank you for your feedback!') }}
+        </p>
+      </div>
+    </div>
+    {% endif %}
     {% endif %}
 
     <p class="text-muted small mt-4">
@@ -119,30 +194,64 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
 <script>
-  const replyQuill = new Quill('#quill-reply', {
-    theme: 'snow',
-    placeholder: '{{ _("Write your reply\u2026") }}',
-    modules: {
-      toolbar: [
-        ['bold', 'italic', 'underline'],
-        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-        ['link', 'blockquote'],
-        ['clean']
-      ]
-    }
-  });
+  // Quill only exists on open/in-progress tickets
+  var replyQuill = null;
+  if (document.getElementById('quill-reply')) {
+    replyQuill = new Quill('#quill-reply', {
+      theme: 'snow',
+      placeholder: '{{ _("Write your reply\u2026") }}',
+      modules: {
+        toolbar: [
+          ['bold', 'italic', 'underline'],
+          [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+          ['link', 'blockquote'],
+          ['clean']
+        ]
+      }
+    });
 
-  document.getElementById('replyForm').addEventListener('submit', function (e) {
-    if (replyQuill.getText().trim().length === 0) {
-      e.preventDefault();
-      replyQuill.root.classList.add('is-invalid');
-      return;
-    }
-    document.getElementById('replyBody').value = replyQuill.root.innerHTML;
-  });
+    document.getElementById('replyForm').addEventListener('submit', function (e) {
+      if (replyQuill.getText().trim().length === 0) {
+        e.preventDefault();
+        replyQuill.root.classList.add('is-invalid');
+        return;
+      }
+      document.getElementById('replyBody').value = replyQuill.root.innerHTML;
+    });
 
-  replyQuill.on('text-change', function () {
-    replyQuill.root.classList.remove('is-invalid');
-  });
+    replyQuill.on('text-change', function () {
+      replyQuill.root.classList.remove('is-invalid');
+    });
+  }
+
+  // Star rating widget
+  (function () {
+    var stars = document.querySelectorAll('.star-btn');
+    var ratingInput = document.getElementById('csatRating');
+    var submitBtn = document.getElementById('csatSubmit');
+    if (!stars.length) return;
+
+    function highlight(upTo, permanent) {
+      stars.forEach(function (s, i) {
+        s.querySelector('i').className = i <= upTo
+          ? 'bi bi-star-fill fs-2 text-warning'
+          : 'bi bi-star fs-2 text-warning';
+      });
+    }
+
+    var selected = -1;
+    stars.forEach(function (star, idx) {
+      star.addEventListener('mouseenter', function () { highlight(idx); });
+      star.addEventListener('click', function () {
+        selected = idx;
+        ratingInput.value = idx + 1;
+        highlight(idx);
+        submitBtn.disabled = false;
+      });
+    });
+    document.getElementById('starWidget').addEventListener('mouseleave', function () {
+      highlight(selected);
+    });
+  })();
 </script>
 {% endblock %}
