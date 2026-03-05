@@ -2523,8 +2523,14 @@ def customer_help():
 
 @app.route('/healthz')
 def healthz():
-    """Lightweight liveness probe — no DB query, just confirms the process is up."""
-    return jsonify(status='ok'), 200
+    """Readiness probe — confirms the process is up and the database is reachable."""
+    from sqlalchemy import text as _text
+    try:
+        db.session.execute(_text('SELECT 1'))
+        admin_ok = Employee.query.filter_by(is_admin=True, is_active=True).count() > 0
+        return jsonify(status='ok', db='ok', admin=admin_ok), 200
+    except Exception as exc:
+        return jsonify(status='error', db='unreachable', error=str(exc)), 503
 
 
 # ---------------------------------------------------------------------------
@@ -2903,7 +2909,74 @@ if _use_graph or _use_imap:
 # Entry point
 # ---------------------------------------------------------------------------
 
+def _startup_checks():
+    """Run critical pre-flight checks and log warnings to the app logger.
+
+    Called once at startup inside an app context.  Only checks things that must
+    work for the application to serve traffic correctly; heavier checks (SMTP,
+    GitHub, functional tests) remain in the Admin → System Tests page.
+    """
+    import os
+    from sqlalchemy import text as _text
+
+    ok   = True
+    log  = app.logger
+
+    # 1. Database connectivity
+    try:
+        db.session.execute(_text('SELECT 1'))
+        log.info('[startup] DB connection OK')
+    except Exception as exc:
+        log.error('[startup] FAIL – database connection error: %s', exc)
+        ok = False
+
+    # 2. At least one active admin account
+    try:
+        admin_count = Employee.query.filter_by(is_admin=True, is_active=True).count()
+        if admin_count == 0:
+            log.warning('[startup] WARN – no active admin account found; visit /setup to create one')
+        else:
+            log.info('[startup] Admin accounts: %d', admin_count)
+    except Exception as exc:
+        log.warning('[startup] WARN – could not query admin accounts: %s', exc)
+
+    # 3. Secret key
+    key = app.config.get('SECRET_KEY', '')
+    if key == 'dev-secret-change-in-production':
+        log.warning('[startup] WARN – SECRET_KEY is the default dev value; '
+                    'set a strong random key before going to production')
+    elif len(key) < 24:
+        log.warning('[startup] WARN – SECRET_KEY is short (%d chars); '
+                    'use a random key of at least 24 characters', len(key))
+    else:
+        log.info('[startup] SECRET_KEY is set and non-default')
+
+    # 4. Upload folder — create if missing, warn if not writable
+    folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+    if not os.path.isdir(folder):
+        try:
+            os.makedirs(folder, exist_ok=True)
+            log.warning('[startup] WARN – upload folder was missing; created: %s', folder)
+        except Exception as exc:
+            log.error('[startup] FAIL – upload folder missing and could not be created: %s', exc)
+            ok = False
+    elif not os.access(folder, os.W_OK):
+        log.error('[startup] FAIL – upload folder is not writable: %s', folder)
+        ok = False
+    else:
+        log.info('[startup] Upload folder OK: %s', folder)
+
+    # 5. Mail suppression notice
+    if app.config.get('MAIL_SUPPRESS_SEND', False):
+        log.warning('[startup] WARN – MAIL_SUPPRESS_SEND=True; outbound emails are suppressed')
+    elif not app.config.get('MAIL_SERVER'):
+        log.warning('[startup] WARN – MAIL_SERVER not configured; outbound email is disabled')
+
+    return ok
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        _startup_checks()
     app.run(debug=True, port=5000)
