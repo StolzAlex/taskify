@@ -49,6 +49,14 @@ body {
   border-color: #dc3545;
 }
 
+/* Collapse chevron rotation */
+[data-bs-toggle="collapse"] .bi-chevron-up {
+  transition: transform 0.2s ease;
+}
+[data-bs-toggle="collapse"][aria-expanded="false"] .bi-chevron-up {
+  transform: rotate(180deg);
+}
+
 /* Timeline spacing */
 .timeline .card {
   transition: box-shadow 0.15s ease;

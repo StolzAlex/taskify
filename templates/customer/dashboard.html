@@ -13,9 +13,9 @@
 <div class="row g-2 mb-3">
   <div class="col-6 col-md-3">
     <a href="{{ url_for('customer_dashboard', view='all', status='open') }}" class="text-decoration-none">
-      <div class="card shadow-sm h-100 {{ 'border-secondary border-2' if status_filter == 'open' }}">
+      <div class="card shadow-sm h-100 {{ 'border-warning border-2' if status_filter == 'open' }}">
         <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
-          <span class="fs-3 fw-bold text-secondary lh-1">{{ stats.open }}</span>
+          <span class="fs-3 fw-bold text-warning lh-1">{{ stats.open }}</span>
           <span class="small text-muted">{{ _('Open') }}</span>
         </div>
       </div>
