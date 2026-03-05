@@ -402,7 +402,7 @@
     </div>
 
     <!-- Ticket info -->
-    <div class="card shadow-sm">
+    <div class="card shadow-sm {{ 'mb-3' if current_user.is_admin else '' }}">
       <div class="card-header"><h6 class="mb-0"><i class="bi bi-info-circle me-1"></i>{{ _('Info') }}</h6></div>
       <div class="card-body small text-muted">
         <p class="mb-1"><strong>{{ _('ID') }}:</strong> #{{ ticket.id }}</p>
@@ -416,6 +416,15 @@
         </p>
       </div>
     </div>
+
+    {% if current_user.is_admin %}
+    <form method="post" action="{{ url_for('delete_ticket', ticket_id=ticket.id) }}"
+          onsubmit="return confirm('{{ _('Permanently delete ticket #%(id)s and all its messages and attachments? This cannot be undone.', id=ticket.id) }}')">
+      <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+        <i class="bi bi-trash me-1"></i>{{ _('Delete Ticket') }}
+      </button>
+    </form>
+    {% endif %}
 
   </div>
 </div>

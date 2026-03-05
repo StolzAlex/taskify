@@ -2,6 +2,7 @@ import email as _email_lib
 import email.utils
 import imaplib
 import os
+import shutil
 import click
 import markdown as _md_lib
 from markdown.extensions.toc import TocExtension as _TocExtension
@@ -1483,6 +1484,44 @@ def serve_attachment(ticket_id, filename):
     return send_from_directory(upload_dir, filename)
 
 
+@app.route('/tickets/<int:ticket_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_ticket(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    subject = ticket.subject  # capture before deletion for flash message
+
+    # Delete child records in FK-safe order.
+    # Attachments first — collect filenames so we can remove files after commit.
+    attachments = Attachment.query.filter_by(ticket_id=ticket_id).all()
+    for att in attachments:
+        db.session.delete(att)
+
+    for msg in Message.query.filter_by(ticket_id=ticket_id).all():
+        db.session.delete(msg)
+
+    TicketEvent.query.filter_by(ticket_id=ticket_id).delete()
+    TicketWatch.query.filter_by(ticket_id=ticket_id).delete()
+
+    if ticket.assignment:
+        db.session.delete(ticket.assignment)
+
+    db.session.delete(ticket)
+    db.session.commit()
+
+    # Remove upload folder — non-fatal if it doesn't exist or fails.
+    upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket_id))
+    try:
+        shutil.rmtree(upload_dir)
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        app.logger.warning('Could not remove upload dir %s: %s', upload_dir, e)
+
+    flash(_('Ticket #%(id)s "%(subject)s" deleted.', id=ticket_id, subject=subject), 'success')
+    return redirect(url_for('dashboard'))
+
+
 # ---------------------------------------------------------------------------
 # Admin routes
 # ---------------------------------------------------------------------------
@@ -2237,6 +2276,68 @@ def admin_tests():
             return 'pass', f'Audit event logged for ticket #{t.id}', steps
         return _with_ticket('[test] Audit event', body)
     check('Functional: Ticket', 'Audit event', func_ticket_audit_event)
+
+    def func_ticket_delete_cascade():
+        def body(t, steps):
+            # Build one of every child record type.
+            msg = Message(ticket_id=t.id, employee_id=current_user.id,
+                          body='Cascade test.', is_customer_visible=False)
+            db.session.add(msg)
+            db.session.flush()
+            att = Attachment(ticket_id=t.id, message_id=msg.id,
+                             filename='sentinel.txt', original_filename='sentinel.txt', size=4)
+            db.session.add(att)
+            db.session.add(TicketEvent(ticket_id=t.id, employee_id=current_user.id,
+                                       event_type='status', from_value='open', to_value='in_progress'))
+            db.session.add(TicketWatch(ticket_id=t.id, employee_id=current_user.id))
+            db.session.add(Assignment(ticket_id=t.id, employee_id=current_user.id))
+            db.session.commit()
+            steps.add(f'INSERT message #{msg.id}, attachment #{att.id}, event, watch, assignment')
+
+            # Create a real upload directory with a dummy file.
+            upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(t.id))
+            os.makedirs(upload_dir, exist_ok=True)
+            open(os.path.join(upload_dir, 'sentinel.txt'), 'w').close()
+            steps.add(f'Created upload dir {upload_dir}')
+
+            # Run deletion — mirrors delete_ticket route exactly.
+            for a in Attachment.query.filter_by(ticket_id=t.id).all():
+                db.session.delete(a)
+            for m in Message.query.filter_by(ticket_id=t.id).all():
+                db.session.delete(m)
+            TicketEvent.query.filter_by(ticket_id=t.id).delete()
+            TicketWatch.query.filter_by(ticket_id=t.id).delete()
+            asgn = Assignment.query.filter_by(ticket_id=t.id).first()
+            if asgn:
+                db.session.delete(asgn)
+            db.session.delete(t)
+            db.session.commit()
+            steps.add('All DB child records and ticket deleted')
+
+            shutil.rmtree(upload_dir, ignore_errors=True)
+            steps.add('Upload directory removed from disk')
+
+            # Verify DB.
+            assert db.session.get(Ticket, t.id) is None
+            steps.add('Ticket not in DB ✓')
+            assert Message.query.filter_by(ticket_id=t.id).count() == 0
+            steps.add('Messages deleted ✓')
+            assert Attachment.query.filter_by(ticket_id=t.id).count() == 0
+            steps.add('Attachments deleted ✓')
+            assert TicketEvent.query.filter_by(ticket_id=t.id).count() == 0
+            steps.add('Events deleted ✓')
+            assert TicketWatch.query.filter_by(ticket_id=t.id).count() == 0
+            steps.add('Watches deleted ✓')
+            assert Assignment.query.filter_by(ticket_id=t.id).count() == 0
+            steps.add('Assignment deleted ✓')
+
+            # Verify disk.
+            assert not os.path.exists(upload_dir)
+            steps.add('Upload folder absent on disk ✓')
+
+            return 'pass', f'Ticket #{t.id} and all child records deleted cleanly', steps
+        return _with_ticket('[test] Delete cascade', body)
+    check('Functional: Ticket', 'Delete (cascade + upload cleanup)', func_ticket_delete_cascade)
 
     # ── Functional: Employee ─────────────────────────────────────────────────
 
