@@ -11,7 +11,7 @@
 
 <!-- Stats row — counts are scoped to the active tab -->
 <div class="row g-2 mb-3">
-  <div class="{{ 'col-6 col-md-4' if view == 'mine' else 'col-6 col-md-3' }}">
+  <div class="col-6 col-md-3">
     <a href="{{ url_for('dashboard', view=view, status='open') }}" class="text-decoration-none">
       <div class="card shadow-sm h-100 {{ 'border-warning border-2' if status_filter == 'open' and not unassigned_filter and not resolved_week_filter }}">
         <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
@@ -21,7 +21,7 @@
       </div>
     </a>
   </div>
-  <div class="{{ 'col-6 col-md-4' if view == 'mine' else 'col-6 col-md-3' }}">
+  <div class="col-6 col-md-3">
     <a href="{{ url_for('dashboard', view=view, status='in_progress') }}" class="text-decoration-none">
       <div class="card shadow-sm h-100 {{ 'border-primary border-2' if status_filter == 'in_progress' and not unassigned_filter and not resolved_week_filter }}">
         <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
@@ -46,7 +46,7 @@
     </a>
   </div>
   {% endif %}
-  <div class="{{ 'col-6 col-md-4' if view == 'mine' else 'col-6 col-md-3' }}">
+  <div class="col-6 col-md-3">
     <a href="{{ url_for('dashboard', view=view, resolved_week='1') }}" class="text-decoration-none">
       <div class="card shadow-sm h-100 {{ 'border-success border-2' if resolved_week_filter }}">
         <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
