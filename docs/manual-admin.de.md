@@ -81,7 +81,7 @@ Klicken Sie auf **✕** neben dem verknüpften Benutzernamen. Die Passwort-Anmel
 
 ### Erforderliche Konfiguration
 
-Setzen Sie folgende Umgebungsvariablen (siehe [Umgebungsvariablen](#5-umgebungsvariablen)):
+Setzen Sie folgende Umgebungsvariablen (siehe [Umgebungsvariablen](#6-umgebungsvariablen)):
 
 | Variable | Beschreibung |
 |----------|--------------|
@@ -237,4 +237,4 @@ Führen Sie `restore.sh` ohne Argumente aus, um ein interaktives Auswahlmenü zu
 
 ### Anhänge bereinigen
 
-Hochgeladene Dateien werden in `UPLOAD_FOLDER/<ticket_id>/` gespeichert. Das Entfernen eines Tickets über die Admin-Oberfläche löscht keine Dateien von der Festplatte. Um Speicherplatz freizugeben, löschen Sie verwaiste Ordner manuell, nachdem Sie bestätigt haben, dass die Tickets entfernt wurden.
+Hochgeladene Dateien werden in `UPLOAD_FOLDER/<ticket_id>/` gespeichert. Beim Löschen eines Tickets über die Admin-Oberfläche wird der zugehörige Upload-Ordner automatisch entfernt. Um Speicherplatz durch anderweitig verwaiste Ordner freizugeben, löschen Sie diese manuell, nachdem Sie bestätigt haben, dass die entsprechenden Tickets nicht mehr existieren.

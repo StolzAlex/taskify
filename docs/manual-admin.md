@@ -81,7 +81,7 @@ Click **✕** next to the linked username. The employee's password login is unaf
 
 ### Required configuration
 
-Set the following environment variables (see [Environment Variables](#5-environment-variables)):
+Set the following environment variables (see [Environment Variables](#6-environment-variables)):
 
 | Variable | Description |
 |----------|-------------|
@@ -237,4 +237,4 @@ Run `restore.sh` without arguments for an interactive backup selection menu. Bef
 
 ### Clearing all attachments
 
-Uploaded files are stored in `UPLOAD_FOLDER/<ticket_id>/`. Removing a ticket via the admin interface does not delete its files from disk. To reclaim space, delete orphaned folders manually after confirming the tickets have been removed.
+Uploaded files are stored in `UPLOAD_FOLDER/<ticket_id>/`. Deleting a ticket via the admin interface removes the upload folder automatically. To reclaim space from any orphaned folders left by other means, delete them manually after confirming the corresponding tickets no longer exist.
