@@ -1424,6 +1424,62 @@ msgstr "Noch keine Kunden."
 msgid "Edit Customer"
 msgstr "Kunden bearbeiten"
 
+#: templates/dashboard.html
+msgid "Ticket Activity – Past 12 Months"
+msgstr "Ticketaktivität – Letzte 12 Monate"
+
+#: templates/dashboard.html
+msgid "Mon"
+msgstr "Mo"
+
+#: templates/dashboard.html
+msgid "Wed"
+msgstr "Mi"
+
+#: templates/dashboard.html
+msgid "Fri"
+msgstr "Fr"
+
+#: templates/dashboard.html
+msgid "Less"
+msgstr "Weniger"
+
+#: templates/dashboard.html
+msgid "More"
+msgstr "Mehr"
+
+#: templates/dashboard.html
+msgid "ticket"
+msgstr "Ticket"
+
+#: templates/dashboard.html
+msgid "tickets"
+msgstr "Tickets"
+
+#: templates/dashboard.html
+msgid "Hide this chart. You can re-enable it from the dashboard."
+msgstr "Dieses Diagramm ausblenden. Es kann im Dashboard wieder aktiviert werden."
+
+#: templates/dashboard.html
+msgid "Hide activity heatmap"
+msgstr "Aktivitäts-Heatmap ausblenden"
+
+#: templates/dashboard.html
+msgid "Show activity heatmap"
+msgstr "Aktivitäts-Heatmap anzeigen"
+
+#: templates/dashboard.html
+msgid "Remove date filter"
+msgstr "Datumsfilter entfernen"
+
+#: templates/dashboard.html
+msgid "Age"
+msgstr "Alter"
+
+#: templates/admin/employees.html
+msgid "No employees yet."
+msgstr "Noch keine Mitarbeiter."
+
 #~ msgid "Employee \"%(name)s\" created."
 #~ msgstr "Mitarbeiter \"%(name)s\" erstellt."
 

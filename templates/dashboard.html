@@ -61,6 +61,91 @@
   </div>
 </div>
 
+<!-- Activity heatmap -->
+{% if show_heatmap %}
+<div class="card shadow-sm mb-4">
+  <div class="card-header d-flex align-items-center gap-2">
+    <div class="d-flex align-items-center gap-2 flex-grow-1"
+         role="button" data-bs-toggle="collapse" data-bs-target="#heatmapPanel"
+         aria-expanded="true" style="cursor:pointer;">
+      <h6 class="mb-0"><i class="bi bi-calendar3 me-1"></i>{{ _('Ticket Activity – Past 12 Months') }}</h6>
+      <i class="bi bi-chevron-up small text-muted"></i>
+    </div>
+    <form method="post" action="{{ url_for('toggle_heatmap') }}" class="flex-shrink-0">
+      <button type="submit" class="btn btn-link btn-sm p-0 text-muted"
+              data-bs-toggle="tooltip"
+              data-bs-title="{{ _('Hide this chart. You can re-enable it from the dashboard.') }}"
+              aria-label="{{ _('Hide activity heatmap') }}">
+        <i class="bi bi-eye-slash"></i>
+      </button>
+    </form>
+  </div>
+  <div class="collapse show" id="heatmapPanel">
+    <div class="card-body py-3">
+      <div class="heatmap-wrapper">
+        <div class="d-flex gap-1 align-items-start">
+
+          <!-- Day-of-week labels -->
+          <div class="heatmap-ylabels">
+            <div style="height:16px"></div>
+            <div>{{ _('Mon') }}</div><div></div>
+            <div>{{ _('Wed') }}</div><div></div>
+            <div>{{ _('Fri') }}</div><div></div>
+          </div>
+
+          <!-- Week columns -->
+          <div>
+            <!-- Month labels -->
+            <div class="heatmap-months">
+              {% for w in heatmap_weeks %}
+              <div class="heatmap-month-cell">{{ w.month_label }}</div>
+              {% endfor %}
+            </div>
+            <!-- Grid -->
+            <div class="heatmap-grid">
+              {% for w in heatmap_weeks %}
+              <div class="heatmap-week">
+                {% for d in w.days %}
+                {% set level = 0 if d.future or d.count == 0 else (4 if d.count >= 10 else (3 if d.count >= 6 else (2 if d.count >= 3 else 1))) %}
+                {% if d.future %}
+                <div class="heatmap-cell hc-0 hc-future"></div>
+                {% else %}
+                <a href="{{ url_for('dashboard', view=view, date=d.date) }}"
+                   class="heatmap-cell hc-{{ level }}{% if d.date == date_filter %} hc-selected{% endif %}"
+                   data-bs-toggle="tooltip"
+                   data-bs-title="{{ d.count }} {{ _('ticket') if d.count == 1 else _('tickets') }} · {{ d.date }}"></a>
+                {% endif %}
+                {% endfor %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+        </div>
+        <!-- Legend -->
+        <div class="d-flex align-items-center gap-1 mt-2">
+          <span class="heatmap-legend-label">{{ _('Less') }}</span>
+          <div class="heatmap-cell hc-0"></div>
+          <div class="heatmap-cell hc-1"></div>
+          <div class="heatmap-cell hc-2"></div>
+          <div class="heatmap-cell hc-3"></div>
+          <div class="heatmap-cell hc-4"></div>
+          <span class="heatmap-legend-label">{{ _('More') }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="d-flex justify-content-end mb-3">
+  <form method="post" action="{{ url_for('toggle_heatmap') }}">
+    <button type="submit" class="btn btn-link btn-sm text-muted p-0">
+      <i class="bi bi-calendar3 me-1"></i>{{ _('Show activity heatmap') }}
+    </button>
+  </form>
+</div>
+{% endif %}
+
 <div class="row g-4 align-items-start">
 
   <!-- Ticket list -->
@@ -74,13 +159,13 @@
         <ul class="nav nav-tabs card-header-tabs px-3 pt-2">
           <li class="nav-item">
             <a class="nav-link {{ 'active' if view == 'all' }}"
-               href="{{ url_for('dashboard', view='all', status=status_filter or None, group=group_filter or None, q=q or None) }}">
+               href="{{ url_for('dashboard', view='all', status=status_filter or None, group=group_filter or None, q=q or None, date=date_filter or None) }}">
               <i class="bi bi-grid me-1"></i>{{ _('All') }}
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link {{ 'active' if view == 'mine' }}"
-               href="{{ url_for('dashboard', view='mine', status=status_filter or None, group=group_filter or None, q=q or None) }}">
+               href="{{ url_for('dashboard', view='mine', status=status_filter or None, group=group_filter or None, q=q or None, date=date_filter or None) }}">
               <i class="bi bi-person me-1"></i>{{ _('Mine') }}
               <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
                  data-bs-title="{{ _('Tickets assigned to you.') }}"></i>
@@ -91,7 +176,7 @@
           </li>
           <li class="nav-item">
             <a class="nav-link {{ 'active' if view == 'watched' }}"
-               href="{{ url_for('dashboard', view='watched', status=status_filter or None, group=group_filter or None, q=q or None) }}">
+               href="{{ url_for('dashboard', view='watched', status=status_filter or None, group=group_filter or None, q=q or None, date=date_filter or None) }}">
               <i class="bi bi-eye me-1"></i>{{ _('Watched') }}
               <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
                  data-bs-title="{{ _('Tickets you are watching for updates, but are not assigned to.') }}"></i>
@@ -105,6 +190,7 @@
         <!-- Filter row -->
         <form method="get" id="dashForm" class="px-3 py-2 d-flex flex-wrap align-items-center gap-2">
           <input type="hidden" name="view" value="{{ view }}">
+          <input type="hidden" name="date" value="{{ date_filter }}">
           <div class="input-group input-group-sm" style="max-width:260px;">
             <span class="input-group-text border-end-0 bg-transparent">
               <i class="bi bi-search text-muted"></i>
@@ -135,14 +221,23 @@
           </select>
           {% endif %}
 
-          {% if q or status_filter or unassigned_filter or resolved_week_filter or group_filter %}
+          {% if date_filter %}
+          <span class="badge text-bg-secondary d-flex align-items-center gap-1 py-1 px-2">
+            <i class="bi bi-calendar3"></i>{{ date_filter }}
+            <a href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, group=group_filter or None) }}"
+               class="text-white text-decoration-none ms-1"
+               aria-label="{{ _('Remove date filter') }}"><i class="bi bi-x-lg" style="font-size:.7rem"></i></a>
+          </span>
+          {% endif %}
+
+          {% if q or status_filter or unassigned_filter or resolved_week_filter or group_filter or date_filter %}
           <a href="{{ url_for('dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
           </a>
           {% endif %}
 
           {% if hide_closed %}
-          <a href="{{ url_for('dashboard', view=view, status='closed', group=group_filter or None, q=q or None) }}"
+          <a href="{{ url_for('dashboard', view=view, status='closed', group=group_filter or None, q=q or None, date=date_filter or None) }}"
              class="ms-auto text-muted small text-decoration-none text-nowrap"
              data-bs-toggle="tooltip" data-bs-title="{{ _('Closed tickets are hidden by default. Click to show them.') }}">
             <i class="bi bi-eye-slash me-1"></i>{{ _('Closed hidden') }}
@@ -161,7 +256,7 @@
               <th>{{ _('Submitter') }}</th>
               <th>{{ _('Status') }}</th>
               <th>{{ _('Assignee') }}</th>
-              <th class="text-nowrap">{{ _('Updated') }}</th>
+              <th class="text-nowrap">{{ _('Age') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -208,9 +303,9 @@
                   <span class="text-muted">—</span>
                 {% endif %}
               </td>
-              <td class="text-muted small text-nowrap"
-                  title="{{ _('Created') }}: {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}">
-                {{ ticket.updated_at.strftime('%d.%m. %H:%M') }}
+              <td class="text-nowrap small"
+                  title="{{ _('Updated') }}: {{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}&#10;{{ _('Created') }}: {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}">
+                <span class="{{ ticket.updated_at | age_class }}">● {{ ticket.updated_at | age_label }}</span>
               </td>
             </tr>
             {% endfor %}
@@ -250,19 +345,19 @@
         <nav>
           <ul class="pagination pagination-sm mb-0">
             <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
-              <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, group=group_filter or None, page=pagination.prev_num) }}">‹</a>
+              <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, group=group_filter or None, date=date_filter or None, page=pagination.prev_num) }}">‹</a>
             </li>
             {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
               {% if p %}
               <li class="page-item {{ 'active' if p == pagination.page }}">
-                <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, group=group_filter or None, page=p) }}">{{ p }}</a>
+                <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, group=group_filter or None, date=date_filter or None, page=p) }}">{{ p }}</a>
               </li>
               {% else %}
               <li class="page-item disabled"><span class="page-link">…</span></li>
               {% endif %}
             {% endfor %}
             <li class="page-item {{ 'disabled' if not pagination.has_next }}">
-              <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, group=group_filter or None, page=pagination.next_num) }}">›</a>
+              <a class="page-link" href="{{ url_for('dashboard', view=view, q=q or None, status=status_filter or None, unassigned='1' if unassigned_filter else None, resolved_week='1' if resolved_week_filter else None, group=group_filter or None, date=date_filter or None, page=pagination.next_num) }}">›</a>
             </li>
           </ul>
         </nav>

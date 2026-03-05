@@ -258,3 +258,79 @@ body {
   background: #1e3a6e;
   color: #93b8f8;
 }
+
+/* ── Activity heatmap ──────────────────────────────────────────────────────── */
+
+.heatmap-wrapper { overflow-x: auto; }
+
+.heatmap-ylabels {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+.heatmap-ylabels > div {
+  height: 13px;
+  line-height: 13px;
+  font-size: 0.65rem;
+  color: var(--bs-secondary-color);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.heatmap-months {
+  display: flex;
+  gap: 3px;
+  height: 16px;
+  margin-bottom: 3px;
+}
+.heatmap-month-cell {
+  width: 13px;
+  font-size: 0.65rem;
+  color: var(--bs-secondary-color);
+  white-space: nowrap;
+  overflow: visible;
+  line-height: 1;
+}
+
+.heatmap-grid {
+  display: flex;
+  gap: 3px;
+}
+.heatmap-week {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.heatmap-cell {
+  width: 13px;
+  height: 13px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Light mode */
+.hc-0      { background: var(--bs-tertiary-bg); }
+.hc-1      { background: #9be9a8; }
+.hc-2      { background: #40c463; }
+.hc-3      { background: #30a14e; }
+.hc-4      { background: #216e39; }
+.hc-future { background: transparent; }
+
+/* Dark mode */
+[data-bs-theme="dark"] .hc-0 { background: #2a2a2a; }
+[data-bs-theme="dark"] .hc-1 { background: #0e4429; }
+[data-bs-theme="dark"] .hc-2 { background: #006d32; }
+[data-bs-theme="dark"] .hc-3 { background: #26a641; }
+[data-bs-theme="dark"] .hc-4 { background: #39d353; }
+
+.heatmap-legend-label {
+  font-size: 0.7rem;
+  color: var(--bs-secondary-color);
+}
+
+.hc-selected {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 1px;
+}

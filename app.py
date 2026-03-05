@@ -186,6 +186,31 @@ def github_ref_label(url):
     return url
 
 
+@app.template_filter('age_label')
+def age_label_filter(dt):
+    """Short human-readable age from a datetime: '3h', '2d', '5w', '3mo'."""
+    secs = (datetime.utcnow() - dt).total_seconds()
+    m = int(secs // 60)
+    if m < 1:   return '<1m'
+    if m < 60:  return f'{m}m'
+    h = m // 60
+    if h < 24:  return f'{h}h'
+    d = h // 24
+    if d < 14:  return f'{d}d'
+    if d < 56:  return f'{d // 7}w'
+    return f'{d // 30}mo'
+
+
+@app.template_filter('age_class')
+def age_class_filter(dt):
+    """Bootstrap text-color class based on how old a datetime is."""
+    hours = (datetime.utcnow() - dt).total_seconds() / 3600
+    if hours < 24:   return 'text-muted'
+    if hours < 72:   return 'text-warning'
+    if hours < 168:  return 'text-danger'
+    return 'text-danger fw-bold'
+
+
 @app.context_processor
 def inject_globals():
     return {
@@ -853,6 +878,14 @@ def delete_customer(cust_id):
 # Employee routes
 # ---------------------------------------------------------------------------
 
+@app.route('/dashboard/heatmap', methods=['POST'])
+@login_required
+def toggle_heatmap():
+    current_user.set_pref('show_heatmap', not current_user.get_pref('show_heatmap', True))
+    db.session.commit()
+    return redirect(url_for('dashboard'))
+
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -870,10 +903,17 @@ def dashboard():
     resolved_week_filter = request.args.get('resolved_week', '') == '1'
     group_filter         = request.args.get('group', '')
     q                    = request.args.get('q', '').strip()
+    date_filter          = request.args.get('date', '').strip()
+    # Validate date format; discard silently if malformed
+    if date_filter:
+        try:
+            datetime.strptime(date_filter, '%Y-%m-%d')
+        except ValueError:
+            date_filter = ''
 
     query = Ticket.query
     # Hide closed tickets by default unless explicitly requested
-    hide_closed = not status_filter and not unassigned_filter and not resolved_week_filter
+    hide_closed = not status_filter and not unassigned_filter and not resolved_week_filter and not date_filter
     if status_filter:
         query = query.filter(Ticket.status == status_filter)
     elif hide_closed:
@@ -903,6 +943,8 @@ def dashboard():
         if grp:
             grp_emails = [c.email.lower() for c in grp.customers]
             query = query.filter(db.func.lower(Ticket.submitter_email).in_(grp_emails))
+    if date_filter:
+        query = query.filter(db.func.date(Ticket.created_at) == date_filter)
     watched_ids = {w.ticket_id for w in TicketWatch.query.filter_by(employee_id=current_user.id).all()}
 
     # Tickets where the most recent message is a customer reply (needs a response)
@@ -992,6 +1034,36 @@ def dashboard():
         'watched':       TicketWatch.query.filter_by(employee_id=current_user.id).count(),
     }
 
+    # ── Activity heatmap (52-week calendar, scoped to the active view) ──────
+    show_heatmap = current_user.get_pref('show_heatmap', True)
+    if show_heatmap:
+        _today    = datetime.utcnow().date()
+        _hm_start = _today - timedelta(weeks=51)
+        _hm_start -= timedelta(days=_hm_start.weekday())   # align to Monday
+        _hm_start_dt = datetime(_hm_start.year, _hm_start.month, _hm_start.day)
+        _raw = (_stats_base()
+                .with_entities(
+                    db.func.date(Ticket.created_at).label('day'),
+                    db.func.count().label('cnt'),
+                )
+                .filter(Ticket.created_at >= _hm_start_dt)
+                .group_by(db.func.date(Ticket.created_at))
+                .all())
+        _cnt_map    = {str(r.day): r.cnt for r in _raw}
+        heatmap_weeks, _cur, _prev_month = [], _hm_start, None
+        while _cur <= _today:
+            days = []
+            for i in range(7):
+                _d = _cur + timedelta(days=i)
+                days.append({'date': str(_d), 'count': _cnt_map.get(str(_d), 0), 'future': _d > _today})
+            month_label = _cur.strftime('%b') if _cur.month != _prev_month else ''
+            if month_label:
+                _prev_month = _cur.month
+            heatmap_weeks.append({'days': days, 'month_label': month_label})
+            _cur += timedelta(weeks=1)
+    else:
+        heatmap_weeks = []
+
     return render_template('dashboard.html', tickets=tickets,
                            pagination=pagination, per_page=per_page,
                            q=q,
@@ -1007,7 +1079,10 @@ def dashboard():
                            stats=stats,
                            watched_ids=watched_ids,
                            awaiting_reply_ids=awaiting_reply_ids,
-                           hide_closed=hide_closed)
+                           hide_closed=hide_closed,
+                           heatmap_weeks=heatmap_weeks,
+                           show_heatmap=show_heatmap,
+                           date_filter=date_filter)
 
 
 @app.route('/search')
