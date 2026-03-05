@@ -1,6 +1,6 @@
 # Taskify – Manager Guide
 
-This guide covers everything in the [Employee Guide](manual-employee.md) **plus** the additional capabilities available to managers.
+This guide covers everything in the [Employee Guide](/help?manual=manual-employee) **plus** the additional capabilities available to managers.
 
 ## Table of Contents
 
@@ -16,15 +16,15 @@ Go to **Customers** in the navigation bar.
 
 ### Creating a customer account
 
-1. Fill in the **Name**, **Email**, and **Password** fields in the *Create Customer* form.
+1. Fill in the **Name** and **Email** fields in the *Create Customer* form.
 2. Optionally assign the customer to a **Group**.
 3. Click **Create**.
 
-The customer can then log in at `/customer-login` with the credentials you set.
+A setup link is emailed to the customer. They use it to set their own password before logging in.
 
 ### Editing a customer
 
-Click the pencil icon on any customer row to change their name, email, password, or group assignment.
+Click the pencil icon on any customer row to change their name, email, or group assignment. To reset a customer's password, enter a new password in the edit form; leave it blank to keep the current one.
 
 ### Deactivating / reactivating
 

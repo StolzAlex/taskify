@@ -1,6 +1,6 @@
 # Taskify – Manager-Handbuch
 
-Dieses Handbuch ergänzt das [Mitarbeiter-Handbuch](manual-employee.de.md) um die zusätzlichen Funktionen, die Managern zur Verfügung stehen.
+Dieses Handbuch ergänzt das [Mitarbeiter-Handbuch](/help?manual=manual-employee) um die zusätzlichen Funktionen, die Managern zur Verfügung stehen.
 
 ## Inhaltsverzeichnis
 
@@ -16,15 +16,15 @@ Gehen Sie zu **Kunden** in der Navigationsleiste.
 
 ### Kundenkonto erstellen
 
-1. Füllen Sie im Formular *Kunden erstellen* die Felder **Name**, **E-Mail** und **Passwort** aus.
+1. Füllen Sie im Formular *Kunden erstellen* die Felder **Name** und **E-Mail** aus.
 2. Weisen Sie den Kunden optional einer **Gruppe** zu.
 3. Klicken Sie auf **Erstellen**.
 
-Der Kunde kann sich dann unter `/customer-login` mit den gesetzten Zugangsdaten anmelden.
+Der Kunde erhält eine E-Mail mit einem Einrichtungslink, über den er sein eigenes Passwort festlegen kann.
 
 ### Kunden bearbeiten
 
-Klicken Sie auf das Stift-Symbol in einer Kundenzeile, um Name, E-Mail, Passwort oder Gruppenzugehörigkeit zu ändern.
+Klicken Sie auf das Stift-Symbol in einer Kundenzeile, um Name, E-Mail oder Gruppenzugehörigkeit zu ändern. Um das Passwort eines Kunden zurückzusetzen, geben Sie im Bearbeitungsformular ein neues Passwort ein; lassen Sie das Feld leer, um das aktuelle Passwort beizubehalten.
 
 ### Deaktivieren / Reaktivieren
 

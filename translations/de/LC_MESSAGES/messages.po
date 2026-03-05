@@ -358,13 +358,12 @@ msgid "Employee Manual"
 msgstr "Mitarbeiterhandbuch"
 
 #: app.py:2471
-#, fuzzy
 msgid "Manager Manual"
-msgstr "Kundenhandbuch"
+msgstr "Manager-Handbuch"
 
 #: app.py:2472
 msgid "Admin Manual"
-msgstr ""
+msgstr "Admin-Handbuch"
 
 #: app.py:2473 app.py:2506
 msgid "Customer Manual"

@@ -204,7 +204,7 @@ Ersetzen Sie E-Mail und Passwort nach Bedarf.
 
 ### Kundenpasswort zurücksetzen
 
-Verwenden Sie das Kundenbearbeitungsformular auf der Seite **Kunden** (Admin oder Manager). Geben Sie ein neues Passwort ein und klicken Sie auf **Speichern**.
+Öffnen Sie das Kundenbearbeitungsformular auf der Seite **Kunden** (Admin oder Manager), geben Sie ein neues Passwort ein und klicken Sie auf **Speichern**. Lassen Sie das Passwortfeld leer, um das aktuelle Passwort beizubehalten.
 
 ### Datenbank- und Anhänge-Backup
 

@@ -204,7 +204,7 @@ Replace the email and password as needed.
 
 ### Resetting a customer password
 
-Use the customer edit form on the **Customers** page (Admin or Manager). Enter a new password and click **Save**.
+Open the customer edit form on the **Customers** page (Admin or Manager), enter a new password, and click **Save**. Leave the password field blank to keep the current password.
 
 ### Database and uploads backup
 
