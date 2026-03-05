@@ -202,25 +202,6 @@ def inject_globals():
     }
 
 
-@app.template_filter('mention_highlight')
-def mention_highlight_filter(html_body):
-    """Wrap @username mentions in a styled <span> for display in message bodies."""
-    from flask import g as _g
-    if not hasattr(_g, '_mention_usernames'):
-        _g._mention_usernames = {
-            row.username
-            for row in db.session.query(Employee.username).filter_by(is_active=True).all()
-        }
-    active = _g._mention_usernames
-
-    def _replace(m):
-        un = m.group(1)
-        if un in active:
-            return f'<span class="mention">@{escape(un)}</span>'
-        return m.group(0)
-
-    return Markup(re.sub(r'@([\w]+)', _replace, html_body))
-
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -1215,7 +1196,7 @@ def add_message(ticket_id):
 
     db.session.commit()
     plain     = re.sub(r'<[^>]+>', '', body)
-    mentioned = set(re.findall(r'@([\w]+)', plain))
+    mentioned = set(re.findall(r'data-mention="([^"]+)"', body))
     if is_visible:
         notify_submitter_update(ticket, extra_message=plain)
     notify_watchers(
