@@ -2378,21 +2378,33 @@ def _render_markdown(path):
     return content_html, toc_html
 
 
+def _manual_path(stem):
+    """Return the best-matching manual file path for the current locale."""
+    locale = str(get_locale())
+    localized = os.path.join(app.root_path, 'docs', f'{stem}.{locale}.md')
+    if os.path.exists(localized):
+        return localized
+    return os.path.join(app.root_path, 'docs', f'{stem}.md')
+
+
 @app.route('/help')
 @login_required
 def help_page():
-    content, toc = _render_markdown(
-        os.path.join(app.root_path, 'docs', 'manual-employees.md'))
-    return render_template('help.html', content=content, toc=toc,
-                           title=_('Employee Manual'))
+    if current_user.is_admin:
+        stem, title = 'manual-admin', _('Admin Manual')
+    elif current_user.is_manager:
+        stem, title = 'manual-manager', _('Manager Manual')
+    else:
+        stem, title = 'manual-employee', _('Employee Manual')
+    content, toc = _render_markdown(_manual_path(stem))
+    return render_template('help.html', content=content, toc=toc, title=title)
 
 
 @app.route('/customer/help')
 def customer_help():
     if not get_current_customer():
         return redirect(url_for('customer_login'))
-    content, toc = _render_markdown(
-        os.path.join(app.root_path, 'docs', 'manual-customers.md'))
+    content, toc = _render_markdown(_manual_path('manual-customers'))
     return render_template('help.html', content=content, toc=toc,
                            title=_('Customer Manual'))
 

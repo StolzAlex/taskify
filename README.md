@@ -240,13 +240,15 @@ Managers have access to **`/manager/customers`**:
 
 ### For admins
 
-Admins have access to **`/admin/employees`** and **`/admin/mail-test`**.
+Admins have access to **`/admin/employees`**, **`/admin/mail-test`**, and **`/admin/tests`**.
 - Create new employee accounts with optional **Admin** or **Manager** roles.
 - Edit an employee's name, email address, or password (pencil button).
 - Activate/deactivate or delete employee accounts.
 - Link or unlink GitHub accounts for any employee.
 
 **`/admin/mail-test`** — displays the active mail configuration (password masked) and sends a raw SMTP test email to any address, bypassing Flask-Mail so the exact error is shown if delivery fails.
+
+**`/admin/tests`** — runs a full health check: database connectivity, configuration completeness, SMTP reachability, inbound-email thread status, GitHub API access, and functional tests (ticket/employee/customer CRUD, status transitions, assignment, watching). Infrastructure checks are read-only; functional tests create and immediately delete sentinel records.
 
 **Editing privileges:** Admins can edit managers and staff, but not other admins. Managers can edit staff only. Password fields are optional — leave blank to keep the current password.
 
@@ -257,6 +259,21 @@ Admins have access to **`/admin/employees`** and **`/admin/mail-test`**.
 | Staff | My Tickets | — | — |
 | Manager | All Tickets | Create, edit, activate/deactivate, delete | — |
 | Admin | All Tickets | ✓ (via manager page) | Create, edit, activate/deactivate, delete |
+
+---
+
+## Help pages
+
+Each role gets a tailored manual at **`/help`** (employees) and **`/customer/help`** (customers), rendered from Markdown with a sticky table-of-contents sidebar.
+
+| Role | Manual served |
+|------|--------------|
+| Admin | `docs/manual-admin.md` |
+| Manager | `docs/manual-manager.md` |
+| Staff | `docs/manual-employee.md` |
+| Customer | `docs/manual-customers.md` |
+
+Manuals are bilingual. When the user's session language is German, the route serves `<name>.de.md` if it exists, falling back to the English file. Adding a third language requires only a new `<name>.<locale>.md` file — no code changes.
 
 ---
 
@@ -293,6 +310,8 @@ taskify/
 ├── models.py                   # SQLAlchemy models
 ├── config.py                   # Environment-based configuration
 ├── requirements.txt
+├── backup.sh                   # Cron-ready backup script (DB + uploads)
+├── restore.sh                  # Interactive restore script with safety snapshot
 ├── .env                        # Local secrets — never commit (gitignored)
 ├── .env.example                # Template committed to version control
 ├── babel.cfg                   # pybabel extraction config
@@ -301,6 +320,13 @@ taskify/
 │   └── de/LC_MESSAGES/
 │       ├── messages.po         # German translations (source)
 │       └── messages.mo         # German translations (compiled)
+├── docs/
+│   ├── manual-employee.md      # In-app help: employee (EN)
+│   ├── manual-employee.de.md   # In-app help: employee (DE)
+│   ├── manual-manager.md       # In-app help: manager extras (EN)
+│   ├── manual-manager.de.md    # In-app help: manager extras (DE)
+│   ├── manual-admin.md         # In-app help: admin reference (EN)
+│   └── manual-admin.de.md      # In-app help: admin reference (DE)
 ├── templates/
 │   ├── base.html               # Bootstrap layout, navbar, flash messages
 │   ├── submit.html             # Public: submit ticket
@@ -310,10 +336,12 @@ taskify/
 │   ├── setup.html              # First-run admin setup
 │   ├── dashboard.html          # Employee: ticket list with My/All toggle
 │   ├── ticket.html             # Employee: ticket detail, messages, GitHub sidebar
+│   ├── help.html               # Role-based in-app manual viewer
 │   ├── error.html              # 403 / 404 error page
 │   ├── admin/
 │   │   ├── employees.html      # Admin: manage employees + GitHub linking
-│   │   └── mail_test.html      # Admin: live SMTP config check + test send
+│   │   ├── mail_test.html      # Admin: live SMTP config check + test send
+│   │   └── tests.html          # Admin: infrastructure + functional system tests
 │   ├── customer/
 │   │   └── dashboard.html      # Customer: ticket list
 │   └── manager/
@@ -362,6 +390,84 @@ Attachment   — ticket_id FK, message_id FK (nullable), filename (UUID on disk)
 | Employee adds customer-visible message | Submitter — message content |
 | Customer replies on status page | Assignee (or all active employees if unassigned); all watchers |
 | Manager creates customer account | Customer — welcome email with credentials |
+
+---
+
+## Backups
+
+`backup.sh` in the project root creates a timestamped database backup and a compressed uploads archive, then prunes files older than the configured retention period.
+
+```bash
+# Test manually first
+/opt/taskify/backup.sh -d /var/backups/taskify -v
+
+# Check exit code — 0 = success, 1 = something failed
+echo $?
+```
+
+### Cron setup
+
+```bash
+# Add to crontab (run 'crontab -e' as the taskify user or root)
+0 2 * * * /opt/taskify/backup.sh -d /var/backups/taskify >> /var/log/taskify/backup.log 2>&1
+```
+
+Cron only sends mail when the script exits with a non-zero code, so failures are reported automatically.
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-d DIR` | `./backups` | Destination directory |
+| `-k DAYS` | `14` | Days of backups to keep |
+| `-v` | off | Verbose output |
+
+### What gets backed up
+
+| File | Description |
+|------|-------------|
+| `taskify-db-<timestamp>.sqlite3` | Hot copy of the database — safe to create while the app is running |
+| `taskify-uploads-<timestamp>.tar.gz` | All ticket attachments |
+
+The database path is read from the `DATABASE_URL` environment variable if set; otherwise defaults to `instance/taskify.db`. The uploads path is read from `UPLOAD_FOLDER`, defaulting to `uploads/`.
+
+### Restoring
+
+Use `restore.sh`. Run it without arguments for an interactive menu:
+
+```bash
+/opt/taskify/restore.sh -d /var/backups/taskify
+```
+
+```
+Available backups (newest first):
+
+   1)  2026-03-05T0200   db 1.2M, uploads 4.8M
+   2)  2026-03-04T0200   db 1.1M, uploads 4.7M
+
+Enter number to restore (or q to quit): 1
+```
+
+Before overwriting anything, the script saves a **safety snapshot** of the current database and uploads to a `pre-restore-<timestamp>/` folder inside the backup directory, so you can roll back the rollback if needed.
+
+```bash
+# Restore latest backup non-interactively
+/opt/taskify/restore.sh -d /var/backups/taskify -t latest -y
+
+# Preview what would happen without changing anything
+/opt/taskify/restore.sh -d /var/backups/taskify -t latest -n
+
+# Restore without managing the systemd service (e.g. non-systemd host)
+/opt/taskify/restore.sh -d /var/backups/taskify -t latest -s ''
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-d DIR` | `./backups` | Directory containing backup files |
+| `-t TIMESTAMP` | interactive | Timestamp to restore, or `latest` |
+| `-s SERVICE` | `taskify` | systemd service to stop/start; `''` to skip |
+| `-y` | off | Skip confirmation prompt |
+| `-n` | off | Dry run — show what would happen |
 
 ---
 
@@ -632,6 +738,6 @@ Change the Authorization callback URL from `http://localhost:5000/auth/github/ca
 - [ ] `nginx` or `Caddy` blocks direct access to `/uploads/`
 - [ ] `gunicorn` running as a non-root user via systemd
 - [ ] GitHub OAuth callback URL updated to the production domain
-- [ ] `instance/taskify.db` and `uploads/` included in backup schedule
+- [ ] `backup.sh` scheduled in cron (see [Backups](#backups) section below)
 - [ ] `PUBLIC_TICKETS` set appropriately for your use case
 - [ ] Fine-grained GitHub PAT approved by org admin (if `GITHUB_ORG` is set)
