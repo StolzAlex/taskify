@@ -42,6 +42,11 @@
               <i class="bi bi-people me-1"></i>{{ _('Employees') }}
             </a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('admin_tests') }}">
+              <i class="bi bi-clipboard2-pulse me-1"></i>{{ _('Tests') }}
+            </a>
+          </li>
           {% endif %}
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('help_page') }}">

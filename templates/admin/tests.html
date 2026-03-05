@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('System Tests') }} – {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0"><i class="bi bi-clipboard2-pulse me-2"></i>{{ _('System Tests') }}</h1>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('admin_tests') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-clockwise me-1"></i>{{ _('Re-run') }}
+    </a>
+    <a href="{{ url_for('admin_employees') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>{{ _('Back') }}
+    </a>
+  </div>
+</div>
+
+{# ── Summary bar ─────────────────────────────────────────────────────────── #}
+<div class="row g-2 mb-4">
+  {% set n_pass = counts.get('pass', 0) %}
+  {% set n_fail = counts.get('fail', 0) %}
+  {% set n_warn = counts.get('warn', 0) %}
+  {% set n_info = counts.get('info', 0) %}
+
+  <div class="col-6 col-sm-3">
+    <div class="card text-center border-0 shadow-sm">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-success">{{ n_pass }}</div>
+        <div class="small text-muted">{{ _('Passed') }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-3">
+    <div class="card text-center border-0 shadow-sm {{ 'border-danger border-2' if n_fail }}">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold {{ 'text-danger' if n_fail else 'text-muted' }}">{{ n_fail }}</div>
+        <div class="small text-muted">{{ _('Failed') }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-3">
+    <div class="card text-center border-0 shadow-sm">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold {{ 'text-warning' if n_warn else 'text-muted' }}">{{ n_warn }}</div>
+        <div class="small text-muted">{{ _('Warnings') }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-3">
+    <div class="card text-center border-0 shadow-sm">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-muted">{{ n_info }}</div>
+        <div class="small text-muted">{{ _('Info') }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if n_fail %}
+<div class="alert alert-danger d-flex align-items-center gap-2 mb-4">
+  <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+  <strong>{{ n_fail }} test{{ 's' if n_fail != 1 }} failed.</strong>&nbsp;{{ _('Review the details below.') }}
+</div>
+{% elif n_warn %}
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
+  <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+  {{ _('All checks passed with warnings. Review them below.') }}
+</div>
+{% else %}
+<div class="alert alert-success d-flex align-items-center gap-2 mb-4">
+  <i class="bi bi-check-circle-fill flex-shrink-0"></i>
+  {{ _('All checks passed.') }}
+</div>
+{% endif %}
+
+{# ── Helpers ─────────────────────────────────────────────────────────────── #}
+{% set infra_cats = ['Database','Configuration','Email','Inbound email','GitHub'] %}
+{% set categories = [] %}
+{% for r in results %}
+  {% if r.category not in categories %}{% set _ = categories.append(r.category) %}{% endif %}
+{% endfor %}
+
+{# Macro: render one result row with optional collapsible detail #}
+{% macro result_row(r, idx) %}
+{% set icon, color = {
+    'pass': ('check-circle-fill',       'success'),
+    'fail': ('x-circle-fill',           'danger'),
+    'warn': ('exclamation-circle-fill', 'warning'),
+    'info': ('info-circle-fill',        'secondary'),
+}[r.status] %}
+{% set collapse_id = 'detail-' ~ idx %}
+<div class="list-group-item p-0">
+  <div class="d-flex align-items-start gap-3 px-3 py-2">
+    <i class="bi bi-{{ icon }} text-{{ color }} flex-shrink-0 mt-1" style="font-size:1rem;"></i>
+    <div class="flex-grow-1 min-w-0">
+      <span class="fw-semibold">{{ r.name }}</span>
+      <span class="text-muted ms-2 small">{{ r.message }}</span>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+      <span class="badge rounded-pill bg-{{ color }} text-uppercase" style="font-size:.65rem;">
+        {{ r.status }}
+      </span>
+      {% if r.detail %}
+      <button class="btn btn-link btn-sm p-0 text-muted text-decoration-none"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#{{ collapse_id }}"
+              aria-expanded="false"
+              title="{{ _('Toggle details') }}">
+        <i class="bi bi-chevron-down" style="font-size:.8rem;"></i>
+      </button>
+      {% endif %}
+    </div>
+  </div>
+  {% if r.detail %}
+  <div class="collapse" id="{{ collapse_id }}">
+    <pre class="mb-0 px-3 py-2 small text-body-secondary border-top"
+         style="white-space: pre-wrap; word-break: break-word; background: transparent;">{{ r.detail }}</pre>
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{# ── Infrastructure checks ───────────────────────────────────────────────── #}
+{% set ns = namespace(idx=0) %}
+{% for cat in categories if cat in infra_cats %}
+<div class="card shadow-sm mb-3">
+  <div class="card-header py-2">
+    <h6 class="mb-0 fw-semibold">{{ cat }}</h6>
+  </div>
+  <div class="list-group list-group-flush">
+    {% for r in results if r.category == cat %}
+      {% set ns.idx = ns.idx + 1 %}
+      {{ result_row(r, ns.idx) }}
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+
+{# ── Functional checks ───────────────────────────────────────────────────── #}
+{% set func_cats = categories | reject('in', infra_cats) | list %}
+{% if func_cats %}
+<div class="d-flex align-items-center gap-2 mt-4 mb-3">
+  <h5 class="mb-0 fw-semibold"><i class="bi bi-beaker me-1"></i>{{ _('Functional Tests') }}</h5>
+  <span class="badge bg-secondary rounded-pill small">{{ _('writes to DB, cleaned up automatically') }}</span>
+</div>
+
+{% for cat in func_cats %}
+<div class="card shadow-sm mb-3">
+  <div class="card-header py-2">
+    <h6 class="mb-0 fw-semibold">{{ cat.replace('Functional: ', '') }}</h6>
+  </div>
+  <div class="list-group list-group-flush">
+    {% for r in results if r.category == cat %}
+      {% set ns.idx = ns.idx + 1 %}
+      {{ result_row(r, ns.idx) }}
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<script>
+/* Rotate the chevron when the collapse opens/closes */
+document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(btn => {
+  const target = document.querySelector(btn.dataset.bsTarget);
+  if (!target) return;
+  target.addEventListener('show.bs.collapse',  () => btn.querySelector('i').classList.replace('bi-chevron-down', 'bi-chevron-up'));
+  target.addEventListener('hide.bs.collapse',  () => btn.querySelector('i').classList.replace('bi-chevron-up',   'bi-chevron-down'));
+});
+</script>
+{% endblock %}

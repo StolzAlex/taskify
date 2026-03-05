@@ -1744,6 +1744,718 @@ def admin_mail_test():
     return render_template('admin/mail_test.html', info=info, result=result)
 
 
+@app.route('/admin/tests')
+@login_required
+@admin_required
+def admin_tests():
+    import threading, os
+    from sqlalchemy import text
+
+    results = []
+
+    def check(category, name, fn):
+        try:
+            ret   = fn()
+            status, msg = ret[0], ret[1]
+            raw   = ret[2] if len(ret) > 2 else None
+            detail = '\n'.join(raw) if isinstance(raw, list) else raw
+        except Exception as e:
+            status, msg, detail = 'fail', f'{type(e).__name__}: {e}', None
+        results.append({'category': category, 'name': name,
+                        'status': status, 'message': msg, 'detail': detail})
+
+    # --- Database ---
+    def db_connection():
+        db.session.execute(text('SELECT 1'))
+        uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        try:
+            import urllib.parse as _up
+            p = _up.urlparse(uri)
+            uri_display = uri.replace(p.password, '***') if p.password else uri
+        except Exception:
+            uri_display = uri
+        detail = [
+            f'URI:    {uri_display}',
+            f'Driver: {db.engine.dialect.name}',
+            'Query:  SELECT 1 → OK',
+        ]
+        return 'pass', 'Database connection OK', detail
+    check('Database', 'Connection', db_connection)
+
+    def db_employees():
+        emps = Employee.query.order_by(Employee.id).all()
+        active = sum(1 for e in emps if e.is_active)
+        detail = [f'Total: {len(emps)}  Active: {active}', '']
+        for e in emps:
+            tags = ([' [admin]' if e.is_admin else '']
+                    + [' [manager]' if e.is_manager else '']
+                    + [' [inactive]' if not e.is_active else ''])
+            detail.append(f'#{e.id}  {e.username:<20} {e.email}{"".join(tags)}')
+        return 'pass', f'{len(emps)} employee(s) — {active} active', detail
+    check('Database', 'Employees', db_employees)
+
+    def db_tickets():
+        from collections import Counter
+        tickets = Ticket.query.order_by(Ticket.id.desc()).all()
+        counts  = Counter(t.status for t in tickets)
+        open_   = counts['open']
+        in_prog = counts['in_progress']
+        resolved = counts['resolved']
+        detail = [
+            f'Total:       {len(tickets)}',
+            f'Open:        {open_}',
+            f'In progress: {in_prog}',
+            f'Resolved:    {resolved}',
+            f'Closed:      {counts["closed"]}',
+        ]
+        if tickets:
+            detail += ['', 'Latest 5:']
+            for t in tickets[:5]:
+                detail.append(f'  #{t.id:<5} [{t.status:<11}] {t.subject[:55]}')
+        return 'pass', f'{len(tickets)} total — {open_} open, {in_prog} in progress, {resolved} resolved', detail
+    check('Database', 'Tickets', db_tickets)
+
+    # --- Configuration ---
+    def cfg_secret():
+        key = app.config.get('SECRET_KEY', '')
+        masked = (key[:4] + '…' + key[-4:]) if len(key) >= 8 else '(too short to mask)'
+        detail = [
+            f'Length:  {len(key)} chars',
+            f'Value:   {masked}',
+            f'Default: {"YES — insecure!" if key == "dev-secret-change-in-production" else "No"}',
+        ]
+        if key == 'dev-secret-change-in-production':
+            return 'fail', 'SECRET_KEY is the default dev value — change it before going to production', detail
+        if len(key) < 24:
+            return 'warn', 'SECRET_KEY is set but short (< 24 chars) — consider a longer random key', detail
+        return 'pass', 'SECRET_KEY is set and non-default', detail
+    check('Configuration', 'Secret key', cfg_secret)
+
+    def cfg_uploads():
+        folder   = app.config.get('UPLOAD_FOLDER', 'uploads')
+        abs_path = os.path.abspath(folder)
+        detail   = [f'Configured: {folder}', f'Absolute:   {abs_path}']
+        if not os.path.isdir(folder):
+            try:
+                os.makedirs(folder, exist_ok=True)
+                detail.append('Action: directory missing — created now')
+                return 'warn', f'Upload folder was missing and has been created: {folder}', detail
+            except Exception as e:
+                detail.append(f'Error: {e}')
+                return 'fail', f'Upload folder missing and could not be created: {e}', detail
+        writable = os.access(folder, os.W_OK)
+        stat     = os.stat(folder)
+        detail  += [f'Exists:   Yes', f'Writable: {"Yes" if writable else "NO"}',
+                    f'Mode:     {oct(stat.st_mode)}']
+        if not writable:
+            return 'fail', f'Upload folder is not writable: {folder}', detail
+        return 'pass', f'Upload folder exists and is writable: {folder}', detail
+    check('Configuration', 'Upload folder', cfg_uploads)
+
+    def cfg_public_tickets():
+        enabled = app.config.get('PUBLIC_TICKETS', True)
+        detail = [
+            f'PUBLIC_TICKETS: {enabled}',
+            '',
+            'Enabled:  anyone can submit a ticket without logging in.',
+            'Disabled: only authenticated employees can create tickets.',
+        ]
+        return 'info', f'Public ticket submission is {"enabled" if enabled else "disabled"}', detail
+    check('Configuration', 'Public tickets', cfg_public_tickets)
+
+    def cfg_app_name():
+        name    = app.config.get('APP_NAME', 'Taskify')
+        locales = app.config.get('BABEL_SUPPORTED_LOCALES', [])
+        detail  = [
+            f'APP_NAME:             {name}',
+            f'BABEL_DEFAULT_LOCALE: {app.config.get("BABEL_DEFAULT_LOCALE", "en")}',
+            f'Supported locales:    {", ".join(locales) if locales else "(none)"}',
+            f'MAX_CONTENT_LENGTH:   {app.config.get("MAX_CONTENT_LENGTH", 0) // (1024 * 1024)} MB',
+        ]
+        return 'info', f'App name: {name}', detail
+    check('Configuration', 'App name', cfg_app_name)
+
+    # --- Email ---
+    def mail_configured():
+        cfg    = app.config
+        server = cfg.get('MAIL_SERVER')
+        detail = [
+            f'MAIL_SERVER:         {server or "(not set)"}',
+            f'MAIL_PORT:           {cfg.get("MAIL_PORT", "(not set)")}',
+            f'MAIL_USE_TLS:        {cfg.get("MAIL_USE_TLS", False)}',
+            f'MAIL_USE_SSL:        {cfg.get("MAIL_USE_SSL", False)}',
+            f'MAIL_USERNAME:       {cfg.get("MAIL_USERNAME") or "(not set)"}',
+            f'MAIL_PASSWORD:       {"*** (set)" if cfg.get("MAIL_PASSWORD") else "(not set)"}',
+            f'MAIL_DEFAULT_SENDER: {cfg.get("MAIL_DEFAULT_SENDER") or "(not set)"}',
+        ]
+        if not server:
+            return 'warn', 'MAIL_SERVER is not set — outbound email disabled', detail
+        return 'pass', f'Mail server: {server}:{cfg.get("MAIL_PORT", 25)}', detail
+    check('Email', 'Configuration', mail_configured)
+
+    def mail_suppress():
+        suppressed = app.config.get('MAIL_SUPPRESS_SEND', False)
+        testing    = app.config.get('TESTING', False)
+        detail = [
+            f'MAIL_SUPPRESS_SEND: {suppressed}',
+            f'TESTING:            {testing}',
+            '',
+            'Emails are suppressed when either flag is True.',
+        ]
+        if suppressed:
+            return 'warn', 'MAIL_SUPPRESS_SEND=True — emails will not actually be sent', detail
+        return 'pass', 'Email sending is active (MAIL_SUPPRESS_SEND=False)', detail
+    check('Email', 'Sending active', mail_suppress)
+
+    def mail_smtp():
+        import smtplib, ssl as _ssl
+        server = app.config.get('MAIL_SERVER')
+        if not server:
+            return 'info', 'Skipped — MAIL_SERVER not configured', None
+        port    = int(app.config.get('MAIL_PORT', 25))
+        use_ssl = app.config.get('MAIL_USE_SSL', False)
+        use_tls = app.config.get('MAIL_USE_TLS', False)
+        detail  = [f'Host: {server}:{port}']
+        if use_ssl:
+            detail.append('Mode: SMTP_SSL (implicit TLS)')
+            smtp = smtplib.SMTP_SSL(server, port, context=_ssl.create_default_context(), timeout=5)
+        else:
+            detail.append('Mode: ' + ('SMTP + STARTTLS' if use_tls else 'Plain SMTP'))
+            smtp = smtplib.SMTP(server, port, timeout=5)
+        code, ehlo_resp = smtp.ehlo()
+        if ehlo_resp:
+            detail.append(f'EHLO:   {ehlo_resp.decode(errors="replace").splitlines()[0].strip()}')
+        if not use_ssl and use_tls:
+            smtp.starttls()
+            smtp.ehlo()
+        if smtp.esmtp_features:
+            detail.append('ESMTP:  ' + ', '.join(smtp.esmtp_features.keys()))
+        smtp.quit()
+        return 'pass', f'SMTP connection to {server}:{port} succeeded', detail
+    check('Email', 'SMTP connectivity', mail_smtp)
+
+    # --- Inbound email ---
+    def inbound_config():
+        use_graph = bool(app.config.get('AZURE_TENANT_ID') and app.config.get('GRAPH_MAILBOX'))
+        use_imap  = bool(app.config.get('IMAP_HOST')) and not use_graph
+        if use_graph:
+            tid = app.config.get('AZURE_TENANT_ID', '')
+            cid = app.config.get('AZURE_CLIENT_ID', '')
+            detail = [
+                'Method:         Microsoft Graph API',
+                f'Mailbox:        {app.config.get("GRAPH_MAILBOX")}',
+                f'Tenant ID:      {tid[:8]}…' if tid else 'Tenant ID:      (not set)',
+                f'Client ID:      {cid[:8]}…' if cid else 'Client ID:      (not set)',
+                f'Poll interval:  {app.config.get("GRAPH_POLL_INTERVAL", 60)}s',
+            ]
+            return 'info', f'Microsoft Graph configured for {app.config.get("GRAPH_MAILBOX")}', detail
+        if use_imap:
+            detail = [
+                'Method:         IMAP',
+                f'Host:           {app.config.get("IMAP_HOST")}:{app.config.get("IMAP_PORT", 993)}',
+                f'User:           {app.config.get("IMAP_USER") or "(not set)"}',
+                f'Use SSL:        {app.config.get("IMAP_USE_SSL", True)}',
+                f'Poll interval:  {app.config.get("IMAP_POLL_INTERVAL", 60)}s',
+            ]
+            return 'info', f'IMAP configured: {app.config.get("IMAP_HOST")}', detail
+        detail = [
+            'Neither IMAP nor Microsoft Graph credentials are configured.',
+            '',
+            'To enable IMAP  set: IMAP_HOST, IMAP_USER, IMAP_PASSWORD',
+            'To enable Graph set: AZURE_TENANT_ID, AZURE_CLIENT_ID,',
+            '                     AZURE_CLIENT_SECRET, GRAPH_MAILBOX',
+        ]
+        return 'warn', 'No inbound email configured (IMAP or Microsoft Graph)', detail
+    check('Inbound email', 'Configuration', inbound_config)
+
+    def inbound_thread():
+        all_threads = threading.enumerate()
+        names  = {t.name for t in all_threads}
+        detail = ['Running threads:'] + [f'  {t.name}' for t in all_threads]
+        if 'imap-poll' in names:
+            return 'pass', 'IMAP polling thread is running', detail
+        if 'graph-poll' in names:
+            return 'pass', 'Microsoft Graph polling thread is running', detail
+        use_graph = bool(app.config.get('AZURE_TENANT_ID') and app.config.get('GRAPH_MAILBOX'))
+        use_imap  = bool(app.config.get('IMAP_HOST')) and not use_graph
+        if use_graph or use_imap:
+            return 'fail', 'Inbound email is configured but the polling thread is not running', detail
+        return 'info', 'No inbound email configured — polling not expected', detail
+    check('Inbound email', 'Polling thread', inbound_thread)
+
+    # --- GitHub ---
+    def github_config():
+        token     = app.config.get('GITHUB_TOKEN')
+        client_id = app.config.get('GITHUB_CLIENT_ID')
+        org       = app.config.get('GITHUB_ORG')
+        detail = [
+            f'GITHUB_TOKEN:      {"set (" + str(len(token)) + " chars)" if token else "(not set)"}',
+            f'GITHUB_CLIENT_ID:  {client_id or "(not set)"}',
+            f'GITHUB_ORG:        {org or "(not set)"}',
+        ]
+        if not token and not client_id:
+            return 'info', 'GitHub integration not configured', detail
+        parts = []
+        if token:     parts.append('API token set')
+        if client_id: parts.append('OAuth app configured')
+        return 'info', ', '.join(parts), detail
+    check('GitHub', 'Configuration', github_config)
+
+    def github_api():
+        import urllib.request, json
+        token = app.config.get('GITHUB_TOKEN')
+        if not token:
+            return 'info', 'Skipped — GITHUB_TOKEN not set', None
+        req = urllib.request.Request(
+            'https://api.github.com/user',
+            headers={'Authorization': f'token {token}', 'User-Agent': 'Taskify'}
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.load(resp)
+        detail = [
+            f'Login:        @{data.get("login")}',
+            f'Name:         {data.get("name") or "(not set)"}',
+            f'Email:        {data.get("email") or "(not set)"}',
+            f'Public repos: {data.get("public_repos", 0)}',
+            f'Account type: {data.get("type", "?")}',
+        ]
+        return 'pass', f'GitHub API authenticated as @{data.get("login", "?")}', detail
+    check('GitHub', 'API connectivity', github_api)
+
+    # -----------------------------------------------------------------------
+    # Functional tests — create, verify, and delete real DB records.
+    # All sentinel records use the @taskify-test.invalid domain (RFC 2606
+    # reserved TLD) so they can be identified and cleaned up if a run aborts.
+    # Each function returns (status, summary, steps_list); the steps list is
+    # mutated by the finally block so cleanup is always included in the log.
+    # -----------------------------------------------------------------------
+    SENTINEL_EMAIL_SUFFIX = '@taskify-test.invalid'
+
+    def _purge_sentinel_tickets():
+        stragglers = Ticket.query.filter(
+            Ticket.submitter_email.like('%' + SENTINEL_EMAIL_SUFFIX)
+        ).all()
+        for t in stragglers:
+            _delete_ticket(t.id)
+
+    def _delete_ticket(ticket_id):
+        TicketEvent.query.filter_by(ticket_id=ticket_id).delete()
+        msgs = Message.query.filter_by(ticket_id=ticket_id).all()
+        for m in msgs:
+            Attachment.query.filter_by(message_id=m.id).delete()
+        Message.query.filter_by(ticket_id=ticket_id).delete()
+        Assignment.query.filter_by(ticket_id=ticket_id).delete()
+        Attachment.query.filter_by(ticket_id=ticket_id).delete()
+        TicketWatch.query.filter_by(ticket_id=ticket_id).delete()
+        t = db.session.get(Ticket, ticket_id)
+        if t:
+            db.session.delete(t)
+        db.session.commit()
+
+    try:
+        _purge_sentinel_tickets()
+        Employee.query.filter(Employee.email.like('%' + SENTINEL_EMAIL_SUFFIX)).delete()
+        Customer.query.filter(Customer.email.like('%' + SENTINEL_EMAIL_SUFFIX)).delete()
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    # --- Functional: Ticket ---
+    def func_ticket_create_delete():
+        steps = []
+        tid   = None
+        try:
+            t = Ticket(submitter_email='sentinel' + SENTINEL_EMAIL_SUFFIX,
+                       subject='[test] Sentinel ticket',
+                       body='Automated test — safe to delete.')
+            db.session.add(t)
+            db.session.commit()
+            tid = t.id
+            steps.append(f'[1] INSERT Ticket → id={tid}, token={t.token[:8]}…')
+            fetched = db.session.get(Ticket, tid)
+            assert fetched is not None, 'Ticket not found after insert'
+            steps.append(f'[2] SELECT Ticket id={tid} → found')
+            assert fetched.status == 'open', f'Expected open, got {fetched.status}'
+            steps.append(f'[3] status = {fetched.status!r} ✓')
+            return 'pass', f'Ticket #{tid} created and retrieved (status=open)', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if tid:
+                _delete_ticket(tid)
+                steps.append(f'[cleanup] Ticket #{tid} and child records deleted')
+    check('Functional: Ticket', 'Create & delete', func_ticket_create_delete)
+
+    def func_ticket_status_change():
+        steps = []
+        tid   = None
+        try:
+            t = Ticket(submitter_email='sentinel' + SENTINEL_EMAIL_SUFFIX,
+                       subject='[test] Status change ticket', body='Automated test.')
+            db.session.add(t)
+            db.session.commit()
+            tid = t.id
+            steps.append(f'[1] INSERT Ticket #{tid}, status=open')
+            for new_status in ('in_progress', 'resolved', 'closed'):
+                t.status = new_status
+                db.session.commit()
+                got = db.session.get(Ticket, tid).status
+                assert got == new_status, f'Expected {new_status}, got {got}'
+                steps.append(f'[{steps.__len__() + 1}] UPDATE status → {new_status} ✓')
+            return 'pass', f'Ticket #{tid} transitioned through all statuses', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if tid:
+                _delete_ticket(tid)
+                steps.append(f'[cleanup] Ticket #{tid} deleted')
+    check('Functional: Ticket', 'Status transitions', func_ticket_status_change)
+
+    def func_ticket_internal_reply():
+        steps = []
+        tid   = None
+        try:
+            t = Ticket(submitter_email='sentinel' + SENTINEL_EMAIL_SUFFIX,
+                       subject='[test] Reply ticket', body='Automated test.')
+            db.session.add(t)
+            db.session.commit()
+            tid = t.id
+            steps.append(f'[1] INSERT Ticket #{tid}')
+            msg = Message(ticket_id=tid, employee_id=current_user.id,
+                          body='Internal test reply.', is_customer_visible=False)
+            db.session.add(msg)
+            db.session.commit()
+            steps.append(f'[2] INSERT Message #{msg.id} (internal, employee={current_user.username})')
+            fetched = db.session.get(Message, msg.id)
+            assert fetched is not None, 'Message not found after insert'
+            assert fetched.is_customer_visible is False
+            steps.append(f'[3] is_customer_visible = False ✓')
+            return 'pass', f'Internal message #{msg.id} added to ticket #{tid}', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if tid:
+                _delete_ticket(tid)
+                steps.append(f'[cleanup] Ticket #{tid} and messages deleted')
+    check('Functional: Ticket', 'Internal reply', func_ticket_internal_reply)
+
+    def func_ticket_customer_visible_reply():
+        steps = []
+        tid   = None
+        try:
+            t = Ticket(submitter_email='sentinel' + SENTINEL_EMAIL_SUFFIX,
+                       subject='[test] Visible reply ticket', body='Automated test.')
+            db.session.add(t)
+            db.session.commit()
+            tid = t.id
+            steps.append(f'[1] INSERT Ticket #{tid}')
+            msg = Message(ticket_id=tid, employee_id=current_user.id,
+                          body='Customer-visible test reply.', is_customer_visible=True)
+            db.session.add(msg)
+            db.session.commit()
+            steps.append(f'[2] INSERT Message #{msg.id} (customer-visible, employee={current_user.username})')
+            fetched = db.session.get(Message, msg.id)
+            assert fetched is not None, 'Message not found after insert'
+            assert fetched.is_customer_visible is True
+            steps.append(f'[3] is_customer_visible = True ✓')
+            return 'pass', f'Customer-visible message #{msg.id} added to ticket #{tid}', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if tid:
+                _delete_ticket(tid)
+                steps.append(f'[cleanup] Ticket #{tid} and messages deleted')
+    check('Functional: Ticket', 'Customer-visible reply', func_ticket_customer_visible_reply)
+
+    def func_ticket_assignment():
+        steps = []
+        tid   = None
+        try:
+            t = Ticket(submitter_email='sentinel' + SENTINEL_EMAIL_SUFFIX,
+                       subject='[test] Assignment ticket', body='Automated test.')
+            db.session.add(t)
+            db.session.commit()
+            tid = t.id
+            steps.append(f'[1] INSERT Ticket #{tid}')
+            a = Assignment(ticket_id=tid, employee_id=current_user.id)
+            db.session.add(a)
+            db.session.commit()
+            steps.append(f'[2] INSERT Assignment #{a.id} → employee={current_user.username}')
+            refreshed = db.session.get(Ticket, tid)
+            assert refreshed.assignee is not None
+            assert refreshed.assignee.id == current_user.id
+            steps.append(f'[3] ticket.assignee = {refreshed.assignee.username} ✓')
+            return 'pass', f'Ticket #{tid} assigned to {current_user.username}', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if tid:
+                _delete_ticket(tid)
+                steps.append(f'[cleanup] Ticket #{tid} and assignment deleted')
+    check('Functional: Ticket', 'Assignment', func_ticket_assignment)
+
+    def func_ticket_watch():
+        steps = []
+        tid   = None
+        try:
+            t = Ticket(submitter_email='sentinel' + SENTINEL_EMAIL_SUFFIX,
+                       subject='[test] Watch ticket', body='Automated test.')
+            db.session.add(t)
+            db.session.commit()
+            tid = t.id
+            steps.append(f'[1] INSERT Ticket #{tid}')
+            w = TicketWatch(ticket_id=tid, employee_id=current_user.id)
+            db.session.add(w)
+            db.session.commit()
+            steps.append(f'[2] INSERT TicketWatch #{w.id} → employee={current_user.username}')
+            count = TicketWatch.query.filter_by(ticket_id=tid).count()
+            assert count == 1, f'Expected 1, got {count}'
+            steps.append(f'[3] COUNT watches = {count} ✓')
+            return 'pass', f'Ticket #{tid} watched by {current_user.username}', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if tid:
+                _delete_ticket(tid)
+                steps.append(f'[cleanup] Ticket #{tid} and watch deleted')
+    check('Functional: Ticket', 'Watch', func_ticket_watch)
+
+    def func_ticket_audit_event():
+        steps = []
+        tid   = None
+        try:
+            t = Ticket(submitter_email='sentinel' + SENTINEL_EMAIL_SUFFIX,
+                       subject='[test] Audit event ticket', body='Automated test.')
+            db.session.add(t)
+            db.session.commit()
+            tid = t.id
+            steps.append(f'[1] INSERT Ticket #{tid}')
+            ev = TicketEvent(ticket_id=tid, employee_id=current_user.id,
+                             event_type='status', from_value='open', to_value='in_progress')
+            db.session.add(ev)
+            db.session.commit()
+            steps.append(f'[2] INSERT TicketEvent #{ev.id} (type=status, open→in_progress)')
+            count = TicketEvent.query.filter_by(ticket_id=tid).count()
+            assert count == 1, f'Expected 1, got {count}'
+            steps.append(f'[3] COUNT events = {count} ✓')
+            return 'pass', f'Audit event logged for ticket #{tid}', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if tid:
+                _delete_ticket(tid)
+                steps.append(f'[cleanup] Ticket #{tid} and events deleted')
+    check('Functional: Ticket', 'Audit event', func_ticket_audit_event)
+
+    # --- Functional: Employee ---
+    def func_employee_create_delete():
+        steps = []
+        eid   = None
+        try:
+            uname = f'test_sentinel_{uuid.uuid4().hex[:8]}'
+            emp   = Employee(username=uname, email='test-sentinel' + SENTINEL_EMAIL_SUFFIX,
+                             is_admin=False, is_active=True)
+            emp.set_password('Sentinel!Test99')
+            db.session.add(emp)
+            db.session.commit()
+            eid = emp.id
+            steps.append(f'[1] INSERT Employee id={eid}, username={uname}')
+            fetched = db.session.get(Employee, eid)
+            assert fetched is not None
+            steps.append(f'[2] SELECT Employee id={eid} → found')
+            ok = fetched.check_password('Sentinel!Test99')
+            assert ok, 'Password check failed'
+            steps.append(f'[3] check_password("Sentinel!Test99") = True ✓')
+            return 'pass', f'Employee #{eid} created, password verified', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if eid:
+                db.session.delete(db.session.get(Employee, eid))
+                db.session.commit()
+                steps.append(f'[cleanup] Employee #{eid} deleted')
+    check('Functional: Employee', 'Create & delete', func_employee_create_delete)
+
+    def func_employee_toggle_active():
+        steps = []
+        eid   = None
+        try:
+            emp = Employee(username=f'test_toggle_{uuid.uuid4().hex[:8]}',
+                           email='test-toggle' + SENTINEL_EMAIL_SUFFIX, is_active=True)
+            emp.set_password('Toggle!Test99')
+            db.session.add(emp)
+            db.session.commit()
+            eid = emp.id
+            steps.append(f'[1] INSERT Employee #{eid}, is_active=True')
+            emp.is_active = False
+            db.session.commit()
+            assert db.session.get(Employee, eid).is_active is False
+            steps.append('[2] UPDATE is_active=False ✓')
+            emp.is_active = True
+            db.session.commit()
+            assert db.session.get(Employee, eid).is_active is True
+            steps.append('[3] UPDATE is_active=True ✓')
+            return 'pass', f'Employee #{eid} deactivated and reactivated', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if eid:
+                db.session.delete(db.session.get(Employee, eid))
+                db.session.commit()
+                steps.append(f'[cleanup] Employee #{eid} deleted')
+    check('Functional: Employee', 'Toggle active', func_employee_toggle_active)
+
+    def func_employee_password_change():
+        steps = []
+        eid   = None
+        try:
+            emp = Employee(username=f'test_pwchange_{uuid.uuid4().hex[:8]}',
+                           email='test-pwchange' + SENTINEL_EMAIL_SUFFIX, is_active=True)
+            emp.set_password('OldPass!99')
+            db.session.add(emp)
+            db.session.commit()
+            eid = emp.id
+            steps.append(f'[1] INSERT Employee #{eid} with initial password')
+            assert emp.check_password('OldPass!99')
+            steps.append('[2] check_password(old) = True ✓')
+            emp.set_password('NewPass!99')
+            db.session.commit()
+            steps.append('[3] set_password(new) committed')
+            refreshed = db.session.get(Employee, eid)
+            assert refreshed.check_password('NewPass!99')
+            steps.append('[4] check_password(new) = True ✓')
+            assert not refreshed.check_password('OldPass!99')
+            steps.append('[5] check_password(old) = False ✓ (old hash rejected)')
+            return 'pass', f'Employee #{eid} password updated and old one rejected', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if eid:
+                db.session.delete(db.session.get(Employee, eid))
+                db.session.commit()
+                steps.append(f'[cleanup] Employee #{eid} deleted')
+    check('Functional: Employee', 'Password change', func_employee_password_change)
+
+    # --- Functional: Customer ---
+    def func_customer_create_delete():
+        steps = []
+        cid   = None
+        try:
+            cust = Customer(name='Test Customer Sentinel',
+                            email='test-customer' + SENTINEL_EMAIL_SUFFIX,
+                            created_by_id=current_user.id)
+            cust.set_password('CustPass!99')
+            db.session.add(cust)
+            db.session.commit()
+            cid = cust.id
+            steps.append(f'[1] INSERT Customer id={cid}, created_by={current_user.username}')
+            fetched = db.session.get(Customer, cid)
+            assert fetched is not None
+            steps.append(f'[2] SELECT Customer id={cid} → found')
+            ok = fetched.check_password('CustPass!99')
+            assert ok, 'Password check failed'
+            steps.append(f'[3] check_password("CustPass!99") = True ✓')
+            return 'pass', f'Customer #{cid} created, password verified', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if cid:
+                db.session.delete(db.session.get(Customer, cid))
+                db.session.commit()
+                steps.append(f'[cleanup] Customer #{cid} deleted')
+    check('Functional: Customer', 'Create & delete', func_customer_create_delete)
+
+    def func_customer_group_membership():
+        steps = []
+        cid = gid = None
+        grp_name  = f'test-group-{uuid.uuid4().hex[:8]}'
+        try:
+            grp = Group(name=grp_name)
+            db.session.add(grp)
+            db.session.flush()
+            gid = grp.id
+            steps.append(f'[1] INSERT Group id={gid}, name={grp_name!r}')
+            cust = Customer(name='Test Group Customer',
+                            email='test-groupcust' + SENTINEL_EMAIL_SUFFIX,
+                            created_by_id=current_user.id)
+            cust.set_password('GrpPass!99')
+            db.session.add(cust)
+            db.session.flush()
+            cid = cust.id
+            steps.append(f'[2] INSERT Customer id={cid}')
+            cust.groups.append(grp)
+            db.session.commit()
+            refreshed = db.session.get(Customer, cid)
+            assert any(g.id == gid for g in refreshed.groups)
+            steps.append(f'[3] customer.groups.append(group) → group found ✓')
+            refreshed.groups.remove(db.session.get(Group, gid))
+            db.session.commit()
+            assert len(db.session.get(Customer, cid).groups) == 0
+            steps.append('[4] customer.groups.remove(group) → groups empty ✓')
+            return 'pass', f'Customer #{cid} added to / removed from group "{grp_name}"', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if cid:
+                db.session.delete(db.session.get(Customer, cid))
+            g = db.session.get(Group, gid) if gid else None
+            if g:
+                db.session.delete(g)
+            if cid or gid:
+                db.session.commit()
+                steps.append(f'[cleanup] Customer #{cid} and Group #{gid} deleted')
+    check('Functional: Customer', 'Group membership', func_customer_group_membership)
+
+    def func_customer_toggle_active():
+        steps = []
+        cid   = None
+        try:
+            cust = Customer(name='Test Toggle Customer',
+                            email='test-custtoggle' + SENTINEL_EMAIL_SUFFIX,
+                            created_by_id=current_user.id, is_active=True)
+            cust.set_password('ToggleCust!99')
+            db.session.add(cust)
+            db.session.commit()
+            cid = cust.id
+            steps.append(f'[1] INSERT Customer #{cid}, is_active=True')
+            cust.is_active = False
+            db.session.commit()
+            assert db.session.get(Customer, cid).is_active is False
+            steps.append('[2] UPDATE is_active=False ✓')
+            cust.is_active = True
+            db.session.commit()
+            assert db.session.get(Customer, cid).is_active is True
+            steps.append('[3] UPDATE is_active=True ✓')
+            return 'pass', f'Customer #{cid} deactivated and reactivated', steps
+        except Exception as e:
+            steps.append(f'[FAIL] {type(e).__name__}: {e}')
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if cid:
+                db.session.delete(db.session.get(Customer, cid))
+                db.session.commit()
+                steps.append(f'[cleanup] Customer #{cid} deleted')
+    check('Functional: Customer', 'Toggle active', func_customer_toggle_active)
+
+    counts = {}
+    for r in results:
+        counts[r['status']] = counts.get(r['status'], 0) + 1
+
+    return render_template('admin/tests.html', results=results, counts=counts)
+
+
 # ---------------------------------------------------------------------------
 # Error handlers
 # ---------------------------------------------------------------------------
