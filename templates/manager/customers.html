@@ -97,13 +97,14 @@
                         data-name="{{ cust.name|e }}"
                         data-email="{{ cust.email|e }}"
                         data-group-ids="{{ cust.groups|map(attribute='id')|list|tojson }}"
+                        aria-label="{{ _('Edit %(name)s', name=cust.name) }}"
                         title="{{ _('Edit') }}">
                   <i class="bi bi-pencil"></i>
                 </button>
                 <form method="post"
                       action="{{ url_for('toggle_customer', cust_id=cust.id) }}"
                       class="d-inline"
-                      onsubmit="return confirm('{{ _('Are you sure?') }}')">
+                      onsubmit="return confirm('{{ _('Deactivate %(name)s? They will not be able to log in.', name=cust.name) if cust.is_active else _('Activate %(name)s? This will restore their login access.', name=cust.name) }}')">
                   <button type="submit"
                           class="btn btn-sm {{ 'btn-outline-danger' if cust.is_active else 'btn-outline-success' }} ms-1">
                     {% if cust.is_active %}
@@ -116,8 +117,9 @@
                 <form method="post"
                       action="{{ url_for('delete_customer', cust_id=cust.id) }}"
                       class="d-inline"
-                      onsubmit="return confirm('{{ _('Permanently delete this customer? This cannot be undone.') }}')">
-                  <button type="submit" class="btn btn-sm btn-outline-danger ms-1">
+                      onsubmit="return confirm('{{ _('Permanently delete %(name)s? This cannot be undone.', name=cust.name) }}')">
+                  <button type="submit" class="btn btn-sm btn-outline-danger ms-1"
+                          aria-label="{{ _('Delete %(name)s', name=cust.name) }}">
                     <i class="bi bi-trash"></i>
                   </button>
                 </form>
@@ -141,7 +143,7 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header py-2">
-        <h6 class="modal-title"><i class="bi bi-pencil me-1"></i>{{ _('Edit Customer') }}</h6>
+        <h6 class="modal-title" id="editCustomerModalTitle"><i class="bi bi-pencil me-1"></i>{{ _('Edit Customer') }}</h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form method="post" id="editUserForm">
@@ -198,13 +200,16 @@
 document.querySelectorAll('.edit-customer-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var groupIds = JSON.parse(this.dataset.groupIds || '[]');
+    var modalEl  = document.getElementById('editUserModal');
     document.getElementById('editUserForm').action = this.dataset.action;
+    document.getElementById('editCustomerModalTitle').innerHTML =
+      '<i class="bi bi-pencil me-1"></i>' + this.dataset.name;
     document.getElementById('editName').value  = this.dataset.name;
     document.getElementById('editEmail').value = this.dataset.email;
     document.getElementById('editNewGroup').value = '';
     var pw = document.getElementById('editPwInput');
     pw.value = '';
-    pw.classList.remove('is-invalid');
+    pw.classList.remove('is-invalid', 'is-valid');
     document.getElementById('editPwError').textContent = '';
     var sel = document.getElementById('editGroupIds');
     if (sel) {
@@ -212,7 +217,11 @@ document.querySelectorAll('.edit-customer-btn').forEach(function(btn) {
         sel.options[i].selected = groupIds.includes(parseInt(sel.options[i].value));
       }
     }
-    new bootstrap.Modal(document.getElementById('editUserModal')).show();
+    var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    modalEl.addEventListener('shown.bs.modal', function () {
+      document.getElementById('editName').focus();
+    }, { once: true });
+    modal.show();
   });
 });
 </script>

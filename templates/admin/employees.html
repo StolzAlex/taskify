@@ -88,6 +88,7 @@
                     </span>
                     <input type="hidden" name="github_username" value="">
                     <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1"
+                            aria-label="{{ _('Remove GitHub link') }}"
                             data-bs-toggle="tooltip" data-bs-title="{{ _('Remove GitHub login link. Password login is unaffected.') }}">
                       <i class="bi bi-x-lg"></i>
                     </button>
@@ -117,6 +118,7 @@
                   {% if current_user.is_admin or current_user.is_manager %}
                   <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
                           onclick="openEditUser('{{ url_for('edit_employee', emp_id=emp.id) }}', '{{ emp.username }}', '{{ emp.email }}', {{ emp.is_admin|tojson }}, {{ emp.is_manager|tojson }}, true)"
+                          aria-label="{{ _('Edit %(name)s', name=emp.username) }}"
                           title="{{ _('Edit') }}">
                     <i class="bi bi-pencil"></i>
                   </button>
@@ -134,6 +136,7 @@
                   {% if can_edit %}
                   <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
                           onclick="openEditUser('{{ url_for('edit_employee', emp_id=emp.id) }}', '{{ emp.username }}', '{{ emp.email }}', {{ emp.is_admin|tojson }}, {{ emp.is_manager|tojson }}, false)"
+                          aria-label="{{ _('Edit %(name)s', name=emp.username) }}"
                           title="{{ _('Edit') }}">
                     <i class="bi bi-pencil"></i>
                   </button>
@@ -141,7 +144,7 @@
                   {% if current_user.is_admin %}
                   <form method="post" action="{{ url_for('toggle_employee', emp_id=emp.id) }}"
                         class="d-inline"
-                        onsubmit="return confirm('{{ _('Are you sure?') }}')">
+                        onsubmit="return confirm('{{ _('Deactivate %(name)s? They will not be able to log in.', name=emp.username) if emp.is_active else _('Activate %(name)s? This will restore their login access.', name=emp.username) }}')">
                     <button type="submit" class="btn btn-sm {{ 'btn-outline-danger' if emp.is_active else 'btn-outline-success' }} ms-1"
                             data-bs-toggle="tooltip"
                             data-bs-title="{{ _('Blocks login without deleting the account or its tickets. Reversible.') if emp.is_active else _('Restores login access for this employee.') }}">
@@ -155,8 +158,9 @@
                   {% if not emp.is_active %}
                   <form method="post" action="{{ url_for('delete_employee', emp_id=emp.id) }}"
                         class="d-inline"
-                        onsubmit="return confirm('{{ _('Permanently delete this employee? This cannot be undone.') }}')">
+                        onsubmit="return confirm('{{ _('Permanently delete %(name)s? This cannot be undone.', name=emp.username) }}')">
                     <button type="submit" class="btn btn-sm btn-outline-danger ms-1"
+                            aria-label="{{ _('Delete') }}"
                             data-bs-toggle="tooltip" data-bs-title="{{ _('Permanently delete this employee. Cannot be undone.') }}">
                       <i class="bi bi-trash"></i>
                     </button>
@@ -179,7 +183,7 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header py-2">
-        <h6 class="modal-title"><i class="bi bi-pencil me-1"></i>{{ _('Edit Employee') }}</h6>
+        <h6 class="modal-title" id="editUserModalTitle"><i class="bi bi-pencil me-1"></i>{{ _('Edit Employee') }}</h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form method="post" id="editUserForm">
@@ -240,12 +244,15 @@
 })();
 
 function openEditUser(action, username, email, isAdmin, isManager, isSelf) {
+  var modalEl = document.getElementById('editUserModal');
   document.getElementById('editUserForm').action = action;
+  document.getElementById('editUserModalTitle').innerHTML =
+    '<i class="bi bi-pencil me-1"></i>' + username;
   document.getElementById('editUsername').value = username;
   document.getElementById('editEmail').value = email;
   var pw = document.getElementById('editPwInput');
   pw.value = '';
-  pw.classList.remove('is-invalid');
+  pw.classList.remove('is-invalid', 'is-valid');
   document.getElementById('editPwError').textContent = '';
   var roleSection = document.getElementById('editRoleSection');
   if (roleSection) {
@@ -253,7 +260,11 @@ function openEditUser(action, username, email, isAdmin, isManager, isSelf) {
     document.getElementById('editIsAdmin').checked   = isAdmin;
     document.getElementById('editIsManager').checked = isManager;
   }
-  new bootstrap.Modal(document.getElementById('editUserModal')).show();
+  var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+  modalEl.addEventListener('shown.bs.modal', function () {
+    document.getElementById('editUsername').focus();
+  }, { once: true });
+  modal.show();
 }
 </script>
 {% endblock %}

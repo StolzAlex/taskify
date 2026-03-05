@@ -223,8 +223,22 @@
       }
     });
     input.addEventListener('input', function () {
-      input.classList.remove('is-invalid');
-      errorEl.textContent = '';
+      var pw = input.value;
+      if (!pw) {
+        input.classList.remove('is-invalid', 'is-valid');
+        errorEl.textContent = '';
+        return;
+      }
+      var err = checkPasswordStrength(pw);
+      if (err) {
+        input.classList.add('is-invalid');
+        input.classList.remove('is-valid');
+        errorEl.textContent = err;
+      } else {
+        input.classList.remove('is-invalid');
+        input.classList.add('is-valid');
+        errorEl.textContent = '';
+      }
     });
   }
 
