@@ -537,17 +537,20 @@
   function attachMentionAutocomplete(quillInst, editorEl) {
     let timer;
     let mStart = -1;   // Quill char index of the triggering '@'
+    let mEnd   = -1;   // delta-computed cursor index (avoids getSelection() timing issues)
 
     function hide() {
       mentionDropdown.style.display = 'none';
       mentionDropdown.innerHTML = '';
       mStart = -1;
+      mEnd   = -1;
     }
 
     function insert(username) {
-      const sel = quillInst.getSelection(true);
-      if (!sel || mStart === -1) { hide(); return; }
-      const fragLen    = sel.index - mStart;
+      // Prefer delta-cached cursor; fall back to getSelection() for click-driven inserts
+      const cursorIdx = mEnd !== -1 ? mEnd : (quillInst.getSelection(true) || {}).index;
+      if (cursorIdx == null || mStart === -1) { hide(); return; }
+      const fragLen    = cursorIdx - mStart;
       const afterIndex = mStart + 1 + username.length;
       quillInst.deleteText(mStart, fragLen);
       quillInst.insertText(mStart, '@' + username, { mention: username });
@@ -577,21 +580,36 @@
       } catch { hide(); }
     }
 
+    // Compute exact post-change cursor from delta ops (avoids getSelection() timing skew
+    // in Quill 2 where text-change fires via MutationObserver before selectionchange).
+    function cursorFromDelta(delta) {
+      let idx = 0;
+      (delta.ops || []).forEach(function (op) {
+        if (op.retain !== undefined)           idx += op.retain;
+        else if (typeof op.insert === 'string') idx += op.insert.length;
+        else if (op.insert !== undefined)       idx += 1; // embed
+        // op.delete: no movement
+      });
+      return idx;
+    }
+
     // State-based: once '@' is typed, spaces do NOT close the dropdown
-    quillInst.on('text-change', function () {
-      const sel = quillInst.getSelection();
-      if (!sel) return;
+    quillInst.on('text-change', function (delta, _old, source) {
+      if (source !== 'user') return;
+      const cursorIndex = cursorFromDelta(delta);
       if (mStart !== -1) {
-        if (sel.index <= mStart || quillInst.getText(mStart, 1) !== '@') { hide(); return; }
-        const fragment = quillInst.getText(mStart + 1, sel.index - mStart - 1);
+        if (cursorIndex <= mStart || quillInst.getText(mStart, 1) !== '@') { hide(); return; }
+        mEnd = cursorIndex;
+        const fragment = quillInst.getText(mStart + 1, cursorIndex - mStart - 1);
         clearTimeout(timer);
         timer = setTimeout(function () { doFetch(fragment); }, 200);
         return;
       }
-      if (sel.index >= 1 && quillInst.getText(sel.index - 1, 1) === '@') {
-        const before = sel.index >= 2 ? quillInst.getText(sel.index - 2, 1) : ' ';
-        if (/[\s\u00a0]/.test(before) || sel.index === 1) {
-          mStart = sel.index - 1;
+      if (cursorIndex >= 1 && quillInst.getText(cursorIndex - 1, 1) === '@') {
+        const before = cursorIndex >= 2 ? quillInst.getText(cursorIndex - 2, 1) : ' ';
+        if (/[\s\u00a0]/.test(before) || cursorIndex === 1) {
+          mStart = cursorIndex - 1;
+          mEnd   = cursorIndex;
           doFetch('');
         }
       }
