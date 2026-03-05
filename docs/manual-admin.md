@@ -37,9 +37,10 @@ Fill in **Name**, **Email**, and **Password**, then tick *Admin privileges* or *
 
 Click the pencil icon to change an employee's name, email, or password.
 
-- Admins can edit any non-admin employee.
+- Admins can edit any employee except themselves.
 - Managers can edit staff-level employees only.
 - Leave the password field blank to keep the current password.
+- To change a role, use the same edit form and tick or untick *Admin privileges* / *Manager privileges*. You cannot change your own role. Removing the last active admin's role is blocked.
 
 ### Deactivating / reactivating
 

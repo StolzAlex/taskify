@@ -109,7 +109,7 @@
                   {# Own row: admins and managers can edit themselves #}
                   {% if current_user.is_admin or current_user.is_manager %}
                   <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
-                          onclick="openEditUser('{{ url_for('edit_employee', emp_id=emp.id) }}', '{{ emp.username }}', '{{ emp.email }}')"
+                          onclick="openEditUser('{{ url_for('edit_employee', emp_id=emp.id) }}', '{{ emp.username }}', '{{ emp.email }}', {{ emp.is_admin|tojson }}, {{ emp.is_manager|tojson }}, true)"
                           title="{{ _('Edit') }}">
                     <i class="bi bi-pencil"></i>
                   </button>
@@ -117,16 +117,16 @@
                   <span class="text-muted small ms-1">({{ _('you') }})</span>
                 {% else %}
                   {# Other rows: check edit eligibility #}
-                  {% if current_user.is_admin and not emp.is_admin %}
+                  {% if current_user.is_admin %}
                     {% set can_edit = true %}
-                  {% elif current_user.is_manager and not current_user.is_admin and not emp.is_admin and not emp.is_manager %}
+                  {% elif current_user.is_manager and not emp.is_admin and not emp.is_manager %}
                     {% set can_edit = true %}
                   {% else %}
                     {% set can_edit = false %}
                   {% endif %}
                   {% if can_edit %}
                   <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
-                          onclick="openEditUser('{{ url_for('edit_employee', emp_id=emp.id) }}', '{{ emp.username }}', '{{ emp.email }}')"
+                          onclick="openEditUser('{{ url_for('edit_employee', emp_id=emp.id) }}', '{{ emp.username }}', '{{ emp.email }}', {{ emp.is_admin|tojson }}, {{ emp.is_manager|tojson }}, false)"
                           title="{{ _('Edit') }}">
                     <i class="bi bi-pencil"></i>
                   </button>
@@ -187,6 +187,19 @@
             <div class="invalid-feedback" id="editPwError"></div>
             <div class="form-text">{{ _('Min. 12 characters, including uppercase, lowercase, digit and special character.') }}</div>
           </div>
+          {% if current_user.is_admin %}
+          <div class="mb-1 mt-3" id="editRoleSection">
+            <label class="form-label small fw-semibold">{{ _('Role') }}</label>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_admin" id="editIsAdmin" value="1">
+              <label class="form-check-label small" for="editIsAdmin">{{ _('Admin privileges') }}</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_manager" id="editIsManager" value="1">
+              <label class="form-check-label small" for="editIsManager">{{ _('Manager privileges') }}</label>
+            </div>
+          </div>
+          {% endif %}
         </div>
         <div class="modal-footer py-2">
           <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
@@ -208,7 +221,7 @@
   attachPasswordValidation(editForm, editInput, editErr, false);
 })();
 
-function openEditUser(action, username, email) {
+function openEditUser(action, username, email, isAdmin, isManager, isSelf) {
   document.getElementById('editUserForm').action = action;
   document.getElementById('editUsername').value = username;
   document.getElementById('editEmail').value = email;
@@ -216,6 +229,12 @@ function openEditUser(action, username, email) {
   pw.value = '';
   pw.classList.remove('is-invalid');
   document.getElementById('editPwError').textContent = '';
+  var roleSection = document.getElementById('editRoleSection');
+  if (roleSection) {
+    roleSection.style.display = isSelf ? 'none' : '';
+    document.getElementById('editIsAdmin').checked   = isAdmin;
+    document.getElementById('editIsManager').checked = isManager;
+  }
   new bootstrap.Modal(document.getElementById('editUserModal')).show();
 }
 </script>

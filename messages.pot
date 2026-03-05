@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-05 15:16+0100\n"
+"POT-Creation-Date: 2026-03-05 15:29+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -153,7 +153,7 @@ msgstr ""
 msgid "No employee account linked to this GitHub account."
 msgstr ""
 
-#: app.py:778 app.py:1550 app.py:1660 app.py:1687
+#: app.py:778 app.py:1550 app.py:1660 app.py:1699
 msgid "Email already in use."
 msgstr ""
 
@@ -302,66 +302,70 @@ msgstr ""
 msgid "GitHub account \"%(gh)s\" linked to \"%(emp)s\"."
 msgstr ""
 
-#: app.py:1653 app.py:1684
+#: app.py:1653 app.py:1696
 msgid "Name and email are required."
 msgstr ""
 
-#: app.py:1671
+#: app.py:1678
+msgid "Cannot remove admin role: no other active admin exists."
+msgstr ""
+
+#: app.py:1683
 #, python-format
 msgid "Employee \"%(name)s\" updated."
 msgstr ""
 
-#: app.py:1702
+#: app.py:1714
 #, python-format
 msgid "Customer \"%(name)s\" updated."
 msgstr ""
 
-#: app.py:1712
+#: app.py:1724
 msgid "You cannot delete your own account."
 msgstr ""
 
-#: app.py:1723
+#: app.py:1735
 #, python-format
 msgid "Employee \"%(name)s\" deleted."
 msgstr ""
 
-#: app.py:1750
+#: app.py:1762
 msgid "Please enter a recipient address."
 msgstr ""
 
-#: app.py:2428
+#: app.py:2440
 msgid "Forbidden"
 msgstr ""
 
-#: app.py:2433
+#: app.py:2445
 msgid "Page not found"
 msgstr ""
 
-#: app.py:2438
+#: app.py:2450
 msgid "Too many requests. Please wait a moment."
 msgstr ""
 
-#: app.py:2445
+#: app.py:2457
 msgid "An unexpected error occurred."
 msgstr ""
 
-#: app.py:2470
+#: app.py:2482
 msgid "Employee Manual"
 msgstr ""
 
-#: app.py:2471
+#: app.py:2483
 msgid "Manager Manual"
 msgstr ""
 
-#: app.py:2472
+#: app.py:2484
 msgid "Admin Manual"
 msgstr ""
 
-#: app.py:2473 app.py:2506
+#: app.py:2485 app.py:2518
 msgid "Customer Manual"
 msgstr ""
 
-#: app.py:2493 templates/base.html:46 templates/base.html:103
+#: app.py:2505 templates/base.html:46 templates/base.html:103
 msgid "Help"
 msgstr ""
 
@@ -785,12 +789,12 @@ msgstr ""
 msgid "Edit"
 msgstr ""
 
-#: templates/admin/employees.html:193 templates/manager/customers.html:177
+#: templates/admin/employees.html:206 templates/manager/customers.html:177
 #: templates/ticket.html:117 templates/ticket.html:320
 msgid "Save"
 msgstr ""
 
-#: templates/admin/employees.html:192 templates/manager/customers.html:176
+#: templates/admin/employees.html:205 templates/manager/customers.html:176
 #: templates/ticket.html:121
 msgid "Cancel"
 msgstr ""
@@ -1005,11 +1009,11 @@ msgstr ""
 msgid "Create Employee"
 msgstr ""
 
-#: templates/admin/employees.html:29
+#: templates/admin/employees.html:29 templates/admin/employees.html:195
 msgid "Admin privileges"
 msgstr ""
 
-#: templates/admin/employees.html:34
+#: templates/admin/employees.html:34 templates/admin/employees.html:199
 msgid "Manager privileges"
 msgstr ""
 
@@ -1021,7 +1025,7 @@ msgstr ""
 msgid "All Employees"
 msgstr ""
 
-#: templates/admin/employees.html:54
+#: templates/admin/employees.html:54 templates/admin/employees.html:192
 msgid "Role"
 msgstr ""
 

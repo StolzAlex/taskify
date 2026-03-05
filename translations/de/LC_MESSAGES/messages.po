@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  Taskify\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-05 15:16+0100\n"
+"POT-Creation-Date: 2026-03-05 15:29+0100\n"
 "PO-Revision-Date: 2026-03-03 12:10+0100\n"
 "Last-Translator: Taskify\n"
 "Language: de\n"
@@ -157,7 +157,7 @@ msgstr "GitHub-Authentifizierung fehlgeschlagen."
 msgid "No employee account linked to this GitHub account."
 msgstr "Kein Mitarbeiterkonto mit diesem GitHub-Konto verknüpft."
 
-#: app.py:778 app.py:1550 app.py:1660 app.py:1687
+#: app.py:778 app.py:1550 app.py:1660 app.py:1699
 msgid "Email already in use."
 msgstr "E-Mail-Adresse bereits verwendet."
 
@@ -310,66 +310,70 @@ msgstr "Dieses GitHub-Konto ist bereits mit \"%(name)s\" verknüpft."
 msgid "GitHub account \"%(gh)s\" linked to \"%(emp)s\"."
 msgstr "GitHub-Konto \"%(gh)s\" mit \"%(emp)s\" verknüpft."
 
-#: app.py:1653 app.py:1684
+#: app.py:1653 app.py:1696
 msgid "Name and email are required."
 msgstr "Name und E-Mail-Adresse sind erforderlich."
 
-#: app.py:1671
+#: app.py:1678
+msgid "Cannot remove admin role: no other active admin exists."
+msgstr "Admin-Rolle kann nicht entfernt werden: Es gibt keinen anderen aktiven Admin."
+
+#: app.py:1683
 #, python-format
 msgid "Employee \"%(name)s\" updated."
 msgstr "Mitarbeiter \"%(name)s\" aktualisiert."
 
-#: app.py:1702
+#: app.py:1714
 #, python-format
 msgid "Customer \"%(name)s\" updated."
 msgstr "Kunde \"%(name)s\" aktualisiert."
 
-#: app.py:1712
+#: app.py:1724
 msgid "You cannot delete your own account."
 msgstr "Sie können Ihr eigenes Konto nicht löschen."
 
-#: app.py:1723
+#: app.py:1735
 #, python-format
 msgid "Employee \"%(name)s\" deleted."
 msgstr "Mitarbeiter \"%(name)s\" gelöscht."
 
-#: app.py:1750
+#: app.py:1762
 msgid "Please enter a recipient address."
 msgstr ""
 
-#: app.py:2428
+#: app.py:2440
 msgid "Forbidden"
 msgstr "Zugriff verweigert"
 
-#: app.py:2433
+#: app.py:2445
 msgid "Page not found"
 msgstr "Seite nicht gefunden"
 
-#: app.py:2438
+#: app.py:2450
 msgid "Too many requests. Please wait a moment."
 msgstr "Zu viele Anfragen. Bitte warten Sie einen Moment."
 
-#: app.py:2445
+#: app.py:2457
 msgid "An unexpected error occurred."
 msgstr "Ein unerwarteter Fehler ist aufgetreten."
 
-#: app.py:2470
+#: app.py:2482
 msgid "Employee Manual"
 msgstr "Mitarbeiterhandbuch"
 
-#: app.py:2471
+#: app.py:2483
 msgid "Manager Manual"
 msgstr "Manager-Handbuch"
 
-#: app.py:2472
+#: app.py:2484
 msgid "Admin Manual"
 msgstr "Admin-Handbuch"
 
-#: app.py:2473 app.py:2506
+#: app.py:2485 app.py:2518
 msgid "Customer Manual"
 msgstr "Kundenhandbuch"
 
-#: app.py:2493 templates/base.html:46 templates/base.html:103
+#: app.py:2505 templates/base.html:46 templates/base.html:103
 msgid "Help"
 msgstr "Hilfe"
 
@@ -795,12 +799,12 @@ msgstr "bearbeitet"
 msgid "Edit"
 msgstr "Bearbeiten"
 
-#: templates/admin/employees.html:193 templates/manager/customers.html:177
+#: templates/admin/employees.html:206 templates/manager/customers.html:177
 #: templates/ticket.html:117 templates/ticket.html:320
 msgid "Save"
 msgstr "Speichern"
 
-#: templates/admin/employees.html:192 templates/manager/customers.html:176
+#: templates/admin/employees.html:205 templates/manager/customers.html:176
 #: templates/ticket.html:121
 msgid "Cancel"
 msgstr "Abbrechen"
@@ -1019,11 +1023,11 @@ msgstr "Ihre Antwort schreiben…"
 msgid "Create Employee"
 msgstr "Mitarbeiter erstellen"
 
-#: templates/admin/employees.html:29
+#: templates/admin/employees.html:29 templates/admin/employees.html:195
 msgid "Admin privileges"
 msgstr "Administratorrechte"
 
-#: templates/admin/employees.html:34
+#: templates/admin/employees.html:34 templates/admin/employees.html:199
 msgid "Manager privileges"
 msgstr "Manager-Rechte"
 
@@ -1035,7 +1039,7 @@ msgstr "Erstellen"
 msgid "All Employees"
 msgstr "Alle Mitarbeiter"
 
-#: templates/admin/employees.html:54
+#: templates/admin/employees.html:54 templates/admin/employees.html:192
 msgid "Role"
 msgstr "Rolle"
 

@@ -1641,8 +1641,8 @@ def edit_employee(emp_id):
         abort(403)
     emp = db.session.get(Employee, emp_id) or abort(404)
     if emp.id != current_user.id:
-        # Editing someone else: admins can edit managers/staff; managers can edit staff only
-        if emp.is_admin:
+        # Editing someone else: admins can edit anyone; managers can edit staff only
+        if not current_user.is_admin and emp.is_admin:
             abort(403)
         if current_user.is_manager and not current_user.is_admin and emp.is_manager:
             abort(403)
@@ -1667,6 +1667,18 @@ def edit_employee(emp_id):
             flash(pw_error, 'danger')
             return redirect(url_for('admin_employees'))
         emp.set_password(password)
+    if current_user.is_admin and emp.id != current_user.id:
+        new_is_admin   = 'is_admin'   in request.form
+        new_is_manager = 'is_manager' in request.form
+        if emp.is_admin and not new_is_admin:
+            remaining = Employee.query.filter_by(is_admin=True, is_active=True).filter(
+                Employee.id != emp.id
+            ).count()
+            if remaining == 0:
+                flash(_('Cannot remove admin role: no other active admin exists.'), 'danger')
+                return redirect(url_for('admin_employees'))
+        emp.is_admin   = new_is_admin
+        emp.is_manager = new_is_manager
     db.session.commit()
     flash(_('Employee "%(name)s" updated.', name=emp.username), 'success')
     return redirect(url_for('admin_employees'))

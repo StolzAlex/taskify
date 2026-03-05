@@ -37,9 +37,10 @@ Füllen Sie **Name**, **E-Mail** und **Passwort** aus und setzen Sie bei Bedarf 
 
 Klicken Sie auf das Stift-Symbol, um Name, E-Mail oder Passwort eines Mitarbeiters zu ändern.
 
-- Admins können jeden Nicht-Admin-Mitarbeiter bearbeiten.
+- Admins können jeden Mitarbeiter außer sich selbst bearbeiten.
 - Manager können nur Staff-Mitarbeiter bearbeiten.
 - Lassen Sie das Passwortfeld leer, um das aktuelle Passwort beizubehalten.
+- Um eine Rolle zu ändern, verwenden Sie dasselbe Bearbeitungsformular und setzen oder entfernen Sie die Haken bei *Admin-Rechten* und *Manager-Rechten*. Die eigene Rolle kann nicht geändert werden. Das Entfernen der Admin-Rolle des letzten aktiven Admins ist gesperrt.
 
 ### Deaktivieren / Reaktivieren
 
