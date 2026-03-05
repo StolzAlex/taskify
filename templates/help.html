@@ -2,8 +2,19 @@
 {% block title %}{{ title }} – {{ app_name }}{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center mb-4">
+<div class="d-flex align-items-center justify-content-between mb-4">
   <h1 class="h3 mb-0"><i class="bi bi-question-circle me-2"></i>{{ title }}</h1>
+
+  {% if manuals %}
+  <div class="btn-group btn-group-sm" role="group">
+    {% for stem, label in manuals %}
+    <a href="{{ url_for('help_page', manual=stem) }}"
+       class="btn {{ 'btn-primary' if active_manual == stem else 'btn-outline-secondary' }}">
+      {{ label }}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 
 <div class="row g-4 align-items-start">

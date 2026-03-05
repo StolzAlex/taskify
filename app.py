@@ -2488,17 +2488,35 @@ def _manual_path(stem):
     return os.path.join(app.root_path, 'docs', f'{stem}.md')
 
 
+MANUALS = [
+    ('manual-employee', _l('Employee Manual')),
+    ('manual-manager',  _l('Manager Manual')),
+    ('manual-admin',    _l('Admin Manual')),
+    ('manual-customers', _l('Customer Manual')),
+]
+
 @app.route('/help')
 @login_required
 def help_page():
     if current_user.is_admin:
-        stem, title = 'manual-admin', _('Admin Manual')
+        default_stem = 'manual-admin'
     elif current_user.is_manager:
-        stem, title = 'manual-manager', _('Manager Manual')
+        default_stem = 'manual-manager'
     else:
-        stem, title = 'manual-employee', _('Employee Manual')
+        default_stem = 'manual-employee'
+
+    requested = request.args.get('manual', '')
+    valid_stems = {s for s, _ in MANUALS}
+    if current_user.is_admin and requested in valid_stems:
+        stem = requested
+    else:
+        stem = default_stem
+
+    title = next((t for s, t in MANUALS if s == stem), _('Help'))
     content, toc = _render_markdown(_manual_path(stem))
-    return render_template('help.html', content=content, toc=toc, title=title)
+    return render_template('help.html', content=content, toc=toc, title=title,
+                           manuals=MANUALS if current_user.is_admin else None,
+                           active_manual=stem)
 
 
 @app.route('/customer/help')
