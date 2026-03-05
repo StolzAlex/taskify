@@ -1223,9 +1223,12 @@ def edit_message(ticket_id, message_id):
     if not body or body == '<p><br></p>':
         flash(_('Message body cannot be empty.'), 'danger')
         return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+    old_mentions = set(re.findall(r'data-mention="([^"]+)"', msg.body))
     msg.body = body
     msg.edited_at = datetime.utcnow()
     db.session.commit()
+    new_mentions = set(re.findall(r'data-mention="([^"]+)"', body))
+    notify_mentions(ticket, new_mentions - old_mentions, sender_id=current_user.id)
     flash(_('Message updated.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 

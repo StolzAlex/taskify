@@ -217,16 +217,10 @@
       <div class="card-header">
         <h6 class="mb-0"><i class="bi bi-chat-left-text me-1"></i>{{ _('Add Message') }}</h6>
       </div>
-      <div class="card-body" style="position:relative">
+      <div class="card-body">
         <form method="post" action="{{ url_for('add_message', ticket_id=ticket.id) }}"
               id="msgForm" enctype="multipart/form-data">
           <div id="quill-editor" style="min-height: 120px;" class="mb-2"></div>
-          <div id="mention-dropdown"
-               style="display:none; position:absolute; z-index:1050; min-width:180px;
-                      max-height:200px; overflow-y:auto;
-                      background:var(--bs-body-bg); border:1px solid var(--bs-border-color);
-                      border-radius:0.375rem; box-shadow:0 4px 12px rgba(0,0,0,.15);">
-          </div>
           <input type="hidden" name="body" id="msgBody">
           <div class="mb-3">
             <label for="msgFile" class="form-label small text-muted">
@@ -450,6 +444,14 @@
 
   </div>
 </div>
+
+{# Shared @mention dropdown — fixed so it works above any editor on the page #}
+<div id="mention-dropdown"
+     style="display:none; position:fixed; z-index:1055; min-width:180px;
+            max-height:200px; overflow-y:auto;
+            background:var(--bs-body-bg); border:1px solid var(--bs-border-color);
+            border-radius:0.375rem; box-shadow:0 4px 12px rgba(0,0,0,.15);">
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -511,6 +513,7 @@
       });
       q.root.innerHTML = bodyEl.innerHTML;
       editQuills[msgId] = q;
+      attachMentionAutocomplete(q, document.getElementById('editQuill-' + msgId));
 
       document.getElementById('editForm-' + msgId).addEventListener('submit', function () {
         document.getElementById('editBodyInput-' + msgId).value = editQuills[msgId].root.innerHTML;
@@ -526,98 +529,87 @@
 
   // ── @mention autocomplete ────────────────────────────────────────────────
   const mentionDropdown = document.getElementById('mention-dropdown');
-  let mentionTimer;
-  let mentionStart = -1;   // Quill char index where the triggering '@' sits
-
-  function hideMentionDropdown() {
-    mentionDropdown.style.display = 'none';
-    mentionDropdown.innerHTML = '';
-    mentionStart = -1;
-  }
-
-  function insertMention(username) {
-    const sel = quill.getSelection(true);   // true → re-focus Quill
-    if (!sel || mentionStart === -1) { hideMentionDropdown(); return; }
-    const fragLen    = sel.index - mentionStart;   // '@' + whatever was typed
-    const afterIndex = mentionStart + 1 + username.length;
-    quill.deleteText(mentionStart, fragLen);
-    // Insert '@Name' with the mention format (data-mention stores canonical name)
-    quill.insertText(mentionStart, '@' + username, { mention: username });
-    // Insert a plain space after the chip and remove the mention format from it
-    quill.insertText(afterIndex, ' ');
-    quill.formatText(afterIndex, 1, { mention: false });
-    quill.setSelection(afterIndex + 1);
-    mentionStart = -1;
-    hideMentionDropdown();
-  }
-
-  function showMentionResults(employees) {
-    if (!employees.length) { hideMentionDropdown(); return; }
-    const edRect   = document.getElementById('quill-editor').getBoundingClientRect();
-    const cardRect = mentionDropdown.parentElement.getBoundingClientRect();
-    mentionDropdown.style.top  = (edRect.bottom - cardRect.top + 4) + 'px';
-    mentionDropdown.style.left = (edRect.left   - cardRect.left)    + 'px';
-    mentionDropdown.innerHTML  = employees.map(function (e) {
-      return '<button type="button" class="dropdown-item py-1 px-3 small">@' + esc(e.username) + '</button>';
-    }).join('');
-    mentionDropdown.querySelectorAll('button').forEach(function (btn, i) {
-      btn.addEventListener('click', function () { insertMention(employees[i].username); });
-    });
-    mentionDropdown.style.display = 'block';
-  }
-
-  async function fetchMentions(q) {
-    try {
-      const r    = await fetch('/employees/for-mention?q=' + encodeURIComponent(q));
-      const data = await r.json();
-      showMentionResults(data.employees ?? []);
-    } catch { hideMentionDropdown(); }
-  }
-
-  // State-based trigger: once '@' is typed, spaces no longer close the dropdown.
-  quill.on('text-change', function () {
-    const sel = quill.getSelection();
-    if (!sel) return;
-
-    if (mentionStart !== -1) {
-      // Already in mention mode — verify '@' is still in place and cursor is after it
-      if (sel.index <= mentionStart || quill.getText(mentionStart, 1) !== '@') {
-        hideMentionDropdown(); return;
-      }
-      const fragment = quill.getText(mentionStart + 1, sel.index - mentionStart - 1);
-      clearTimeout(mentionTimer);
-      mentionTimer = setTimeout(function () { fetchMentions(fragment); }, 200);
-      return;
-    }
-
-    // Not yet in mention mode — check if '@' was just typed
-    if (sel.index >= 1 && quill.getText(sel.index - 1, 1) === '@') {
-      const charBefore = sel.index >= 2 ? quill.getText(sel.index - 2, 1) : ' ';
-      if (/[\s\u00a0]/.test(charBefore) || sel.index === 1) {
-        mentionStart = sel.index - 1;
-        fetchMentions('');
-      }
-    }
-  });
-
-  // Also close dropdown if the cursor moves to before the '@'
-  quill.on('selection-change', function (range) {
-    if (range && mentionStart !== -1 && range.index <= mentionStart) {
-      hideMentionDropdown();
-    }
-  });
-
-  // Keep Quill focused when clicking a dropdown item
+  // Prevent dropdown clicks from stealing focus from whichever editor is active
   mentionDropdown.addEventListener('mousedown', function (e) { e.preventDefault(); });
-  // Close when focus leaves the editor
-  quill.root.addEventListener('blur', hideMentionDropdown);
-  // Close on Escape
-  quill.root.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && mentionDropdown.style.display !== 'none') {
-      e.preventDefault();
-      hideMentionDropdown();
+
+  // Attach mention autocomplete to any Quill instance.
+  // editorEl — the container div (used for dropdown positioning).
+  function attachMentionAutocomplete(quillInst, editorEl) {
+    let timer;
+    let mStart = -1;   // Quill char index of the triggering '@'
+
+    function hide() {
+      mentionDropdown.style.display = 'none';
+      mentionDropdown.innerHTML = '';
+      mStart = -1;
     }
-  });
+
+    function insert(username) {
+      const sel = quillInst.getSelection(true);
+      if (!sel || mStart === -1) { hide(); return; }
+      const fragLen    = sel.index - mStart;
+      const afterIndex = mStart + 1 + username.length;
+      quillInst.deleteText(mStart, fragLen);
+      quillInst.insertText(mStart, '@' + username, { mention: username });
+      quillInst.insertText(afterIndex, ' ');
+      quillInst.formatText(afterIndex, 1, { mention: false });
+      quillInst.setSelection(afterIndex + 1);
+      mStart = -1;
+      hide();
+    }
+
+    async function doFetch(q) {
+      try {
+        const r    = await fetch('/employees/for-mention?q=' + encodeURIComponent(q));
+        const data = await r.json();
+        const emps = data.employees ?? [];
+        if (!emps.length) { hide(); return; }
+        const rect = editorEl.getBoundingClientRect();
+        mentionDropdown.style.top  = (rect.bottom + 4) + 'px';
+        mentionDropdown.style.left = rect.left          + 'px';
+        mentionDropdown.innerHTML  = emps.map(function (e) {
+          return '<button type="button" class="dropdown-item py-1 px-3 small">@' + esc(e.username) + '</button>';
+        }).join('');
+        mentionDropdown.querySelectorAll('button').forEach(function (btn, i) {
+          btn.addEventListener('click', function () { insert(emps[i].username); });
+        });
+        mentionDropdown.style.display = 'block';
+      } catch { hide(); }
+    }
+
+    // State-based: once '@' is typed, spaces do NOT close the dropdown
+    quillInst.on('text-change', function () {
+      const sel = quillInst.getSelection();
+      if (!sel) return;
+      if (mStart !== -1) {
+        if (sel.index <= mStart || quillInst.getText(mStart, 1) !== '@') { hide(); return; }
+        const fragment = quillInst.getText(mStart + 1, sel.index - mStart - 1);
+        clearTimeout(timer);
+        timer = setTimeout(function () { doFetch(fragment); }, 200);
+        return;
+      }
+      if (sel.index >= 1 && quillInst.getText(sel.index - 1, 1) === '@') {
+        const before = sel.index >= 2 ? quillInst.getText(sel.index - 2, 1) : ' ';
+        if (/[\s\u00a0]/.test(before) || sel.index === 1) {
+          mStart = sel.index - 1;
+          doFetch('');
+        }
+      }
+    });
+
+    quillInst.on('selection-change', function (range) {
+      if (range && mStart !== -1 && range.index <= mStart) hide();
+    });
+
+    quillInst.root.addEventListener('blur', hide);
+    quillInst.root.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && mentionDropdown.style.display !== 'none') {
+        e.preventDefault(); hide();
+      }
+    });
+  }
+
+  attachMentionAutocomplete(quill, document.getElementById('quill-editor'));
 
   // ── GitHub search picker ──────────────────────────────────────────────────
   const ghSearch   = document.getElementById('ghSearch');
