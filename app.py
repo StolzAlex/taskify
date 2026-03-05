@@ -202,6 +202,26 @@ def inject_globals():
     }
 
 
+@app.template_filter('mention_highlight')
+def mention_highlight_filter(html_body):
+    """Wrap @username mentions in a styled <span> for display in message bodies."""
+    from flask import g as _g
+    if not hasattr(_g, '_mention_usernames'):
+        _g._mention_usernames = {
+            row.username
+            for row in db.session.query(Employee.username).filter_by(is_active=True).all()
+        }
+    active = _g._mention_usernames
+
+    def _replace(m):
+        un = m.group(1)
+        if un in active:
+            return f'<span class="mention">@{escape(un)}</span>'
+        return m.group(0)
+
+    return Markup(re.sub(r'@([\w]+)', _replace, html_body))
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(Employee, int(user_id))
@@ -331,6 +351,33 @@ def notify_watchers(ticket, subject, body, exclude_employee_id=None):
         if w.employee_id not in excluded and w.employee.is_active:
             send_email(subject=subject, recipients=[w.employee.email], body_text=body,
                        silent=True)   # one flash per watcher would be too noisy
+
+
+def notify_mentions(ticket, mentioned_usernames, sender_id):
+    """Email each @mentioned active employee, skipping anyone already notified
+    through the normal watcher / assignee notification path."""
+    if not mentioned_usernames:
+        return
+    app_name    = app.config['APP_NAME']
+    detail_url  = url_for('ticket_detail', ticket_id=ticket.id, _external=True)
+    assignee_id = ticket.assignment.employee_id if ticket.assignment else None
+    watcher_ids = {w.employee_id for w in TicketWatch.query.filter_by(ticket_id=ticket.id).all()}
+    excluded    = {eid for eid in [sender_id, assignee_id] if eid} | watcher_ids
+    for username in set(mentioned_usernames):
+        emp = Employee.query.filter_by(username=username, is_active=True).first()
+        if emp is None or emp.id in excluded:
+            continue
+        body = (
+            f"You were mentioned in a message on Ticket #{ticket.id}.\n\n"
+            f"Subject: {ticket.subject}\n\n"
+            f"View ticket: {detail_url}"
+        )
+        send_email(
+            subject=f"[{app_name}] You were mentioned – Ticket #{ticket.id}: {ticket.subject}",
+            recipients=[emp.email],
+            body_text=body,
+            silent=True,
+        )
 
 
 def send_customer_welcome_email(customer, plain_password):
@@ -1167,8 +1214,9 @@ def add_message(ticket_id):
             return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 
     db.session.commit()
+    plain     = re.sub(r'<[^>]+>', '', body)
+    mentioned = set(re.findall(r'@([\w]+)', plain))
     if is_visible:
-        plain = re.sub(r'<[^>]+>', '', body)
         notify_submitter_update(ticket, extra_message=plain)
     notify_watchers(
         ticket,
@@ -1178,6 +1226,7 @@ def add_message(ticket_id):
               f"Ticket ansehen: {url_for('ticket_detail', ticket_id=ticket.id, _external=True)}"),
         exclude_employee_id=current_user.id,
     )
+    notify_mentions(ticket, mentioned, sender_id=current_user.id)
     flash(_('Message added.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 
@@ -1382,6 +1431,17 @@ def github_repos(ticket_id):
     repos = [{'name': r['name'], 'full_name': r['full_name']}
              for r in resp.json() if not r.get('archived')]
     return jsonify({'repos': repos})
+
+
+@app.route('/employees/for-mention')
+@login_required
+def employees_for_mention():
+    """Return active employee usernames matching q (used by @mention autocomplete)."""
+    q   = request.args.get('q', '').strip().lower()
+    qry = Employee.query.filter_by(is_active=True).order_by(Employee.username)
+    if q:
+        qry = qry.filter(db.func.lower(Employee.username).contains(q))
+    return jsonify({'employees': [{'username': e.username} for e in qry.limit(10).all()]})
 
 
 @app.route('/tickets/<int:ticket_id>/internal_title', methods=['POST'])

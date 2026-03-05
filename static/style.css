@@ -236,3 +236,17 @@ body {
 [data-bs-theme="dark"] .ql-snow.ql-toolbar button:hover .ql-stroke,
 [data-bs-theme="dark"] .ql-snow.ql-toolbar button.ql-active .ql-stroke { stroke: #fff; }
 [data-bs-theme="dark"] .ql-editor.ql-blank::before                  { color: #666; }
+
+/* ── @mention highlight ───────────────────────────────────────────────────── */
+.mention {
+  display: inline-block;
+  background: #e8f0fe;
+  color: #1a56b0;
+  border-radius: 0.2rem;
+  padding: 0 0.25em;
+  font-weight: 500;
+}
+[data-bs-theme="dark"] .mention {
+  background: #1e3a6e;
+  color: #93b8f8;
+}
