@@ -73,7 +73,7 @@
 {% endif %}
 
 {# ── Helpers ─────────────────────────────────────────────────────────────── #}
-{% set infra_cats = ['Database','Configuration','Email','Inbound email','GitHub'] %}
+{# infra_categories is passed from the route — single source of truth #}
 {% set categories = [] %}
 {% for r in results %}
   {% if r.category not in categories %}{% set _ = categories.append(r.category) %}{% endif %}
@@ -122,7 +122,7 @@
 
 {# ── Infrastructure checks ───────────────────────────────────────────────── #}
 {% set ns = namespace(idx=0) %}
-{% for cat in categories if cat in infra_cats %}
+{% for cat in categories if cat in infra_categories %}
 <div class="card shadow-sm mb-3">
   <div class="card-header py-2">
     <h6 class="mb-0 fw-semibold">{{ cat }}</h6>
@@ -137,7 +137,7 @@
 {% endfor %}
 
 {# ── Functional checks ───────────────────────────────────────────────────── #}
-{% set func_cats = categories | reject('in', infra_cats) | list %}
+{% set func_cats = categories | reject('in', infra_categories) | list %}
 {% if func_cats %}
 <div class="d-flex align-items-center gap-2 mt-4 mb-3">
   <h5 class="mb-0 fw-semibold"><i class="bi bi-beaker me-1"></i>{{ _('Functional Tests') }}</h5>
