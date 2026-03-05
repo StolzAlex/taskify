@@ -19,7 +19,7 @@
           <td class="fw-semibold text-muted ps-3" style="width:220px;">{{ key }}</td>
           <td class="font-monospace">
             {% if val is none or val == '' %}
-              <span class="text-muted fst-italic">(not set)</span>
+              <span class="text-muted fst-italic">{{ _('(not set)') }}</span>
             {% elif val == true %}
               <span class="badge bg-success">True</span>
             {% elif val == false %}
