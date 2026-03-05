@@ -248,7 +248,9 @@ Admins have access to **`/admin/employees`**, **`/admin/mail-test`**, and **`/ad
 
 **`/admin/mail-test`** — displays the active mail configuration (password masked) and sends a raw SMTP test email to any address, bypassing Flask-Mail so the exact error is shown if delivery fails.
 
-**`/admin/tests`** — runs a full health check: database connectivity, configuration completeness, SMTP reachability, inbound-email thread status, GitHub API access, and functional tests (ticket/employee/customer CRUD, status transitions, assignment, watching). Infrastructure checks are read-only; functional tests create and immediately delete sentinel records.
+**`/admin/tests`** — runs a full health check: database connectivity, configuration completeness, SMTP reachability, inbound-email thread status, GitHub API access, and functional tests (ticket/employee/customer CRUD, status transitions, assignment, watching, deletion cascade). Infrastructure checks are read-only; functional tests create and immediately delete sentinel records.
+
+Admins can also **delete any ticket** from the ticket detail page (sidebar → Delete Ticket). This permanently removes the ticket, all messages and attachments, the audit log, assignment, watches, and the upload directory on disk.
 
 **Editing privileges:** Admins can edit managers and staff, but not other admins. Managers can edit staff only. Password fields are optional — leave blank to keep the current password.
 
@@ -266,12 +268,14 @@ Admins have access to **`/admin/employees`**, **`/admin/mail-test`**, and **`/ad
 
 Each role gets a tailored manual at **`/help`** (employees) and **`/customer/help`** (customers), rendered from Markdown with a sticky table-of-contents sidebar.
 
-| Role | Manual served |
-|------|--------------|
-| Admin | `docs/manual-admin.md` |
-| Manager | `docs/manual-manager.md` |
-| Staff | `docs/manual-employee.md` |
-| Customer | `docs/manual-customers.md` |
+| Role | Default manual | Can switch to |
+|------|---------------|---------------|
+| Admin | `manual-admin` | All four manuals |
+| Manager | `manual-manager` | — |
+| Staff | `manual-employee` | — |
+| Customer | `manual-customers` | — |
+
+Admins see a button group in the help page header to switch between all four manuals (`?manual=<stem>` query param).
 
 Manuals are bilingual. When the user's session language is German, the route serves `<name>.de.md` if it exists, falling back to the English file. Adding a third language requires only a new `<name>.<locale>.md` file — no code changes.
 

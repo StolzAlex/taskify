@@ -2,15 +2,18 @@
 
 Admins have full access to everything available to managers and employees, plus the capabilities described here.
 
+The **Help** page lets you switch between all four manuals (Employee, Manager, Admin, Customer) using the button group in the top-right corner.
+
 ## Table of Contents
 
 1. [Employee Management](#1-employee-management)
-2. [GitHub Integration](#2-github-integration)
-3. [Mail Test](#3-mail-test)
-4. [System Tests](#4-system-tests)
-5. [Environment Variables](#5-environment-variables)
-6. [Inbound Email](#6-inbound-email)
-7. [Emergency Procedures](#7-emergency-procedures)
+2. [Deleting Tickets](#2-deleting-tickets)
+3. [GitHub Integration](#3-github-integration)
+4. [Mail Test](#4-mail-test)
+5. [System Tests](#5-system-tests)
+6. [Environment Variables](#6-environment-variables)
+7. [Inbound Email](#7-inbound-email)
+8. [Emergency Procedures](#8-emergency-procedures)
 
 ---
 
@@ -50,7 +53,21 @@ Click the trash icon to permanently delete an employee. This cannot be undone. T
 
 ---
 
-## 2. GitHub Integration
+## 2. Deleting Tickets
+
+Open the ticket and scroll to the bottom of the sidebar. Click **Delete Ticket** and confirm the prompt.
+
+Deletion permanently removes:
+- All messages and internal notes
+- All file attachments (from the database and from disk)
+- Status history and audit events
+- Assignment and watch subscriptions
+
+This action cannot be undone. The submitter is not notified.
+
+---
+
+## 3. GitHub Integration
 
 Employees can log in with **Login with GitHub** if their GitHub account is linked.
 
@@ -75,7 +92,7 @@ Create the OAuth App at *GitHub → Settings → Developer settings → OAuth Ap
 
 ---
 
-## 3. Mail Test
+## 4. Mail Test
 
 Go to **Admin → Mail Test** to send a test email to any address. Use this to verify your SMTP configuration is working before relying on notifications.
 
@@ -83,7 +100,7 @@ The result shows whether the message was accepted by the server. Check the targe
 
 ---
 
-## 4. System Tests
+## 5. System Tests
 
 Go to **Admin → System Tests** to run a full health check of the application.
 
@@ -107,7 +124,7 @@ Results show **Pass**, **Fail**, **Warn**, or **Info**. Click the chevron on any
 
 ---
 
-## 5. Environment Variables
+## 6. Environment Variables
 
 All configuration is done via environment variables (or a `.env` file in the project root).
 
@@ -139,7 +156,7 @@ After changing environment variables, restart the application for changes to tak
 
 ---
 
-## 6. Inbound Email
+## 7. Inbound Email
 
 When configured, Taskify polls an IMAP mailbox and routes replies back to the correct ticket automatically.
 
@@ -163,7 +180,7 @@ The inbound email thread is shown on the **System Tests** page under *Inbound em
 
 ---
 
-## 7. Emergency Procedures
+## 8. Emergency Procedures
 
 ### Admin locked out / forgotten password
 

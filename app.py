@@ -1484,32 +1484,31 @@ def serve_attachment(ticket_id, filename):
     return send_from_directory(upload_dir, filename)
 
 
-@app.route('/tickets/<int:ticket_id>/delete', methods=['POST'])
-@login_required
-@admin_required
-def delete_ticket(ticket_id):
-    ticket = db.session.get(Ticket, ticket_id) or abort(404)
-    subject = ticket.subject  # capture before deletion for flash message
+def _hard_delete_ticket(ticket_id):
+    """Delete a ticket and every related DB row, then remove its upload directory.
 
-    # Delete child records in FK-safe order.
-    # Attachments first — collect filenames so we can remove files after commit.
-    attachments = Attachment.query.filter_by(ticket_id=ticket_id).all()
-    for att in attachments:
-        db.session.delete(att)
+    Deletion order respects FK constraints: attachments → messages → events →
+    watches → assignment → ticket.  The DB transaction is committed before any
+    filesystem work so a DB error never leaves orphaned files.  A missing upload
+    directory is silently ignored; other OS errors are logged as warnings.
+    Safe to call when the ticket no longer exists (all queries become no-ops).
+    """
+    try:
+        for att in Attachment.query.filter_by(ticket_id=ticket_id).all():
+            db.session.delete(att)
+        for msg in Message.query.filter_by(ticket_id=ticket_id).all():
+            db.session.delete(msg)
+        TicketEvent.query.filter_by(ticket_id=ticket_id).delete()
+        TicketWatch.query.filter_by(ticket_id=ticket_id).delete()
+        Assignment.query.filter_by(ticket_id=ticket_id).delete()
+        ticket = db.session.get(Ticket, ticket_id)
+        if ticket:
+            db.session.delete(ticket)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
 
-    for msg in Message.query.filter_by(ticket_id=ticket_id).all():
-        db.session.delete(msg)
-
-    TicketEvent.query.filter_by(ticket_id=ticket_id).delete()
-    TicketWatch.query.filter_by(ticket_id=ticket_id).delete()
-
-    if ticket.assignment:
-        db.session.delete(ticket.assignment)
-
-    db.session.delete(ticket)
-    db.session.commit()
-
-    # Remove upload folder — non-fatal if it doesn't exist or fails.
     upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket_id))
     try:
         shutil.rmtree(upload_dir)
@@ -1518,6 +1517,14 @@ def delete_ticket(ticket_id):
     except OSError as e:
         app.logger.warning('Could not remove upload dir %s: %s', upload_dir, e)
 
+
+@app.route('/tickets/<int:ticket_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_ticket(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    subject = ticket.subject
+    _hard_delete_ticket(ticket_id)
     flash(_('Ticket #%(id)s "%(subject)s" deleted.', id=ticket_id, subject=subject), 'success')
     return redirect(url_for('dashboard'))
 
@@ -1829,23 +1836,6 @@ def admin_tests():
             self.append(f'[cleanup] {msg}')
 
     # ── Sentinel cleanup helpers ─────────────────────────────────────────────
-    def _delete_ticket(ticket_id):
-        """Hard-delete a ticket and all child rows. Rolls back on error."""
-        try:
-            TicketEvent.query.filter_by(ticket_id=ticket_id).delete()
-            for m in Message.query.filter_by(ticket_id=ticket_id).all():
-                Attachment.query.filter_by(message_id=m.id).delete()
-            Message.query.filter_by(ticket_id=ticket_id).delete()
-            Assignment.query.filter_by(ticket_id=ticket_id).delete()
-            Attachment.query.filter_by(ticket_id=ticket_id).delete()
-            TicketWatch.query.filter_by(ticket_id=ticket_id).delete()
-            t = db.session.get(Ticket, ticket_id)
-            if t:
-                db.session.delete(t)
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-            raise
 
     def _delete_obj(obj):
         """Delete a single ORM object if it still exists, then commit."""
@@ -1857,7 +1847,7 @@ def admin_tests():
     # for employees/customers so FK constraints are respected.
     try:
         for t in Ticket.query.filter(Ticket.submitter_email.like(f'%{SENTINEL_SUFFIX}')).all():
-            _delete_ticket(t.id)
+            _hard_delete_ticket(t.id)
         for emp in Employee.query.filter(Employee.email.like(f'%{SENTINEL_SUFFIX}')).all():
             _delete_obj(emp)
         for cust in Customer.query.filter(Customer.email.like(f'%{SENTINEL_SUFFIX}')).all():
@@ -1888,7 +1878,7 @@ def admin_tests():
             return 'fail', f'{type(e).__name__}: {e}', steps
         finally:
             if tid:
-                _delete_ticket(tid)
+                _hard_delete_ticket(tid)
                 steps.cleanup(f'Ticket #{tid} and child records deleted')
 
     def _with_employee(username_prefix, body_fn):
@@ -2297,25 +2287,13 @@ def admin_tests():
             # Create a real upload directory with a dummy file.
             upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(t.id))
             os.makedirs(upload_dir, exist_ok=True)
-            open(os.path.join(upload_dir, 'sentinel.txt'), 'w').close()
-            steps.add(f'Created upload dir {upload_dir}')
+            with open(os.path.join(upload_dir, 'sentinel.txt'), 'w'):
+                pass
+            steps.add(f'Created upload dir with dummy file')
 
-            # Run deletion — mirrors delete_ticket route exactly.
-            for a in Attachment.query.filter_by(ticket_id=t.id).all():
-                db.session.delete(a)
-            for m in Message.query.filter_by(ticket_id=t.id).all():
-                db.session.delete(m)
-            TicketEvent.query.filter_by(ticket_id=t.id).delete()
-            TicketWatch.query.filter_by(ticket_id=t.id).delete()
-            asgn = Assignment.query.filter_by(ticket_id=t.id).first()
-            if asgn:
-                db.session.delete(asgn)
-            db.session.delete(t)
-            db.session.commit()
-            steps.add('All DB child records and ticket deleted')
-
-            shutil.rmtree(upload_dir, ignore_errors=True)
-            steps.add('Upload directory removed from disk')
+            # Call the same helper used by the delete_ticket route.
+            _hard_delete_ticket(t.id)
+            steps.add('_hard_delete_ticket() completed')
 
             # Verify DB.
             assert db.session.get(Ticket, t.id) is None

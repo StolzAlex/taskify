@@ -2,15 +2,18 @@
 
 Admins haben vollen Zugriff auf alles, was Managern und Mitarbeitern zur Verfügung steht, sowie auf die hier beschriebenen Funktionen.
 
+Die **Hilfe**-Seite ermöglicht das Wechseln zwischen allen vier Handbüchern (Mitarbeiter, Manager, Admin, Kunden) über die Schaltflächengruppe oben rechts.
+
 ## Inhaltsverzeichnis
 
 1. [Mitarbeiterverwaltung](#1-mitarbeiterverwaltung)
-2. [GitHub-Integration](#2-github-integration)
-3. [E-Mail-Test](#3-e-mail-test)
-4. [Systemtests](#4-systemtests)
-5. [Umgebungsvariablen](#5-umgebungsvariablen)
-6. [Eingehende E-Mails](#6-eingehende-e-mails)
-7. [Notfallmaßnahmen](#7-notfallmasnahmen)
+2. [Tickets löschen](#2-tickets-loschen)
+3. [GitHub-Integration](#3-github-integration)
+4. [E-Mail-Test](#4-e-mail-test)
+5. [Systemtests](#5-systemtests)
+6. [Umgebungsvariablen](#6-umgebungsvariablen)
+7. [Eingehende E-Mails](#7-eingehende-e-mails)
+8. [Notfallmaßnahmen](#8-notfallmasnahmen)
 
 ---
 
@@ -50,7 +53,21 @@ Klicken Sie auf das Papierkorb-Symbol, um einen Mitarbeiter dauerhaft zu lösche
 
 ---
 
-## 2. GitHub-Integration
+## 2. Tickets löschen
+
+Öffnen Sie das Ticket und scrollen Sie zum Ende der Seitenleiste. Klicken Sie auf **Ticket löschen** und bestätigen Sie die Abfrage.
+
+Das Löschen entfernt dauerhaft:
+- Alle Nachrichten und internen Notizen
+- Alle Dateianhänge (aus der Datenbank und vom Datenträger)
+- Statusverlauf und Audit-Ereignisse
+- Zuweisung und Beobachtungs-Abonnements
+
+Diese Aktion kann nicht rückgängig gemacht werden. Der Einreicher wird nicht benachrichtigt.
+
+---
+
+## 3. GitHub-Integration
 
 Mitarbeiter können sich mit **Mit GitHub anmelden** einloggen, wenn ihr GitHub-Konto verknüpft ist.
 
@@ -75,7 +92,7 @@ Erstellen Sie die OAuth-App unter *GitHub → Einstellungen → Entwicklereinste
 
 ---
 
-## 3. E-Mail-Test
+## 4. E-Mail-Test
 
 Gehen Sie zu **Admin → E-Mail-Test**, um eine Test-E-Mail an eine beliebige Adresse zu senden. Damit können Sie überprüfen, ob Ihre SMTP-Konfiguration funktioniert.
 
@@ -83,7 +100,7 @@ Das Ergebnis zeigt, ob die Nachricht vom Server akzeptiert wurde. Prüfen Sie de
 
 ---
 
-## 4. Systemtests
+## 5. Systemtests
 
 Gehen Sie zu **Admin → Systemtests**, um eine vollständige Zustandsprüfung der Anwendung durchzuführen.
 
@@ -107,7 +124,7 @@ Ergebnisse zeigen **Bestanden**, **Fehlgeschlagen**, **Warnung** oder **Info**. 
 
 ---
 
-## 5. Umgebungsvariablen
+## 6. Umgebungsvariablen
 
 Die gesamte Konfiguration erfolgt über Umgebungsvariablen (oder eine `.env`-Datei im Projektstamm).
 
@@ -139,7 +156,7 @@ Nach dem Ändern von Umgebungsvariablen muss die Anwendung neu gestartet werden.
 
 ---
 
-## 6. Eingehende E-Mails
+## 7. Eingehende E-Mails
 
 Bei entsprechender Konfiguration fragt Taskify ein IMAP-Postfach ab und leitet Antworten automatisch an das richtige Ticket weiter.
 
@@ -163,7 +180,7 @@ Der Thread für eingehende E-Mails wird auf der Seite **Systemtests** unter *Ein
 
 ---
 
-## 7. Notfallmaßnahmen
+## 8. Notfallmaßnahmen
 
 ### Admin gesperrt / Passwort vergessen
 
