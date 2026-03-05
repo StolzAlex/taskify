@@ -253,7 +253,7 @@
     <div class="card shadow-sm mb-3">
       <div class="card-header"><h6 class="mb-0"><i class="bi bi-arrow-repeat me-1"></i>{{ _('Change Status') }}
         <i class="bi bi-info-circle text-muted ms-1 fw-normal" data-bs-toggle="tooltip"
-           data-bs-title="{{ _('Open → In Progress → Resolved → Closed. Setting Resolved or Closed sends an email to the submitter.') }}"></i>
+           data-bs-title="{{ _('Open → In Progress → Resolved → Closed. Every status change sends an email to the submitter.') }}"></i>
       </h6></div>
       <div class="card-body">
         <form method="post" action="{{ url_for('change_status', ticket_id=ticket.id) }}">
@@ -275,7 +275,7 @@
     <div class="card shadow-sm mb-3">
       <div class="card-header"><h6 class="mb-0"><i class="bi bi-person-check me-1"></i>{{ _('Assignee') }}
         <i class="bi bi-info-circle text-muted ms-1 fw-normal" data-bs-toggle="tooltip"
-           data-bs-title="{{ _('The assigned employee receives email notifications for all activity on this ticket.') }}"></i>
+           data-bs-title="{{ _('The assigned employee is notified when a customer replies and when first assigned. Status changes and staff messages notify watchers instead.') }}"></i>
       </h6></div>
       <div class="card-body">
         <form method="post" action="{{ url_for('assign_ticket', ticket_id=ticket.id) }}">

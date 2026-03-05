@@ -1723,6 +1723,9 @@ def delete_employee(emp_id):
     if emp.id == current_user.id:
         flash(_('You cannot delete your own account.'), 'danger')
         return redirect(url_for('admin_employees'))
+    if emp.is_active:
+        flash(_('Deactivate the employee before deleting them.'), 'danger')
+        return redirect(url_for('admin_employees'))
     username = emp.username
     # Detach authored messages (keep them, just unlink the author)
     Message.query.filter_by(employee_id=emp.id).update({'employee_id': None})

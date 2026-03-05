@@ -104,7 +104,7 @@ Use the *Change Status* panel in the sidebar.
 | Resolved | Fixed — awaiting confirmation from submitter |
 | Closed | Fully closed, no further action expected |
 
-Setting status to *Resolved* or *Closed* sends an update email to the submitter.
+Every status change sends an update email to the submitter.
 
 ---
 

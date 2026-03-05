@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-05 15:39+0100\n"
+"POT-Creation-Date: 2026-03-05 15:48+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -324,48 +324,52 @@ msgstr ""
 msgid "You cannot delete your own account."
 msgstr ""
 
-#: app.py:1735
+#: app.py:1727
+msgid "Deactivate the employee before deleting them."
+msgstr ""
+
+#: app.py:1738
 #, python-format
 msgid "Employee \"%(name)s\" deleted."
 msgstr ""
 
-#: app.py:1762
+#: app.py:1765
 msgid "Please enter a recipient address."
 msgstr ""
 
-#: app.py:2440
+#: app.py:2443
 msgid "Forbidden"
 msgstr ""
 
-#: app.py:2445
+#: app.py:2448
 msgid "Page not found"
 msgstr ""
 
-#: app.py:2450
+#: app.py:2453
 msgid "Too many requests. Please wait a moment."
 msgstr ""
 
-#: app.py:2457
+#: app.py:2460
 msgid "An unexpected error occurred."
 msgstr ""
 
-#: app.py:2482
+#: app.py:2485
 msgid "Employee Manual"
 msgstr ""
 
-#: app.py:2483
+#: app.py:2486
 msgid "Manager Manual"
 msgstr ""
 
-#: app.py:2484
+#: app.py:2487
 msgid "Admin Manual"
 msgstr ""
 
-#: app.py:2485 app.py:2518
+#: app.py:2488 app.py:2521
 msgid "Customer Manual"
 msgstr ""
 
-#: app.py:2505 templates/base.html:46 templates/base.html:103
+#: app.py:2508 templates/base.html:46 templates/base.html:103
 msgid "Help"
 msgstr ""
 
@@ -614,7 +618,7 @@ msgid "Contents"
 msgstr ""
 
 #: templates/admin/employees.html:22 templates/admin/employees.html:59
-#: templates/admin/employees.html:190 templates/customer/login.html:14
+#: templates/admin/employees.html:192 templates/customer/login.html:14
 #: templates/login.html:14 templates/manager/customers.html:22
 #: templates/manager/customers.html:61 templates/manager/customers.html:154
 #: templates/setup.html:20
@@ -704,13 +708,13 @@ msgid "Create the initial admin account."
 msgstr ""
 
 #: templates/admin/employees.html:17 templates/admin/employees.html:58
-#: templates/admin/employees.html:186 templates/manager/customers.html:17
+#: templates/admin/employees.html:188 templates/manager/customers.html:17
 #: templates/manager/customers.html:60 templates/manager/customers.html:150
 #: templates/setup.html:15
 msgid "Name"
 msgstr ""
 
-#: templates/admin/employees.html:198 templates/manager/customers.html:175
+#: templates/admin/employees.html:200 templates/manager/customers.html:175
 #: templates/setup.html:29 templates/setup_password.html:22
 msgid ""
 "Min. 12 characters, including uppercase, lowercase, digit and special "
@@ -813,12 +817,12 @@ msgstr ""
 msgid "Edit"
 msgstr ""
 
-#: templates/admin/employees.html:222 templates/manager/customers.html:180
+#: templates/admin/employees.html:224 templates/manager/customers.html:180
 #: templates/ticket.html:117 templates/ticket.html:331
 msgid "Save"
 msgstr ""
 
-#: templates/admin/employees.html:221 templates/manager/customers.html:179
+#: templates/admin/employees.html:223 templates/manager/customers.html:179
 #: templates/ticket.html:121
 msgid "Cancel"
 msgstr ""
@@ -853,8 +857,8 @@ msgstr ""
 
 #: templates/ticket.html:256
 msgid ""
-"Open → In Progress → Resolved → Closed. Setting Resolved or Closed sends "
-"an email to the submitter."
+"Open → In Progress → Resolved → Closed. Every status change sends an "
+"email to the submitter."
 msgstr ""
 
 #: templates/ticket.html:268
@@ -863,8 +867,8 @@ msgstr ""
 
 #: templates/ticket.html:278
 msgid ""
-"The assigned employee receives email notifications for all activity on "
-"this ticket."
+"The assigned employee is notified when a customer replies and when first "
+"assigned. Status changes and staff messages notify watchers instead."
 msgstr ""
 
 #: templates/ticket.html:287
@@ -1071,24 +1075,24 @@ msgstr ""
 msgid "Create Employee"
 msgstr ""
 
-#: templates/admin/employees.html:29 templates/admin/employees.html:205
+#: templates/admin/employees.html:29 templates/admin/employees.html:207
 msgid "Admin privileges"
 msgstr ""
 
-#: templates/admin/employees.html:31 templates/admin/employees.html:207
+#: templates/admin/employees.html:31 templates/admin/employees.html:209
 msgid ""
 "Full access: employee management, system configuration, deleting tickets,"
 " and everything managers and staff can do."
 msgstr ""
 
-#: templates/admin/employees.html:37 templates/admin/employees.html:212
+#: templates/admin/employees.html:37 templates/admin/employees.html:214
 msgid "Manager privileges"
 msgstr ""
 
-#: templates/admin/employees.html:39 templates/admin/employees.html:214
+#: templates/admin/employees.html:39 templates/admin/employees.html:216
 msgid ""
-"Can manage customers and groups, and edit staff employees. Cannot access "
-"system settings."
+"Can manage customers (including creating groups inline), and edit staff "
+"employees. Cannot access system settings."
 msgstr ""
 
 #: templates/admin/employees.html:43 templates/manager/customers.html:44
@@ -1099,7 +1103,7 @@ msgstr ""
 msgid "All Employees"
 msgstr ""
 
-#: templates/admin/employees.html:60 templates/admin/employees.html:202
+#: templates/admin/employees.html:60 templates/admin/employees.html:204
 msgid "Role"
 msgstr ""
 
@@ -1160,25 +1164,23 @@ msgstr ""
 msgid "Activate"
 msgstr ""
 
-#: templates/admin/employees.html:157
+#: templates/admin/employees.html:158
 msgid "Permanently delete this employee? This cannot be undone."
 msgstr ""
 
-#: templates/admin/employees.html:159
-msgid ""
-"Permanently delete this employee. Must be deactivated first. Cannot be "
-"undone."
+#: templates/admin/employees.html:160
+msgid "Permanently delete this employee. Cannot be undone."
 msgstr ""
 
-#: templates/admin/employees.html:180
+#: templates/admin/employees.html:182
 msgid "Edit Employee"
 msgstr ""
 
-#: templates/admin/employees.html:194 templates/manager/customers.html:171
+#: templates/admin/employees.html:196 templates/manager/customers.html:171
 msgid "New Password"
 msgstr ""
 
-#: templates/admin/employees.html:196 templates/manager/customers.html:173
+#: templates/admin/employees.html:198 templates/manager/customers.html:173
 msgid "Leave blank to keep current"
 msgstr ""
 

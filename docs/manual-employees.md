@@ -103,7 +103,7 @@ Use the *Change Status* panel in the sidebar. Available statuses:
 | Resolved | Issue fixed, awaiting confirmation |
 | Closed | Fully closed — no further action expected |
 
-Changing status to *Resolved* or *Closed* sends an update e-mail to the submitter.
+Every status change sends an update e-mail to the submitter.
 
 ### Assigning a ticket
 

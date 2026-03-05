@@ -104,7 +104,7 @@ Verwenden Sie das Panel *Status ändern* in der Seitenleiste.
 | Gelöst | Behoben – wartet auf Bestätigung des Einreichers |
 | Geschlossen | Vollständig abgeschlossen, keine weiteren Maßnahmen erwartet |
 
-Das Setzen von *Gelöst* oder *Geschlossen* sendet eine Benachrichtigungs-E-Mail an den Einreicher.
+Jede Statusänderung sendet eine Benachrichtigungs-E-Mail an den Einreicher.
 
 ---
 
