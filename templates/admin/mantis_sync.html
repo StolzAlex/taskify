@@ -188,6 +188,14 @@
         <span class="text-muted small" id="syncNote"></span>
         <div class="d-flex align-items-center gap-3">
           <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="chkLimit" checked>
+            <label class="form-check-label small" for="chkLimit">
+              Nur 5 Tickets
+              <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 data-bs-title="Beschränkt die Auswahl auf die 5 neuesten Tickets, um den Import vorab zu prüfen."></i>
+            </label>
+          </div>
+          <div class="form-check mb-0">
             <input class="form-check-input" type="checkbox" id="chkDryRun" checked>
             <label class="form-check-label small" for="chkDryRun">
               Testlauf
@@ -204,6 +212,86 @@
   </div>
 
 </div>{# /row #}
+
+{# ── Revert card ──────────────────────────────────────────────────────────── #}
+{% if revert_counts.tickets or revert_counts.customers or revert_counts.employees %}
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card shadow-sm border-danger">
+      <div class="card-header bg-danger bg-opacity-10 text-danger d-flex align-items-center gap-2">
+        <i class="bi bi-arrow-counterclockwise"></i>
+        <h6 class="mb-0">Importierten Daten zurücksetzen</h6>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          Folgende Daten wurden über MantisBT-Sync importiert und können vollständig entfernt werden.
+          Tickets werden samt Nachrichten und Anhängen gelöscht.
+        </p>
+        <form method="post" action="{{ url_for('admin_mantis_revert') }}" id="revertForm">
+          <div class="d-flex flex-wrap gap-3 mb-3">
+            {% if revert_counts.tickets %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="revert_tickets" value="1"
+                     id="chkRevTickets" checked onchange="updateRevertBtn()">
+              <label class="form-check-label" for="chkRevTickets">
+                <span class="fw-semibold">{{ revert_counts.tickets }}</span> Ticket(s)
+              </label>
+            </div>
+            {% endif %}
+            {% if revert_counts.customers %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="revert_customers" value="1"
+                     id="chkRevCustomers" checked onchange="updateRevertBtn()">
+              <label class="form-check-label" for="chkRevCustomers">
+                <span class="fw-semibold">{{ revert_counts.customers }}</span> Kunde(n)
+              </label>
+            </div>
+            {% endif %}
+            {% if revert_counts.employees %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="revert_employees" value="1"
+                     id="chkRevEmployees" checked onchange="updateRevertBtn()">
+              <label class="form-check-label" for="chkRevEmployees">
+                <span class="fw-semibold">{{ revert_counts.employees }}</span> Mitarbeiter
+              </label>
+            </div>
+            {% endif %}
+          </div>
+          <button type="button" class="btn btn-danger btn-sm" id="btnRevert"
+                  data-bs-toggle="modal" data-bs-target="#revertModal">
+            <i class="bi bi-trash me-1"></i>Auswahl löschen
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Revert confirm modal #}
+<div class="modal fade" id="revertModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">
+          <i class="bi bi-exclamation-triangle me-1"></i>Import zurücksetzen?
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Die ausgewählten importierten Datensätze werden <strong>unwiderruflich gelöscht</strong>.</p>
+        <p class="mb-0 text-muted small">Tickets werden inklusive aller Nachrichten und Dateianlagen entfernt.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-danger"
+                onclick="document.getElementById('revertForm').submit()">
+          <i class="bi bi-trash me-1"></i>Jetzt löschen
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {# Hidden sync form – populated by JS before submit #}
 <form id="syncForm" method="post" action="{{ url_for('admin_mantis_execute') }}" style="display:none">
@@ -342,6 +430,7 @@ function renderPreview(data) {
   document.getElementById('previewCol').style.display = '';
   document.getElementById('btnSync').disabled = false;
   updateSyncButton();
+  applyTicketLimit();
   updateCounters();
 }
 
@@ -474,6 +563,33 @@ function updateSyncButton() {
 
 document.getElementById('chkDryRun').addEventListener('change', updateSyncButton);
 
+var TICKET_LIMIT = 5;
+
+function applyTicketLimit() {
+  var limited = document.getElementById('chkLimit').checked;
+  var rows = document.querySelectorAll('#bodyTickets tr');
+  var shown = 0;
+  rows.forEach(function (tr) {
+    var cb = tr.querySelector('input[name="chk_bug"]');
+    if (!cb) return;
+    if (limited) {
+      if (shown < TICKET_LIMIT) {
+        tr.classList.remove('d-none');
+        cb.checked = true;
+        shown++;
+      } else {
+        tr.classList.add('d-none');
+        cb.checked = false;
+      }
+    } else {
+      tr.classList.remove('d-none');
+    }
+  });
+  updateCounters();
+}
+
+document.getElementById('chkLimit').addEventListener('change', applyTicketLimit);
+
 // ── Submit sync ──────────────────────────────────────────────────────────────
 window.submitSync = function () {
   var conn = document.getElementById('connForm');
@@ -508,5 +624,15 @@ window.submitSync = function () {
 };
 
 })();
+
+// Revert button: disable if nothing checked
+window.updateRevertBtn = function () {
+  var anyChecked = ['chkRevTickets', 'chkRevCustomers', 'chkRevEmployees'].some(function (id) {
+    var el = document.getElementById(id);
+    return el && el.checked;
+  });
+  var btn = document.getElementById('btnRevert');
+  if (btn) btn.disabled = !anyChecked;
+};
 </script>
 {% endblock %}

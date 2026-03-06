@@ -24,6 +24,7 @@ class Employee(UserMixin, db.Model):
     preferences = db.Column(db.Text, nullable=True)
     setup_token = db.Column(db.String(64), nullable=True)
     setup_token_expires = db.Column(db.DateTime, nullable=True)
+    mantis_imported = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
 
     messages = db.relationship('Message', backref='author', lazy='dynamic')
     assignments = db.relationship('Assignment', backref='employee', lazy='dynamic')
@@ -81,6 +82,7 @@ class Customer(db.Model):
     created_at          = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     setup_token         = db.Column(db.String(64), nullable=True)
     setup_token_expires = db.Column(db.DateTime, nullable=True)
+    mantis_imported     = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
 
     created_by = db.relationship('Employee', backref='created_customers')
     groups     = db.relationship('Group', secondary=customer_groups, backref='customers')

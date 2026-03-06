@@ -53,9 +53,13 @@
       <div class="card-header"><h6 class="mb-0">{{ _('All Employees') }}</h6></div>
       <div class="card-body p-0">
         <div class="table-responsive">
-        <table class="table table-hover table-sm align-middle mb-0">
+        <table class="table table-hover table-sm align-middle mb-0" id="employeeTable">
           <thead class="table-light">
             <tr>
+              <th style="width:36px">
+                <input type="checkbox" class="form-check-input" id="chkAllEmployees"
+                       onchange="toggleAll('chkEmployee', this.checked)">
+              </th>
               <th>{{ _('Name') }}</th>
               <th>{{ _('Email') }}</th>
               <th>{{ _('Role') }}</th>
@@ -68,6 +72,13 @@
           <tbody>
             {% for emp in employees %}
             <tr class="{{ 'table-danger' if not emp.is_active else '' }}">
+              <td>
+                {% if emp.id != current_user.id %}
+                <input type="checkbox" class="form-check-input chkEmployee"
+                       name="chkEmployee" value="{{ emp.id }}"
+                       onchange="updateBulkBtn('chkEmployee', 'btnDeleteEmployees')">
+                {% endif %}
+              </td>
               <td class="fw-semibold">{{ emp.username }}</td>
               <td class="text-muted small">{{ emp.email }}</td>
               <td>
@@ -182,6 +193,41 @@
         </div>
         {% endif %}
       </div>
+      {% if employees %}
+      <div class="card-footer d-flex justify-content-end py-2">
+        <button type="button" class="btn btn-sm btn-outline-danger" id="btnDeleteEmployees"
+                disabled data-bs-toggle="modal" data-bs-target="#bulkDeleteEmployeeModal">
+          <i class="bi bi-trash me-1"></i>{{ _('Delete selected') }}
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Bulk delete employees confirm modal -->
+<div class="modal fade" id="bulkDeleteEmployeeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title text-danger">
+          <i class="bi bi-exclamation-triangle me-1"></i>{{ _('Delete selected employees?') }}
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>{{ _('The following employees will be permanently deleted:') }}</p>
+        <ul id="bulkEmployeeList" class="small mb-0"></ul>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <form method="post" action="{{ url_for('admin_employees_delete_bulk') }}" id="bulkEmployeeForm">
+          <div id="bulkEmployeeInputs"></div>
+          <button type="submit" class="btn btn-danger btn-sm">
+            <i class="bi bi-trash me-1"></i>{{ _('Delete') }}
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 </div>
@@ -243,6 +289,36 @@
 
 {% block scripts %}
 <script>
+function toggleAll(cls, checked) {
+  document.querySelectorAll('.' + cls).forEach(function(cb) { cb.checked = checked; });
+  updateBulkBtn(cls, cls === 'chkEmployee' ? 'btnDeleteEmployees' : 'btnDeleteCustomers');
+}
+
+function updateBulkBtn(cls, btnId) {
+  var any = !!document.querySelector('.' + cls + ':checked');
+  var btn = document.getElementById(btnId);
+  if (btn) btn.disabled = !any;
+  var all  = document.querySelectorAll('.' + cls);
+  var chkd = document.querySelectorAll('.' + cls + ':checked');
+  var hdr  = document.getElementById(cls === 'chkEmployee' ? 'chkAllEmployees' : 'chkAllCustomers');
+  if (hdr) { hdr.checked = all.length && chkd.length === all.length; hdr.indeterminate = chkd.length && chkd.length < all.length; }
+}
+
+document.getElementById('bulkDeleteEmployeeModal').addEventListener('show.bs.modal', function() {
+  var list   = document.getElementById('bulkEmployeeList');
+  var inputs = document.getElementById('bulkEmployeeInputs');
+  list.innerHTML = '';
+  inputs.innerHTML = '';
+  document.querySelectorAll('.chkEmployee:checked').forEach(function(cb) {
+    var row  = cb.closest('tr');
+    var name = row.cells[1].textContent.trim();
+    var li   = document.createElement('li'); li.textContent = name; list.appendChild(li);
+    var inp  = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'ids'; inp.value = cb.value;
+    inputs.appendChild(inp);
+  });
+});
+
 (function () {
   // Edit modal form
   var editForm  = document.getElementById('editUserForm');

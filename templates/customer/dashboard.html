@@ -130,9 +130,10 @@
           {% endif %}
 
           {% if hide_closed %}
-          <span class="ms-auto text-muted small text-nowrap">
+          <a href="{{ url_for('customer_dashboard', view=view, q=q or None, status='resolved') }}"
+             class="ms-auto text-muted small text-nowrap text-decoration-none">
             <i class="bi bi-eye-slash me-1"></i>{{ _('Closed hidden') }}
-          </span>
+          </a>
           {% endif %}
         </form>
       </div>
@@ -155,18 +156,22 @@
             <tr>
               <td class="text-muted small ps-3">{{ ticket.id }}</td>
               <td>
-                {% if ticket.status in ('resolved', 'closed') %}
-                  <span class="text-muted">{{ ticket.subject }}</span>
-                {% else %}
-                  <a href="{{ url_for('ticket_status', token=ticket.token) }}"
-                     class="text-decoration-none fw-semibold">
-                    {{ ticket.subject }}
-                  </a>
-                {% endif %}
                 {% if ticket.group %}
-                <span class="badge bg-light text-dark border ms-1 small">
-                  <i class="bi bi-folder me-1"></i>{{ ticket.group.name }}
-                </span>
+                <div class="small text-nowrap mb-1">
+                  <a href="{{ url_for('customer_dashboard', view='groups', q=q or None) }}"
+                     class="text-decoration-none text-muted">
+                    <i class="bi bi-folder-fill me-1 text-primary opacity-75"></i>{{ ticket.group.name }}
+                  </a>
+                </div>
+                {% endif %}
+                <a href="{{ url_for('ticket_status', token=ticket.token) }}"
+                   class="text-decoration-none fw-semibold {{ 'text-muted' if ticket.status in ('resolved', 'closed') }}">
+                  {{ ticket.subject }}
+                </a>
+                {% if view == 'groups' and ticket.submitter_email != customer.email %}
+                <div class="small text-muted mt-1">
+                  <i class="bi bi-person me-1"></i>{{ ticket.submitter_email }}
+                </div>
                 {% endif %}
                 {% if meta.awaiting_reply %}
                 <span class="badge bg-warning text-dark ms-1">

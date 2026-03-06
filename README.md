@@ -574,6 +574,10 @@ ALTER TABLE tickets ADD COLUMN group_id INTEGER REFERENCES groups(id);
 
 -- Added later: ticket locale (for submitter emails in their language)
 ALTER TABLE tickets ADD COLUMN locale VARCHAR(10) NOT NULL DEFAULT 'en';
+
+-- Added later: MantisBT import tracking (for revert support)
+ALTER TABLE employees ADD COLUMN mantis_imported BOOLEAN NOT NULL DEFAULT 0;
+ALTER TABLE customers ADD COLUMN mantis_imported BOOLEAN NOT NULL DEFAULT 0;
 ```
 
 ---

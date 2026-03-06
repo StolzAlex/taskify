@@ -511,6 +511,13 @@ def submit():
     customer = get_current_customer()
     if not app.config['PUBLIC_TICKETS'] and not current_user.is_authenticated and not customer:
         return redirect(url_for('login'))
+    is_privileged = current_user.is_authenticated and (
+        current_user.is_admin or current_user.is_manager
+    )
+    if is_privileged:
+        all_projects = Group.query.order_by(Group.name).all()
+    else:
+        all_projects = None
     customer_projects = list(customer.groups) if customer else []
     if request.method == 'POST':
         if current_user.is_authenticated:
@@ -524,17 +531,19 @@ def submit():
         if not email or not subject or not body:
             flash(_('All fields are required.'), 'danger')
             return render_template('submit.html', customer=customer,
-                                   customer_projects=customer_projects)
+                                   customer_projects=customer_projects,
+                                   all_projects=all_projects)
         # Resolve project assignment
         group_id = None
-        if len(customer_projects) == 1:
+        raw = request.form.get('group_id', '').strip()
+        if raw.isdigit():
+            gid = int(raw)
+            if is_privileged:
+                group_id = gid
+            elif any(g.id == gid for g in customer_projects):
+                group_id = gid
+        elif not raw and len(customer_projects) == 1:
             group_id = customer_projects[0].id
-        elif len(customer_projects) > 1:
-            raw = request.form.get('group_id', '').strip()
-            if raw.isdigit():
-                gid = int(raw)
-                if any(g.id == gid for g in customer_projects):
-                    group_id = gid
         ticket = Ticket(submitter_email=email, subject=subject, body=body,
                         locale=session.get('lang', 'en'), group_id=group_id)
         db.session.add(ticket)
@@ -549,7 +558,8 @@ def submit():
         )
         return redirect(url_for('submit'))
     return render_template('submit.html', customer=customer,
-                           customer_projects=customer_projects)
+                           customer_projects=customer_projects,
+                           all_projects=all_projects)
 
 
 @app.route('/status/<token>')
@@ -560,7 +570,10 @@ def ticket_status(token):
         flash(_('Please log in to view your ticket.'), 'warning')
         return redirect(url_for('login', next=request.url))
     if ticket.status in ('resolved', 'closed'):
-        if not (customer and customer.email.lower() == ticket.submitter_email.lower()):
+        is_submitter = customer and customer.email.lower() == ticket.submitter_email.lower()
+        is_project_member = (customer and ticket.group and
+                             any(g.id == ticket.group_id for g in customer.groups))
+        if not (is_submitter or is_project_member or current_user.is_authenticated):
             return render_template('ticket_closed.html', ticket=ticket), 410
     thread = ticket.messages.filter(
         db.or_(Message.is_customer_visible == True, Message.is_customer_reply == True)
@@ -944,6 +957,23 @@ def delete_customer(cust_id):
     return redirect(url_for('manager_customers'))
 
 
+@app.route('/admin/customers/delete-bulk', methods=['POST'])
+@login_required
+@admin_required
+def admin_customers_delete_bulk():
+    ids = {int(x) for x in request.form.getlist('ids') if x.isdigit()}
+    if not ids:
+        flash(_('No customers selected.'), 'warning')
+        return redirect(url_for('manager_customers'))
+    deleted = 0
+    for cust in Customer.query.filter(Customer.id.in_(ids)).all():
+        db.session.delete(cust)
+        deleted += 1
+    db.session.commit()
+    flash(_('%(n)d customer(s) deleted.', n=deleted), 'success')
+    return redirect(url_for('manager_customers'))
+
+
 # ---------------------------------------------------------------------------
 # Employee routes
 # ---------------------------------------------------------------------------
@@ -1293,7 +1323,10 @@ def ticket_detail(ticket_id):
         ticket_id=ticket_id, employee_id=current_user.id).first() is not None
     submitter_customer = Customer.query.filter(
         Customer.email.ilike(ticket.submitter_email)).first()
-    groups = Group.query.order_by(Group.name).all()
+    if submitter_customer and submitter_customer.groups:
+        groups = sorted(submitter_customer.groups, key=lambda g: g.name)
+    else:
+        groups = Group.query.order_by(Group.name).all()
     return render_template('ticket.html', ticket=ticket, employees=employees,
                            status_choices=Ticket.STATUS_CHOICES, events=events,
                            is_watching=is_watching,
@@ -1442,12 +1475,18 @@ def assign_ticket(ticket_id):
 @login_required
 def set_ticket_group(ticket_id):
     ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    submitter_cust = Customer.query.filter(
+        Customer.email.ilike(ticket.submitter_email)).first()
+    allowed_ids = {g.id for g in submitter_cust.groups} if (submitter_cust and submitter_cust.groups) else None
     old_group = ticket.group.name if ticket.group else None
     group_id_raw = request.form.get('group_id', '').strip()
     if group_id_raw and group_id_raw.isdigit():
         grp = db.session.get(Group, int(group_id_raw))
         if not grp:
             flash(_('Project not found.'), 'danger')
+            return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+        if allowed_ids is not None and grp.id not in allowed_ids:
+            flash(_('This project is not available for the ticket submitter.'), 'danger')
             return redirect(url_for('ticket_detail', ticket_id=ticket_id))
         ticket.group_id = grp.id
         new_group = grp.name
@@ -1949,6 +1988,27 @@ def delete_employee(emp_id):
     db.session.delete(emp)
     db.session.commit()
     flash(_('Employee "%(name)s" deleted.', name=username), 'success')
+    return redirect(url_for('admin_employees'))
+
+
+@app.route('/admin/employees/delete-bulk', methods=['POST'])
+@login_required
+@admin_required
+def admin_employees_delete_bulk():
+    ids = {int(x) for x in request.form.getlist('ids') if x.isdigit()}
+    ids.discard(current_user.id)  # never delete self
+    if not ids:
+        flash(_('No employees selected.'), 'warning')
+        return redirect(url_for('admin_employees'))
+    deleted = 0
+    for emp in Employee.query.filter(Employee.id.in_(ids)).all():
+        Message.query.filter_by(employee_id=emp.id).update({'employee_id': None})
+        Assignment.query.filter_by(employee_id=emp.id).delete()
+        Customer.query.filter_by(created_by_id=emp.id).update({'created_by_id': None})
+        db.session.delete(emp)
+        deleted += 1
+    db.session.commit()
+    flash(_('%(n)d employee(s) deleted.', n=deleted), 'success')
     return redirect(url_for('admin_employees'))
 
 
@@ -2727,6 +2787,38 @@ _MANTIS_ROLE_MAP = {
 }
 
 
+def _plain_to_html(text: str) -> str:
+    """Convert Mantis plain-text to minimal HTML, preserving paragraphs and line breaks."""
+    if not text:
+        return ''
+    parts = []
+    for para in text.strip().split('\n\n'):
+        line = para.strip().replace('\n', '<br>')
+        if line:
+            parts.append(f'<p>{line}</p>')
+    return ''.join(parts) or '<p></p>'
+
+
+def _save_mantis_attachment(ticket_id, message_id, att_row):
+    """Write a Mantis DB-stored attachment to disk and create an Attachment record."""
+    ext = os.path.splitext(att_row.filename or '')[1]
+    disk_name = f'{uuid.uuid4().hex}{ext}'
+    upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket_id))
+    os.makedirs(upload_dir, exist_ok=True)
+    with open(os.path.join(upload_dir, disk_name), 'wb') as fh:
+        fh.write(bytes(att_row.content))
+    attachment = Attachment(
+        ticket_id=ticket_id,
+        message_id=message_id,
+        filename=disk_name,
+        original_filename=att_row.filename or att_row.title or disk_name,
+        size=len(att_row.content),
+    )
+    if att_row.date_added:
+        attachment.created_at = datetime.utcfromtimestamp(att_row.date_added)
+    db.session.add(attachment)
+
+
 def _mantis_engine(host, port, dbname, user, password):
     """Create a disposable SQLAlchemy engine for a MantisBT MySQL database."""
     from sqlalchemy import create_engine
@@ -2753,7 +2845,12 @@ def admin_mantis_sync():
         'password': cfg.get('MANTIS_DB_PASS', ''),
         'prefix':   cfg.get('MANTIS_TABLE_PREFIX', 'mantis_'),
     }
-    return render_template('admin/mantis_sync.html', conn=conn)
+    revert_counts = {
+        'tickets':   Ticket.query.filter(Ticket.internal_title.like('%[mantis:%')).count(),
+        'customers': Customer.query.filter_by(mantis_imported=True).count(),
+        'employees': Employee.query.filter_by(mantis_imported=True).count(),
+    }
+    return render_template('admin/mantis_sync.html', conn=conn, revert_counts=revert_counts)
 
 
 @app.route('/admin/mantis-sync/preview', methods=['POST'])
@@ -2864,7 +2961,8 @@ def admin_mantis_execute():
     stats = dict(groups=0,
                  customers=0, customers_skipped=0,
                  employees=0, employees_skipped=0,
-                 tickets=0,   tickets_skipped=0)
+                 tickets=0,   tickets_skipped=0,
+                 notes=0,     attachments=0)
 
     try:
         engine = _mantis_engine(host, port, dbname, user, password)
@@ -2920,6 +3018,7 @@ def admin_mantis_execute():
                                 email=row.email,
                                 is_manager=is_manager,
                                 is_active=True,
+                                mantis_imported=True,
                             )
                             emp.set_password(secrets.token_hex(32))
                             db.session.add(emp)
@@ -2940,6 +3039,7 @@ def admin_mantis_execute():
                                 email=row.email,
                                 name=display_name,
                                 created_by_id=current_user.id,
+                                mantis_imported=True,
                             )
                             cust.set_password(secrets.token_hex(32))
                             db.session.add(cust)
@@ -2971,7 +3071,7 @@ def admin_mantis_execute():
                     ticket = Ticket(
                         submitter_email=row.reporter_email or 'mantis-import@taskify.local',
                         subject=row.summary,
-                        body=row.description or '(no description)',
+                        body=_plain_to_html(row.description),
                         status=_MANTIS_STATUS_MAP.get(row.status, 'open'),
                         internal_title=f'[mantis:{row.id}] {row.summary}',
                         group_id=group_map[row.project_id].id if row.project_id in group_map else None,
@@ -2981,7 +3081,63 @@ def admin_mantis_execute():
                         ticket.created_at = ts
                         ticket.updated_at = ts
                     db.session.add(ticket)
+                    db.session.flush()  # need ticket.id for notes/attachments
                     stats['tickets'] += 1
+
+                    # 3b. Import bugnotes as Messages
+                    note_rows = mcon.execute(_sa_text(
+                        f"SELECT bn.id, bn.date_submitted, bn.view_state, "
+                        f"u.email AS reporter_email, bnt.note "
+                        f"FROM {p}bugnote_table bn "
+                        f"JOIN {p}bugnote_text_table bnt ON bnt.id = bn.bugnote_text_id "
+                        f"LEFT JOIN {p}user_table u ON u.id = bn.reporter_id "
+                        f"WHERE bn.bug_id = :bid ORDER BY bn.date_submitted"
+                    ), {'bid': row.id}).fetchall()
+
+                    for note in note_rows:
+                        note_body = _plain_to_html(note.note)
+                        if not note_body:
+                            continue
+                        emp = (Employee.query.filter(Employee.email.ilike(note.reporter_email)).first()
+                               if note.reporter_email else None)
+                        is_public = (note.view_state == 10)  # VS_PUBLIC
+                        msg = Message(
+                            ticket_id=ticket.id,
+                            employee_id=emp.id if emp else None,
+                            body=note_body,
+                            is_customer_visible=is_public,
+                            is_customer_reply=False,
+                        )
+                        if note.date_submitted:
+                            msg.created_at = datetime.utcfromtimestamp(note.date_submitted)
+                        db.session.add(msg)
+                        db.session.flush()
+                        stats['notes'] += 1
+
+                        if not dry_run:
+                            att_rows = mcon.execute(_sa_text(
+                                f"SELECT title, filename, file_type, filesize, content, date_added "
+                                f"FROM {p}bug_file_table "
+                                f"WHERE bug_id = :bid AND bugnote_id = :nid"
+                            ), {'bid': row.id, 'nid': note.id}).fetchall()
+                            for att in att_rows:
+                                if not att.content:
+                                    continue
+                                _save_mantis_attachment(ticket.id, msg.id, att)
+                                stats['attachments'] += 1
+
+                    # 3c. Ticket-level attachments (not linked to a note)
+                    if not dry_run:
+                        att_rows = mcon.execute(_sa_text(
+                            f"SELECT title, filename, file_type, filesize, content, date_added "
+                            f"FROM {p}bug_file_table "
+                            f"WHERE bug_id = :bid AND (bugnote_id = 0 OR bugnote_id IS NULL)"
+                        ), {'bid': row.id}).fetchall()
+                        for att in att_rows:
+                            if not att.content:
+                                continue
+                            _save_mantis_attachment(ticket.id, None, att)
+                            stats['attachments'] += 1
 
         if dry_run:
             db.session.rollback()
@@ -2997,6 +3153,8 @@ def admin_mantis_execute():
         if stats['employees_skipped']:   parts.append(_('%(n)d employee(s) already existed',  n=stats['employees_skipped']))
         if stats['tickets']:             parts.append(_('%(n)d ticket(s) imported',           n=stats['tickets']))
         if stats['tickets_skipped']:     parts.append(_('%(n)d ticket(s) already imported',   n=stats['tickets_skipped']))
+        if stats['notes']:               parts.append(_('%(n)d note(s) imported',             n=stats['notes']))
+        if stats['attachments']:         parts.append(_('%(n)d attachment(s) imported',       n=stats['attachments']))
         summary = ', '.join(parts) or _('nothing to do')
         if dry_run:
             flash(_('Dry run complete (no changes saved): %(details)s.', details=summary), 'info')
@@ -3007,6 +3165,66 @@ def admin_mantis_execute():
         db.session.rollback()
         app.logger.exception('MantisBT sync failed')
         flash(_('Sync failed: %(error)s', error=str(e)), 'danger')
+
+    return redirect(url_for('admin_mantis_sync'))
+
+
+@app.route('/admin/mantis-sync/revert', methods=['POST'])
+@login_required
+@admin_required
+def admin_mantis_revert():
+    revert_tickets   = request.form.get('revert_tickets')   == '1'
+    revert_customers = request.form.get('revert_customers') == '1'
+    revert_employees = request.form.get('revert_employees') == '1'
+
+    stats = dict(tickets=0, customers=0, employees=0)
+
+    try:
+        if revert_tickets:
+            mantis_tickets = Ticket.query.filter(
+                Ticket.internal_title.like('%[mantis:%')
+            ).all()
+            for ticket in mantis_tickets:
+                for att in ticket.attachments.all():
+                    disk_path = os.path.join(
+                        app.config['UPLOAD_FOLDER'], str(ticket.id), att.filename)
+                    if os.path.exists(disk_path):
+                        os.remove(disk_path)
+                    db.session.delete(att)
+                for msg in ticket.messages.all():
+                    db.session.delete(msg)
+                for ev in ticket.events.all():
+                    db.session.delete(ev)
+                if ticket.assignment:
+                    db.session.delete(ticket.assignment)
+                db.session.delete(ticket)
+                stats['tickets'] += 1
+
+        if revert_customers:
+            for cust in Customer.query.filter_by(mantis_imported=True).all():
+                cust.groups.clear()
+                db.session.delete(cust)
+                stats['customers'] += 1
+
+        if revert_employees:
+            for emp in Employee.query.filter_by(mantis_imported=True).all():
+                for msg in emp.messages.all():
+                    msg.employee_id = None
+                db.session.delete(emp)
+                stats['employees'] += 1
+
+        db.session.commit()
+
+        parts = []
+        if stats['tickets']:   parts.append(_('%(n)d ticket(s) deleted',   n=stats['tickets']))
+        if stats['customers']: parts.append(_('%(n)d customer(s) deleted', n=stats['customers']))
+        if stats['employees']: parts.append(_('%(n)d employee(s) deleted', n=stats['employees']))
+        flash(_('Revert complete: %(details)s.', details=', '.join(parts) or _('nothing to do')), 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('MantisBT revert failed')
+        flash(_('Revert failed: %(error)s', error=str(e)), 'danger')
 
     return redirect(url_for('admin_mantis_sync'))
 
@@ -3495,17 +3713,19 @@ def _startup_checks():
     elif not app.config.get('MAIL_SERVER'):
         log.warning('[startup] WARN – MAIL_SERVER not configured; outbound email is disabled')
 
-    # 6. Auto-migrate: new columns on tickets table
-    for col, defn in [
-        ('satisfaction_rating',       'INTEGER'),
-        ('satisfaction_comment',      'TEXT'),
-        ('satisfaction_submitted_at', 'DATETIME'),
-        ('group_id',                  'INTEGER REFERENCES groups(id)'),
+    # 6. Auto-migrate: new columns
+    for table, col, defn in [
+        ('tickets',   'satisfaction_rating',       'INTEGER'),
+        ('tickets',   'satisfaction_comment',      'TEXT'),
+        ('tickets',   'satisfaction_submitted_at', 'DATETIME'),
+        ('tickets',   'group_id',                  'INTEGER REFERENCES groups(id)'),
+        ('employees', 'mantis_imported',           'BOOLEAN NOT NULL DEFAULT 0'),
+        ('customers', 'mantis_imported',           'BOOLEAN NOT NULL DEFAULT 0'),
     ]:
         try:
-            db.session.execute(_text(f'ALTER TABLE tickets ADD COLUMN {col} {defn}'))
+            db.session.execute(_text(f'ALTER TABLE {table} ADD COLUMN {col} {defn}'))
             db.session.commit()
-            log.info('[startup] Added column tickets.%s', col)
+            log.info('[startup] Added column %s.%s', table, col)
         except Exception:
             db.session.rollback()
 

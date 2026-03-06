@@ -1607,6 +1607,10 @@ msgid "Project not found."
 msgstr "Projekt nicht gefunden."
 
 #: app.py
+msgid "This project is not available for the ticket submitter."
+msgstr "Dieses Projekt ist für den Ticket-Einreicher nicht verfügbar."
+
+#: app.py
 msgid "Project updated."
 msgstr "Projekt aktualisiert."
 

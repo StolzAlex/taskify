@@ -274,10 +274,13 @@
                 {% endif %}
                 <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}"
                    class="text-decoration-none fw-semibold">
-                  {{ ticket.internal_title or ticket.subject }}
+                  {{ ticket.subject }}
                 </a>
-                {% if ticket.internal_title and ticket.internal_title != ticket.subject %}
-                <div class="small text-muted">{{ ticket.subject }}</div>
+                {% if ticket.internal_title and '[mantis:' in ticket.internal_title %}
+                <span class="badge bg-secondary ms-1" style="font-size:.7em;"
+                      title="{{ ticket.internal_title }}">
+                  <i class="bi bi-bug me-1"></i>MantisBT
+                </span>
                 {% endif %}
                 {% if ticket.id in awaiting_reply_ids %}
                 <span class="badge bg-warning text-dark ms-1" data-bs-toggle="tooltip"
