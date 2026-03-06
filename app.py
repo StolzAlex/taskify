@@ -3238,6 +3238,18 @@ def _do_mantis_sync(flask_app, task: dict, host_url: str) -> None:
                     for m in memb_rows:
                         user_proj_map.setdefault(m.user_id, []).append(m.project_id)
 
+                    # Resolve project IDs not already in group_map against existing groups
+                    all_user_pids = {pid for pids in user_proj_map.values() for pid in pids}
+                    unmapped_user_pids = all_user_pids - set(group_map.keys())
+                    if unmapped_user_pids:
+                        pid_csv = ','.join(str(i) for i in unmapped_user_pids)
+                        for proj in mcon.execute(_sa_text(
+                            f"SELECT id, name FROM {p}project_table WHERE id IN ({pid_csv})"
+                        )).fetchall():
+                            existing_grp = Group.query.filter_by(name=proj.name).first()
+                            if existing_grp:
+                                group_map[proj.id] = existing_grp
+
                     for row in user_rows:
                         target_type, is_manager = _MANTIS_ROLE_MAP.get(
                             row.access_level, ('customer', False)
@@ -3277,7 +3289,7 @@ def _do_mantis_sync(flask_app, task: dict, host_url: str) -> None:
                                 stats['customers'] += 1
                                 log(f'Kunde importiert: {display_name}')
                             for pid in user_proj_map.get(row.id, []):
-                                if pid in new_project_ids and pid in group_map \
+                                if pid in group_map \
                                         and group_map[pid] not in cust.groups:
                                     cust.groups.append(group_map[pid])
 
