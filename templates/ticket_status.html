@@ -126,6 +126,11 @@
             <button type="submit" class="btn btn-primary btn-sm">
               <i class="bi bi-send me-1"></i>{{ _('Send Reply') }}
             </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="mt-2 text-end">
             {% if current_customer and current_customer.email|lower == ticket.submitter_email|lower %}
             <form method="post" action="{{ url_for('customer_resolve', token=ticket.token) }}"
                   onsubmit="return confirm('{{ _('Mark this ticket as resolved?') }}')">
@@ -133,10 +138,7 @@
                 <i class="bi bi-check-circle me-1"></i>{{ _('Mark as Resolved') }}
               </button>
             </form>
-            {% endif %}
-          </div>
-        </form>
-      </div>
+        {% endif %}
     </div>
     {% else %}
     <div class="alert alert-secondary mt-2">
