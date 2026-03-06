@@ -2766,6 +2766,11 @@ MANUALS = [
 # Admin – MantisBT synchronisation
 # ---------------------------------------------------------------------------
 
+_MANTIS_STATUS_LABEL = {
+    10: 'new', 20: 'feedback', 30: 'acknowledged',
+    40: 'confirmed', 50: 'assigned', 80: 'resolved', 90: 'closed',
+}
+
 _MANTIS_STATUS_MAP = {
     10: 'open',         # new
     20: 'open',         # feedback
@@ -2962,7 +2967,8 @@ def admin_mantis_execute():
                  customers=0, customers_skipped=0,
                  employees=0, employees_skipped=0,
                  tickets=0,   tickets_skipped=0,
-                 notes=0,     attachments=0)
+                 notes=0,     attachments=0,
+                 history=0)
 
     try:
         engine = _mantis_engine(host, port, dbname, user, password)
@@ -3054,14 +3060,32 @@ def admin_mantis_execute():
             # 3. Import selected MantisBT bugs as Taskify Tickets
             if sel_bug_ids:
                 id_list = ','.join(str(i) for i in sel_bug_ids)
-                for row in mcon.execute(_sa_text(
+                bug_rows = mcon.execute(_sa_text(
                     f"SELECT b.id, b.project_id, b.summary, b.status, "
-                    f"b.date_submitted, u.email AS reporter_email, bt.description "
+                    f"b.date_submitted, "
+                    f"u.email AS reporter_email, "
+                    f"h.email AS handler_email, h.username AS handler_username, "
+                    f"bt.description "
                     f"FROM {p}bug_table b "
                     f"JOIN {p}bug_text_table bt ON bt.id = b.bug_text_id "
                     f"LEFT JOIN {p}user_table u ON u.id = b.reporter_id "
+                    f"LEFT JOIN {p}user_table h ON h.id = b.handler_id "
                     f"WHERE b.id IN ({id_list})"
-                )).fetchall():
+                )).fetchall()
+
+                # 3a. Extend group_map with existing Taskify groups for any
+                #     project_ids referenced by tickets but not explicitly selected.
+                unmapped_pids = {r.project_id for r in bug_rows} - set(group_map.keys())
+                if unmapped_pids:
+                    pid_csv = ','.join(str(i) for i in unmapped_pids)
+                    for proj in mcon.execute(_sa_text(
+                        f"SELECT id, name FROM {p}project_table WHERE id IN ({pid_csv})"
+                    )).fetchall():
+                        existing_grp = Group.query.filter_by(name=proj.name).first()
+                        if existing_grp:
+                            group_map[proj.id] = existing_grp
+
+                for row in bug_rows:
                     if Ticket.query.filter(
                         Ticket.internal_title.like(f'%[mantis:{row.id}]%')
                     ).first():
@@ -3081,10 +3105,21 @@ def admin_mantis_execute():
                         ticket.created_at = ts
                         ticket.updated_at = ts
                     db.session.add(ticket)
-                    db.session.flush()  # need ticket.id for notes/attachments
+                    db.session.flush()
                     stats['tickets'] += 1
 
-                    # 3b. Import bugnotes as Messages
+                    # 3b. Map assignee (handler) to an existing Taskify employee
+                    if row.handler_email:
+                        handler_emp = Employee.query.filter(
+                            Employee.email.ilike(row.handler_email)
+                        ).first()
+                        if handler_emp:
+                            db.session.add(Assignment(
+                                ticket_id=ticket.id,
+                                employee_id=handler_emp.id,
+                            ))
+
+                    # 3c. Import bugnotes as Messages, mapped to employee or customer
                     note_rows = mcon.execute(_sa_text(
                         f"SELECT bn.id, bn.date_submitted, bn.view_state, "
                         f"u.email AS reporter_email, bnt.note "
@@ -3098,15 +3133,22 @@ def admin_mantis_execute():
                         note_body = _plain_to_html(note.note)
                         if not note_body:
                             continue
-                        emp = (Employee.query.filter(Employee.email.ilike(note.reporter_email)).first()
-                               if note.reporter_email else None)
                         is_public = (note.view_state == 10)  # VS_PUBLIC
+                        emp = cust_author = None
+                        if note.reporter_email:
+                            emp = Employee.query.filter(
+                                Employee.email.ilike(note.reporter_email)
+                            ).first()
+                            if not emp:
+                                cust_author = Customer.query.filter(
+                                    Customer.email.ilike(note.reporter_email)
+                                ).first()
                         msg = Message(
                             ticket_id=ticket.id,
                             employee_id=emp.id if emp else None,
                             body=note_body,
-                            is_customer_visible=is_public,
-                            is_customer_reply=False,
+                            is_customer_visible=True if cust_author else is_public,
+                            is_customer_reply=bool(cust_author),
                         )
                         if note.date_submitted:
                             msg.created_at = datetime.utcfromtimestamp(note.date_submitted)
@@ -3126,7 +3168,7 @@ def admin_mantis_execute():
                                 _save_mantis_attachment(ticket.id, msg.id, att)
                                 stats['attachments'] += 1
 
-                    # 3c. Ticket-level attachments (not linked to a note)
+                    # 3d. Ticket-level attachments (not linked to a note)
                     if not dry_run:
                         att_rows = mcon.execute(_sa_text(
                             f"SELECT title, filename, file_type, filesize, content, date_added "
@@ -3138,6 +3180,46 @@ def admin_mantis_execute():
                                 continue
                             _save_mantis_attachment(ticket.id, None, att)
                             stats['attachments'] += 1
+
+                    # 3e. Import activity history as TicketEvents
+                    hist_rows = mcon.execute(_sa_text(
+                        f"SELECT bh.date_modified, bh.field_name, bh.old_value, "
+                        f"bh.new_value, bh.type, u.email AS user_email "
+                        f"FROM {p}bug_history_table bh "
+                        f"LEFT JOIN {p}user_table u ON u.id = bh.user_id "
+                        f"WHERE bh.bug_id = :bid AND bh.type = 0 "
+                        f"ORDER BY bh.date_modified"
+                    ), {'bid': row.id}).fetchall()
+
+                    for h in hist_rows:
+                        actor = (Employee.query.filter(Employee.email.ilike(h.user_email)).first()
+                                 if h.user_email else None)
+                        if h.field_name == 'status':
+                            try:
+                                from_val = _MANTIS_STATUS_LABEL.get(int(h.old_value), h.old_value)
+                                to_val   = _MANTIS_STATUS_LABEL.get(int(h.new_value), h.new_value)
+                            except (ValueError, TypeError):
+                                from_val, to_val = h.old_value, h.new_value
+                            ev_type = 'status'
+                        elif h.field_name == 'assigned_to':
+                            ev_type  = 'assignment'
+                            from_val = h.old_value
+                            to_val   = h.new_value
+                        else:
+                            ev_type  = 'mantis_history'
+                            from_val = f'{h.field_name}: {h.old_value}' if h.old_value else h.field_name
+                            to_val   = h.new_value
+                        ev = TicketEvent(
+                            ticket_id=ticket.id,
+                            employee_id=actor.id if actor else None,
+                            event_type=ev_type,
+                            from_value=str(from_val)[:500] if from_val else None,
+                            to_value=str(to_val)[:500]   if to_val   else None,
+                        )
+                        if h.date_modified:
+                            ev.created_at = datetime.utcfromtimestamp(h.date_modified)
+                        db.session.add(ev)
+                        stats['history'] += 1
 
         if dry_run:
             db.session.rollback()
@@ -3155,6 +3237,7 @@ def admin_mantis_execute():
         if stats['tickets_skipped']:     parts.append(_('%(n)d ticket(s) already imported',   n=stats['tickets_skipped']))
         if stats['notes']:               parts.append(_('%(n)d note(s) imported',             n=stats['notes']))
         if stats['attachments']:         parts.append(_('%(n)d attachment(s) imported',       n=stats['attachments']))
+        if stats['history']:             parts.append(_('%(n)d history event(s) imported',    n=stats['history']))
         summary = ', '.join(parts) or _('nothing to do')
         if dry_run:
             flash(_('Dry run complete (no changes saved): %(details)s.', details=summary), 'info')

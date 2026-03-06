@@ -221,6 +221,12 @@
             {% elif ev.event_type == 'customer_reply' %}
               <i class="bi bi-person-exclamation text-warning mt-1 flex-shrink-0"></i>
               <span class="flex-grow-1 text-muted">{{ _('Customer replied') }}</span>
+            {% elif ev.event_type == 'mantis_history' %}
+              <i class="bi bi-bug text-secondary mt-1 flex-shrink-0"></i>
+              <span class="flex-grow-1 text-muted">
+                {{ ev.from_value }}
+                {% if ev.to_value %}<i class="bi bi-arrow-right mx-1"></i>{{ ev.to_value }}{% endif %}
+              </span>
             {% endif %}
             <span class="text-muted flex-shrink-0">{{ ev.created_at.strftime('%d.%m. %H:%M') }}</span>
           </li>
