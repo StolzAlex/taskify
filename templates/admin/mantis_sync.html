@@ -220,6 +220,7 @@
                      oninput="filterTab('bugs', this.value)">
               <button class="btn btn-outline-secondary btn-sm" onclick="selectPage('bugs', true)">Alle</button>
               <button class="btn btn-outline-secondary btn-sm" onclick="selectPage('bugs', false)">Keine</button>
+              <button class="btn btn-outline-primary btn-sm" onclick="selectAllRemaining()">Alle verbleibenden</button>
               <span class="text-muted small ms-auto" id="selTickets">0 ausgewählt</span>
             </div>
             <div class="table-responsive">
@@ -637,6 +638,14 @@ function loadPreview(data) {
   document.getElementById('btnSync').disabled = false;
   updateSyncButton();
 }
+
+// ── Select all remaining (unimported) bugs across all pages ──────────────────
+window.selectAllRemaining = function () {
+  _allData.bugs.forEach(function (b) {
+    if (!b.exists_in_taskify) _checked.bugs.add(b.id);
+  });
+  renderTab('bugs');
+};
 
 // ── Update preview after sync ─────────────────────────────────────────────────
 function markSyncedAsImported() {
