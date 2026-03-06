@@ -2811,16 +2811,115 @@ _MANTIS_ROLE_MAP = {
 }
 
 
-def _plain_to_html(text: str) -> str:
-    """Convert Mantis plain-text to minimal HTML, preserving paragraphs and line breaks."""
+def _mantis_wiki_to_html(text: str) -> str:
+    """Convert MantisBT wiki markup to HTML suitable for Quill/storage."""
+    import re, html as _html
     if not text:
         return ''
+
+    # 1. HTML-escape everything first so inline patterns are safe
+    t = _html.escape(text, quote=False)
+
+    # 2. Block-level: code blocks  {code}...{code} or {code:lang}...{code}
+    t = re.sub(
+        r'\{code(?::[^}]*)?\}(.*?)\{code\}',
+        lambda m: '<pre><code>' + m.group(1).strip() + '</code></pre>',
+        t, flags=re.DOTALL | re.IGNORECASE)
+
+    # 3. Block-level: quote blocks  {quote}...{/quote}  or  {quote}...{quote}
+    t = re.sub(
+        r'\{quote\}(.*?)\{/?quote\}',
+        lambda m: '<blockquote>' + m.group(1).strip() + '</blockquote>',
+        t, flags=re.DOTALL | re.IGNORECASE)
+
+    # 4. Process remaining text line by line for headings, lists, hr
+    raw_lines = t.split('\n')
+    out_lines  = []
+    ul_open    = False
+    ol_open    = False
+
+    def close_lists():
+        nonlocal ul_open, ol_open
+        buf = ''
+        if ul_open: buf += '</ul>'; ul_open = False
+        if ol_open: buf += '</ol>'; ol_open = False
+        return buf
+
+    for line in raw_lines:
+        # Skip lines already wrapped by block handlers
+        if re.match(r'\s*<(pre|blockquote)', line):
+            out_lines.append(close_lists() + line)
+            continue
+
+        # Headings  = H1 =  == H2 ==  up to ======
+        m = re.match(r'^(={1,6})\s+(.+?)\s+\1\s*$', line)
+        if m:
+            lvl = len(m.group(1))
+            out_lines.append(close_lists() + f'<h{lvl}>{m.group(2)}</h{lvl}>')
+            continue
+
+        # Horizontal rule  ----
+        if re.match(r'^-{4,}\s*$', line):
+            out_lines.append(close_lists() + '<hr>')
+            continue
+
+        # Unordered list  * item  ** nested (flattened to single level)
+        m = re.match(r'^\*+\s+(.+)$', line)
+        if m:
+            if not ul_open:
+                if ol_open: out_lines.append('</ol>'); ol_open = False
+                out_lines.append('<ul>'); ul_open = True
+            out_lines.append(f'<li>{m.group(1)}</li>')
+            continue
+
+        # Ordered list  # item  ## nested
+        m = re.match(r'^#+\s+(.+)$', line)
+        if m:
+            if not ol_open:
+                if ul_open: out_lines.append('</ul>'); ul_open = False
+                out_lines.append('<ol>'); ol_open = True
+            out_lines.append(f'<li>{m.group(1)}</li>')
+            continue
+
+        out_lines.append(close_lists() + line)
+
+    out_lines.append(close_lists())
+    t = '\n'.join(out_lines)
+
+    # 5. Inline: bold '''text'''
+    t = re.sub(r"'''(.+?)'''", r'<strong>\1</strong>', t, flags=re.DOTALL)
+    # 6. Inline: italic ''text''
+    t = re.sub(r"''(.+?)''",   r'<em>\1</em>',         t, flags=re.DOTALL)
+    # 7. Inline: underline __text__
+    t = re.sub(r'__(.+?)__',   r'<u>\1</u>',           t, flags=re.DOTALL)
+    # 8. Inline: monospace @text@
+    t = re.sub(r'@(.+?)@',     r'<code>\1</code>',     t)
+    # 9. Inline: strikethrough --text-- (requires non-space at edges to avoid em-dashes)
+    t = re.sub(r'--(\S.*?\S)--', r'<del>\1</del>',     t)
+    # 10. Named links [[URL|label]] then bare [[URL]]
+    t = re.sub(r'\[\[([^\]|]+)\|([^\]]+)\]\]', r'<a href="\1">\2</a>', t)
+    t = re.sub(r'\[\[([^\]]+)\]\]',             r'<a href="\1">\1</a>', t)
+    # 11. Auto-link bare URLs (not already inside href="...")
+    t = re.sub(r'(?<!href=")(https?://[^\s<>"]+)', r'<a href="\1">\1</a>', t)
+
+    # 12. Wrap remaining non-block lines in paragraphs
+    block_tags = ('pre', 'blockquote', 'ul', 'ol', 'li', 'h1', 'h2', 'h3',
+                  'h4', 'h5', 'h6', 'hr', 'div')
     parts = []
-    for para in text.strip().split('\n\n'):
-        line = para.strip().replace('\n', '<br>')
-        if line:
-            parts.append(f'<p>{line}</p>')
-    return ''.join(parts) or '<p></p>'
+    for para in re.split(r'\n{2,}', t):
+        para = para.strip()
+        if not para:
+            continue
+        if any(para.startswith(f'<{tag}') or para.startswith(f'</{tag}')
+               for tag in block_tags):
+            parts.append(para)
+        else:
+            parts.append('<p>' + para.replace('\n', '<br>') + '</p>')
+    return '\n'.join(parts) or '<p></p>'
+
+
+# Keep the old name as an alias so nothing else breaks
+_plain_to_html = _mantis_wiki_to_html
 
 
 def _save_mantis_attachment(ticket_id, message_id, att_row, mantis_upload_path=None):
