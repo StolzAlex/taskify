@@ -4,6 +4,54 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0"><i class="bi bi-arrow-left-right me-2"></i>MantisBT Synchronisation</h1>
+  <div class="d-flex align-items-center gap-3">
+    <div class="form-check mb-0">
+      <input class="form-check-input" type="checkbox" id="chkDryRun">
+      <label class="form-check-label small" for="chkDryRun">
+        Testlauf
+        <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+           data-bs-title="Im Testlauf werden alle Änderungen berechnet, aber nicht gespeichert. Keine E-Mails werden verschickt."></i>
+      </label>
+    </div>
+    <button type="button" class="btn btn-sm" id="btnSync" onclick="submitSync()" disabled
+            style="min-width:140px">
+    </button>
+  </div>
+</div>
+
+{# Progress panel – shown while sync is running #}
+<div id="progressPanel" class="row mb-4" style="display:none">
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           role="button" data-bs-toggle="collapse" data-bs-target="#logCollapse"
+           style="cursor:pointer">
+        <h6 class="mb-0"><i class="bi bi-gear-wide-connected me-1"></i>Synchronisation</h6>
+        <div class="d-flex align-items-center gap-2">
+          <span id="progressStatus" class="badge bg-secondary">Läuft…</span>
+          <i class="bi bi-chevron-up small text-muted" id="logChevron"></i>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div id="progressBarWrap" class="px-3 pt-3 pb-1" style="display:none">
+          <div class="progress" style="height:18px">
+            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                 role="progressbar" style="width:0%">0 / 0</div>
+          </div>
+        </div>
+        <div class="collapse show" id="logCollapse">
+          <div style="max-height:360px;overflow-y:auto" id="logWrap">
+            <table class="table table-sm table-hover mb-0 small" id="logTable">
+              <tbody id="logBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer py-2" id="statsPanel" style="display:none">
+        <table class="table table-sm mb-0 small" id="statsTable"></table>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="row g-4" id="mainRow">
@@ -116,10 +164,10 @@
             <div class="d-flex gap-2 mb-2 align-items-center">
               <input type="text" class="form-control form-control-sm" style="max-width:220px"
                      placeholder="Filter…" id="filterProjects"
-                     oninput="filterTable('tableProjects', this.value)">
-              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_project', true)">Alle</button>
-              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_project', false)">Keine</button>
-              <span class="text-muted small ms-auto" id="selProjects">0 / 0 gewählt</span>
+                     oninput="filterTab('projects', this.value)">
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectPage('projects', true)">Alle</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectPage('projects', false)">Keine</button>
+              <span class="text-muted small ms-auto" id="selProjects">0 ausgewählt</span>
             </div>
             <div class="table-responsive">
               <table class="table table-hover table-sm align-middle mb-0" id="tableProjects">
@@ -133,6 +181,7 @@
                 <tbody id="bodyProjects"></tbody>
               </table>
             </div>
+            <div id="paginationProjects" class="px-1 pb-1"></div>
           </div>
 
           {# Users tab #}
@@ -140,10 +189,10 @@
             <div class="d-flex gap-2 mb-2 align-items-center flex-wrap">
               <input type="text" class="form-control form-control-sm" style="max-width:220px"
                      placeholder="Filter…" id="filterUsers"
-                     oninput="filterTable('tableUsers', this.value)">
-              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_user', true)">Alle</button>
-              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_user', false)">Keine</button>
-              <span class="text-muted small ms-auto" id="selUsers">0 / 0 gewählt</span>
+                     oninput="filterTab('users', this.value)">
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectPage('users', true)">Alle</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectPage('users', false)">Keine</button>
+              <span class="text-muted small ms-auto" id="selUsers">0 ausgewählt</span>
             </div>
             <div class="table-responsive">
               <table class="table table-hover table-sm align-middle mb-0" id="tableUsers">
@@ -160,6 +209,7 @@
                 <tbody id="bodyUsers"></tbody>
               </table>
             </div>
+            <div id="paginationUsers" class="px-1 pb-1"></div>
           </div>
 
           {# Tickets tab #}
@@ -167,10 +217,10 @@
             <div class="d-flex gap-2 mb-2 align-items-center flex-wrap">
               <input type="text" class="form-control form-control-sm" style="max-width:220px"
                      placeholder="Filter…" id="filterTickets"
-                     oninput="filterTable('tableTickets', this.value)">
-              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_bug', true)">Alle</button>
-              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_bug', false)">Keine</button>
-              <span class="text-muted small ms-auto" id="selTickets">0 / 0 gewählt</span>
+                     oninput="filterTab('bugs', this.value)">
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectPage('bugs', true)">Alle</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectPage('bugs', false)">Keine</button>
+              <span class="text-muted small ms-auto" id="selTickets">0 ausgewählt</span>
             </div>
             <div class="table-responsive">
               <table class="table table-hover table-sm align-middle mb-0" id="tableTickets">
@@ -188,34 +238,22 @@
                 <tbody id="bodyTickets"></tbody>
               </table>
             </div>
+            <div id="paginationBugs" class="px-1 pb-1"></div>
           </div>
 
         </div>{# /tab-content #}
       </div>
 
-      <div class="card-footer d-flex justify-content-between align-items-center gap-3 flex-wrap">
-        <span class="text-muted small" id="syncNote"></span>
-        <div class="d-flex align-items-center gap-3">
-          <div class="form-check mb-0">
-            <input class="form-check-input" type="checkbox" id="chkNewOnly" checked>
-            <label class="form-check-label small" for="chkNewOnly">
-              Nur neue
-              <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
-                 data-bs-title="Blendet Einträge aus, die bereits in Taskify importiert wurden, und wählt sie nicht aus."></i>
-            </label>
-          </div>
-          <div class="form-check mb-0">
-            <input class="form-check-input" type="checkbox" id="chkDryRun" checked>
-            <label class="form-check-label small" for="chkDryRun">
-              Testlauf
-              <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
-                 data-bs-title="Im Testlauf werden alle Änderungen berechnet, aber nicht gespeichert. Keine E-Mails werden verschickt."></i>
-            </label>
-          </div>
-          <button type="button" class="btn btn-sm" id="btnSync" onclick="submitSync()" disabled
-                  style="min-width:140px">
-          </button>
+      <div class="card-footer d-flex align-items-center gap-3 flex-wrap py-2">
+        <div class="form-check mb-0">
+          <input class="form-check-input" type="checkbox" id="chkNewOnly" checked>
+          <label class="form-check-label small" for="chkNewOnly">
+            Nur neue
+            <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+               data-bs-title="Blendet Einträge aus, die bereits in Taskify importiert wurden, und wählt sie nicht aus."></i>
+          </label>
         </div>
+        <span class="text-muted small ms-auto" id="syncNote"></span>
       </div>
     </div>
   </div>
@@ -302,23 +340,13 @@
 </div>
 {% endif %}
 
-{# Hidden sync form – populated by JS before submit #}
-<form id="syncForm" method="post" action="{{ url_for('admin_mantis_execute') }}" style="display:none">
-  <input type="hidden" name="host"     id="sfHost">
-  <input type="hidden" name="port"     id="sfPort">
-  <input type="hidden" name="dbname"   id="sfDbname">
-  <input type="hidden" name="user"     id="sfUser">
-  <input type="hidden" name="password" id="sfPassword">
-  <input type="hidden" name="prefix"      id="sfPrefix">
-  <input type="hidden" name="upload_path" id="sfUploadPath">
-  <input type="hidden" name="dry_run"     id="sfDryRun" value="1">
-  <div id="sfSelections"></div>
-</form>
 {% endblock %}
 
 {% block scripts %}
 <script>
 (function () {
+
+var PAGE_SIZE = 500;
 
 // ── Lookup maps ─────────────────────────────────────────────────────────────
 var ACCESS_LABELS = {
@@ -328,242 +356,191 @@ var ACCESS_LABELS = {
   55: { label: 'Entwickler',      cls: 'primary'   },
   70: { label: 'Projektleiter',   cls: 'warning'   },
 };
-
-// Maps MantisBT access_level → Taskify target role displayed in preview
 var ROLE_MAP = {
-  10: { label: 'Kunde',       cls: 'secondary', icon: 'bi-person'        },
-  25: { label: 'Kunde',       cls: 'secondary', icon: 'bi-person'        },
-  40: { label: 'Kunde',       cls: 'secondary', icon: 'bi-person'        },
-  55: { label: 'Mitarbeiter', cls: 'info',       icon: 'bi-person-badge'  },
-  70: { label: 'Manager',     cls: 'warning',    icon: 'bi-person-gear'   },
+  10: { label: 'Kunde',       cls: 'secondary', icon: 'bi-person'       },
+  25: { label: 'Kunde',       cls: 'secondary', icon: 'bi-person'       },
+  40: { label: 'Kunde',       cls: 'secondary', icon: 'bi-person'       },
+  55: { label: 'Mitarbeiter', cls: 'info',      icon: 'bi-person-badge' },
+  70: { label: 'Manager',     cls: 'warning',   icon: 'bi-person-gear'  },
 };
-
-// Shown as the resulting Taskify status (not the raw MantisBT label)
 var BUG_STATUS = {
-  10: { label: 'Offen',           cls: 'secondary' },
-  20: { label: 'Offen',           cls: 'secondary' },
-  30: { label: 'Offen',           cls: 'secondary' },
-  40: { label: 'Offen',           cls: 'secondary' },
-  50: { label: 'In Bearbeitung',  cls: 'primary'   },
-  80: { label: 'Gelöst',          cls: 'success'   },
-  90: { label: 'Geschlossen',     cls: 'dark'      },
+  10: { label: 'Offen',          cls: 'secondary' },
+  20: { label: 'Offen',          cls: 'secondary' },
+  30: { label: 'Offen',          cls: 'secondary' },
+  40: { label: 'Offen',          cls: 'secondary' },
+  50: { label: 'In Bearbeitung', cls: 'primary'   },
+  80: { label: 'Gelöst',         cls: 'success'   },
+  90: { label: 'Geschlossen',    cls: 'dark'      },
 };
 
-// Stored preview data (project_id → name lookup for user tab)
+// ── State ────────────────────────────────────────────────────────────────────
+var _allData   = { projects: [], users: [], bugs: [] };
+var _curPage   = { projects: 1,  users: 1,  bugs: 1  };
+var _filter    = { projects: '', users: '', bugs: ''  };
+var _checked   = { projects: new Set(), users: new Set(), bugs: new Set() };
 var _projectMap = {};
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+var TAB_CFG = {
+  projects: { bodyId: 'bodyProjects', paginationId: 'paginationProjects', colCount: 3, selId: 'selProjects' },
+  users:    { bodyId: 'bodyUsers',    paginationId: 'paginationUsers',    colCount: 6, selId: 'selUsers'    },
+  bugs:     { bodyId: 'bodyTickets',  paginationId: 'paginationBugs',     colCount: 7, selId: 'selTickets'  },
+};
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function esc(str) {
   return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
 function badge(cls, label) {
   return '<span class="badge bg-' + cls + '">' + esc(label) + '</span>';
 }
 
-function fmtDate(ts) {
-  if (!ts) return '';
-  var d = new Date(ts * 1000);
-  return d.toISOString().slice(0, 10);
+// ── Data helpers ─────────────────────────────────────────────────────────────
+function getFiltered(tab) {
+  var term    = _filter[tab].toLowerCase();
+  var newOnly = document.getElementById('chkNewOnly').checked;
+  return _allData[tab].filter(function (item) {
+    if (newOnly && item.exists_in_taskify) return false;
+    if (!term) return true;
+    return JSON.stringify(item).toLowerCase().includes(term);
+  });
 }
 
-// ── Load preview ─────────────────────────────────────────────────────────────
-document.getElementById('btnPreview').addEventListener('click', function () {
-  var form = document.getElementById('connForm');
-  if (!form.checkValidity()) { form.reportValidity(); return; }
+function getPage(tab) {
+  var data       = getFiltered(tab);
+  var totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
+  var page       = Math.max(1, Math.min(_curPage[tab], totalPages));
+  _curPage[tab]  = page;
+  return { data: data, page: page, totalPages: totalPages,
+           pageData: data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) };
+}
 
-  var btn      = document.getElementById('btnPreview');
-  var btnText  = document.getElementById('previewBtnText');
-  var btnIcon  = document.getElementById('previewBtnIcon');
-  var errEl    = document.getElementById('connError');
-
-  btn.disabled = true;
-  btnIcon.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
-  btnText.textContent = 'Lade…';
-  errEl.classList.add('d-none');
-
-  fetch('{{ url_for("admin_mantis_preview") }}', {
-    method: 'POST',
-    body: new FormData(form),
-  })
-  .then(function (r) { return r.json(); })
-  .then(function (data) {
-    btn.disabled = false;
-    btnIcon.innerHTML = '<i class="bi bi-search me-1"></i>';
-    btnText.textContent = 'Vorschau laden';
-
-    if (data.error) {
-      errEl.textContent = data.error;
-      errEl.classList.remove('d-none');
-      return;
-    }
-    renderPreview(data);
-  })
-  .catch(function (e) {
-    btn.disabled = false;
-    btnIcon.innerHTML = '<i class="bi bi-search me-1"></i>';
-    btnText.textContent = 'Vorschau laden';
-    errEl.textContent = 'Netzwerkfehler: ' + e.message;
-    errEl.classList.remove('d-none');
-  });
-});
-
-// ── Render preview ───────────────────────────────────────────────────────────
-function renderPreview(data) {
-  var projects = data.projects || [];
-  var users    = data.users    || [];
-  var bugs     = data.bugs     || [];
-
-  // Build project lookup
-  _projectMap = {};
-  projects.forEach(function (p) { _projectMap[p.id] = p.name; });
-
-  // Summary
-  document.getElementById('previewSummary').textContent =
-    projects.length + ' Projekte · ' + users.length + ' Nutzer · ' + bugs.length + ' Tickets';
-
-  // Badges
-  document.getElementById('badge-projects').textContent = projects.length;
-  document.getElementById('badge-users').textContent    = users.length;
-  document.getElementById('badge-tickets').textContent  = bugs.length;
-
-  // Render each table
-  renderProjects(projects);
-  renderUsers(users);
-  renderTickets(bugs);
-
-  // Show panel
-  document.getElementById('previewCol').style.display = '';
-  document.getElementById('btnSync').disabled = false;
-  updateSyncButton();
-  applyNewOnly();
+// ── Render ───────────────────────────────────────────────────────────────────
+function renderTab(tab) {
+  var cfg   = TAB_CFG[tab];
+  var state = getPage(tab);
+  var html  = '';
+  state.pageData.forEach(function (item) { html += rowHtml(tab, item); });
+  document.getElementById(cfg.bodyId).innerHTML =
+    html || '<tr><td colspan="' + cfg.colCount + '" class="text-center text-muted py-3">Keine Einträge.</td></tr>';
+  renderPagination(tab, state.page, state.totalPages, state.data.length);
   updateCounters();
 }
 
-function renderProjects(projects) {
-  var html = '';
-  projects.forEach(function (p) {
-    var existsBadge = p.existing
-      ? ' <span class="badge bg-secondary ms-1">Bereits vorhanden</span>'
-      : '';
-    html +=
-      '<tr>' +
-      '<td><input class="form-check-input" type="checkbox" name="chk_project"' +
-      ' value="' + p.id + '"' + (p.existing ? '' : ' checked') + ' onchange="updateCounters()"></td>' +
-      '<td class="fw-semibold">' + esc(p.name) + existsBadge + '</td>' +
-      '<td class="text-muted small">' + p.id + '</td>' +
-      '</tr>';
-  });
-  document.getElementById('bodyProjects').innerHTML = html || '<tr><td colspan="3" class="text-center text-muted py-3">Keine Projekte gefunden.</td></tr>';
-}
-
-function renderUsers(users) {
-  var html = '';
-  users.forEach(function (u) {
-    var acc  = ACCESS_LABELS[u.access_level] || { label: 'Level ' + u.access_level, cls: 'secondary' };
-    var role = ROLE_MAP[u.access_level] || { label: 'Kunde', cls: 'secondary', icon: 'bi-person' };
-    var pids = (u.project_ids || []);
-    var projBadges = pids.map(function (pid) {
+function rowHtml(tab, item) {
+  var id      = item.id;
+  var chk     = _checked[tab].has(id) ? ' checked' : '';
+  var onChange = ' onchange="onCheck(this,\'' + tab + '\',' + id + ')"';
+  var cb      = '<input class="form-check-input" type="checkbox"' + chk + onChange + '>';
+  if (tab === 'projects') {
+    var existsBadge = item.existing ? ' <span class="badge bg-secondary ms-1">Bereits vorhanden</span>' : '';
+    return '<tr><td>' + cb + '</td>' +
+      '<td class="fw-semibold">' + esc(item.name) + existsBadge + '</td>' +
+      '<td class="text-muted small">' + id + '</td></tr>';
+  }
+  if (tab === 'users') {
+    var acc  = ACCESS_LABELS[item.access_level] || { label: 'Level ' + item.access_level, cls: 'secondary' };
+    var role = ROLE_MAP[item.access_level]       || { label: 'Kunde', cls: 'secondary', icon: 'bi-person' };
+    var projBadges = (item.project_ids || []).map(function (pid) {
       return badge('light text-dark border', _projectMap[pid] || 'Projekt ' + pid);
     }).join(' ');
-    var existsBadge = u.exists_in_taskify ? ' <span class="badge bg-secondary ms-1">Bereits importiert</span>' : '';
-
-    html +=
-      '<tr' + (u.exists_in_taskify ? ' data-existing="1"' : '') + '>' +
-      '<td><input class="form-check-input" type="checkbox" name="chk_user"' +
-      ' value="' + u.id + '"' + (u.exists_in_taskify ? '' : ' checked') + ' onchange="updateCounters()"></td>' +
-      '<td><span class="fw-semibold">' + esc(u.username) + '</span>' +
-      (u.realname ? '<br><span class="text-muted small">' + esc(u.realname) + '</span>' : '') +
+    var existsBadge = item.exists_in_taskify ? ' <span class="badge bg-secondary ms-1">Bereits importiert</span>' : '';
+    return '<tr><td>' + cb + '</td>' +
+      '<td><span class="fw-semibold">' + esc(item.username) + '</span>' +
+      (item.realname ? '<br><span class="text-muted small">' + esc(item.realname) + '</span>' : '') +
       existsBadge + '</td>' +
-      '<td class="small">' + esc(u.email) + '</td>' +
+      '<td class="small">' + esc(item.email) + '</td>' +
       '<td>' + badge(acc.cls, acc.label) + '</td>' +
-      '<td><span class="badge bg-' + role.cls + '">' +
-        '<i class="bi ' + role.icon + ' me-1"></i>' + esc(role.label) +
-      '</span></td>' +
-      '<td class="small">' + (projBadges || '<span class="text-muted">–</span>') + '</td>' +
-      '</tr>';
-  });
-  document.getElementById('bodyUsers').innerHTML = html || '<tr><td colspan="6" class="text-center text-muted py-3">Keine Nutzer gefunden.</td></tr>';
+      '<td><span class="badge bg-' + role.cls + '"><i class="bi ' + role.icon + ' me-1"></i>' + esc(role.label) + '</span></td>' +
+      '<td class="small">' + (projBadges || '<span class="text-muted">–</span>') + '</td></tr>';
+  }
+  // bugs
+  var st = BUG_STATUS[item.status] || { label: 'Status ' + item.status, cls: 'secondary' };
+  var reporter = item.reporter_username
+    ? esc(item.reporter_username) + (item.reporter_email ? '<br><span class="text-muted">' + esc(item.reporter_email) + '</span>' : '')
+    : esc(item.reporter_email || '–');
+  var handler = item.handler_username
+    ? '<span class="fw-semibold">' + esc(item.handler_realname || item.handler_username) + '</span>' +
+      '<br><span class="text-muted">' + esc(item.handler_username) + '</span>'
+    : '<span class="text-muted">–</span>';
+  var existsBadge = item.exists_in_taskify ? ' <span class="badge bg-secondary ms-1">Bereits importiert</span>' : '';
+  return '<tr><td>' + cb + '</td>' +
+    '<td class="text-muted small">#' + id + '</td>' +
+    '<td>' + esc(item.summary) + existsBadge + '</td>' +
+    '<td class="small text-nowrap">' + esc(item.project_name) + '</td>' +
+    '<td>' + badge(st.cls, st.label) + '</td>' +
+    '<td class="small">' + reporter + '</td>' +
+    '<td class="small">' + handler + '</td></tr>';
 }
 
-function renderTickets(bugs) {
-  var html = '';
-  bugs.forEach(function (b) {
-    var st = BUG_STATUS[b.status] || { label: 'Status ' + b.status, cls: 'secondary' };
-    var reporter = b.reporter_username
-      ? esc(b.reporter_username) + (b.reporter_email ? '<br><span class="text-muted">' + esc(b.reporter_email) + '</span>' : '')
-      : esc(b.reporter_email || '–');
-    var handler = b.handler_username
-      ? '<span class="fw-semibold">' + esc(b.handler_realname || b.handler_username) + '</span>' +
-        '<br><span class="text-muted">' + esc(b.handler_username) + '</span>'
-      : '<span class="text-muted">–</span>';
-    var existsBadge = b.exists_in_taskify ? ' <span class="badge bg-secondary ms-1">Bereits importiert</span>' : '';
-    html +=
-      '<tr' + (b.exists_in_taskify ? ' data-existing="1"' : '') + '>' +
-      '<td><input class="form-check-input" type="checkbox" name="chk_bug"' +
-      ' value="' + b.id + '"' + (b.exists_in_taskify ? '' : ' checked') + ' onchange="updateCounters()"></td>' +
-      '<td class="text-muted small">#' + b.id + '</td>' +
-      '<td>' + esc(b.summary) + existsBadge + '</td>' +
-      '<td class="small text-nowrap">' + esc(b.project_name) + '</td>' +
-      '<td>' + badge(st.cls, st.label) + '</td>' +
-      '<td class="small">' + reporter + '</td>' +
-      '<td class="small">' + handler + '</td>' +
-      '</tr>';
-  });
-  document.getElementById('bodyTickets').innerHTML = html || '<tr><td colspan="7" class="text-center text-muted py-3">Keine Tickets gefunden.</td></tr>';
-}
-
-// ── Selection helpers ────────────────────────────────────────────────────────
-window.selectAll = function (name, checked) {
-  document.querySelectorAll('input[name="' + name + '"]').forEach(function (cb) {
-    if (!cb.closest('tr').classList.contains('d-none')) cb.checked = checked;
-  });
-  updateCounters();
-};
-
-window.filterTable = function (tableId, q) {
-  var term = q.toLowerCase();
-  document.querySelectorAll('#' + tableId + ' tbody tr').forEach(function (tr) {
-    tr.classList.toggle('d-none', !!term && !tr.textContent.toLowerCase().includes(term));
-  });
-  updateCounters();
-};
-
-function countChecked(name) {
-  var total = 0, checked = 0;
-  document.querySelectorAll('input[name="' + name + '"]').forEach(function (cb) {
-    if (!cb.closest('tr').classList.contains('d-none')) {
-      total++;
-      if (cb.checked) checked++;
+function renderPagination(tab, page, totalPages, total) {
+  var el = document.getElementById(TAB_CFG[tab].paginationId);
+  if (!el || totalPages <= 1) { if (el) el.innerHTML = ''; return; }
+  var start = (page - 1) * PAGE_SIZE + 1;
+  var end   = Math.min(page * PAGE_SIZE, total);
+  var html  = '<nav class="d-flex align-items-center gap-2 mt-2 flex-wrap">' +
+    '<ul class="pagination pagination-sm mb-0">' +
+    '<li class="page-item' + (page === 1 ? ' disabled' : '') + '">' +
+    '<button class="page-link" onclick="goPage(\'' + tab + '\',' + (page - 1) + ')">‹</button></li>';
+  for (var i = 1; i <= totalPages; i++) {
+    var show = (i === 1 || i === totalPages || Math.abs(i - page) <= 2);
+    var ellipsisBefore = (i === 2 && page > 4);
+    var ellipsisAfter  = (i === totalPages - 1 && page < totalPages - 3);
+    if (ellipsisBefore || ellipsisAfter) {
+      html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
+    } else if (show) {
+      html += '<li class="page-item' + (i === page ? ' active' : '') + '">' +
+        '<button class="page-link" onclick="goPage(\'' + tab + '\',' + i + ')">' + i + '</button></li>';
     }
-  });
-  return { total: total, checked: checked };
+  }
+  html += '<li class="page-item' + (page === totalPages ? ' disabled' : '') + '">' +
+    '<button class="page-link" onclick="goPage(\'' + tab + '\',' + (page + 1) + ')">›</button></li>' +
+    '</ul>' +
+    '<span class="text-muted small">' + start + '–' + end + ' von ' + total + '</span>' +
+    '</nav>';
+  el.innerHTML = html;
 }
 
+window.goPage = function (tab, page) { _curPage[tab] = page; renderTab(tab); };
+
+// ── Selection ────────────────────────────────────────────────────────────────
+window.onCheck = function (cb, tab, id) {
+  if (cb.checked) _checked[tab].add(id); else _checked[tab].delete(id);
+  updateCounters();
+};
+
+window.selectPage = function (tab, checked) {
+  getPage(tab).pageData.forEach(function (item) {
+    if (checked) _checked[tab].add(item.id); else _checked[tab].delete(item.id);
+  });
+  renderTab(tab);
+};
+
+// ── Filter ───────────────────────────────────────────────────────────────────
+window.filterTab = function (tab, q) {
+  _filter[tab]   = q;
+  _curPage[tab]  = 1;
+  renderTab(tab);
+};
+
+// ── Counters ─────────────────────────────────────────────────────────────────
 function updateCounters() {
-  var p = countChecked('chk_project');
-  var u = countChecked('chk_user');
-  var b = countChecked('chk_bug');
-
-  document.getElementById('selProjects').textContent = p.checked + ' / ' + p.total + ' gewählt';
-  document.getElementById('selUsers').textContent    = u.checked + ' / ' + u.total + ' gewählt';
-  document.getElementById('selTickets').textContent  = b.checked + ' / ' + b.total + ' gewählt';
-
-  var total = p.checked + u.checked + b.checked;
+  var pc = _checked.projects.size;
+  var uc = _checked.users.size;
+  var bc = _checked.bugs.size;
+  document.getElementById('selProjects').textContent = pc + ' ausgewählt';
+  document.getElementById('selUsers').textContent    = uc + ' ausgewählt';
+  document.getElementById('selTickets').textContent  = bc + ' ausgewählt';
+  var total = pc + uc + bc;
   document.getElementById('syncNote').textContent = total > 0
     ? total + ' Einträge zur Synchronisation ausgewählt'
     : 'Keine Einträge ausgewählt';
-
   updateSyncButton();
 }
 
 function updateSyncButton() {
   var isDry = document.getElementById('chkDryRun').checked;
-  var btn = document.getElementById('btnSync');
+  var btn   = document.getElementById('btnSync');
   if (isDry) {
     btn.className = 'btn btn-outline-primary btn-sm';
     btn.innerHTML = '<i class="bi bi-search me-1"></i>Testlauf starten';
@@ -572,61 +549,255 @@ function updateSyncButton() {
     btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>Sync starten';
   }
 }
-
 document.getElementById('chkDryRun').addEventListener('change', updateSyncButton);
 
+// ── "Nur neue" ───────────────────────────────────────────────────────────────
 function applyNewOnly() {
-  var newOnly = document.getElementById('chkNewOnly').checked;
-  ['#bodyProjects tr', '#bodyUsers tr', '#bodyTickets tr'].forEach(function (sel) {
-    document.querySelectorAll(sel).forEach(function (tr) {
-      if (!tr.dataset.existing) return;
-      var cb = tr.querySelector('input[type="checkbox"]');
-      if (newOnly) {
-        tr.classList.add('d-none');
-        if (cb) cb.checked = false;
-      } else {
-        tr.classList.remove('d-none');
-      }
+  // Remove existing items from checked sets when filter is on
+  if (document.getElementById('chkNewOnly').checked) {
+    ['projects', 'users', 'bugs'].forEach(function (tab) {
+      _allData[tab].forEach(function (item) {
+        if (item.exists_in_taskify) _checked[tab].delete(item.id);
+      });
     });
-  });
-  updateCounters();
+  }
+  ['projects', 'users', 'bugs'].forEach(function (tab) { _curPage[tab] = 1; renderTab(tab); });
 }
-
 document.getElementById('chkNewOnly').addEventListener('change', applyNewOnly);
 
-// ── Submit sync ──────────────────────────────────────────────────────────────
+// ── Log accordion chevron ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  var logEl = document.getElementById('logCollapse');
+  logEl.addEventListener('hide.bs.collapse', function () {
+    document.getElementById('logChevron').className = 'bi bi-chevron-down small text-muted';
+  });
+  logEl.addEventListener('show.bs.collapse', function () {
+    document.getElementById('logChevron').className = 'bi bi-chevron-up small text-muted';
+  });
+});
+
+// ── Load preview ─────────────────────────────────────────────────────────────
+document.getElementById('btnPreview').addEventListener('click', function () {
+  var form = document.getElementById('connForm');
+  if (!form.checkValidity()) { form.reportValidity(); return; }
+  var btn     = document.getElementById('btnPreview');
+  var btnText = document.getElementById('previewBtnText');
+  var btnIcon = document.getElementById('previewBtnIcon');
+  var errEl   = document.getElementById('connError');
+  btn.disabled = true;
+  btnIcon.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
+  btnText.textContent = 'Lade…';
+  errEl.classList.add('d-none');
+  fetch('{{ url_for("admin_mantis_preview") }}', { method: 'POST', body: new FormData(form) })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      btn.disabled = false;
+      btnIcon.innerHTML = '<i class="bi bi-search me-1"></i>';
+      btnText.textContent = 'Vorschau laden';
+      if (data.error) { errEl.textContent = data.error; errEl.classList.remove('d-none'); return; }
+      loadPreview(data);
+    })
+    .catch(function (e) {
+      btn.disabled = false;
+      btnIcon.innerHTML = '<i class="bi bi-search me-1"></i>';
+      btnText.textContent = 'Vorschau laden';
+      errEl.textContent = 'Netzwerkfehler: ' + e.message;
+      errEl.classList.remove('d-none');
+    });
+});
+
+function loadPreview(data) {
+  _allData.projects = data.projects || [];
+  _allData.users    = data.users    || [];
+  _allData.bugs     = data.bugs     || [];
+
+  // Normalize: projects use 'existing', align to exists_in_taskify
+  _allData.projects.forEach(function (p) { p.exists_in_taskify = !!p.existing; });
+
+  // Build project lookup
+  _projectMap = {};
+  _allData.projects.forEach(function (p) { _projectMap[p.id] = p.name; });
+
+  // Start with nothing selected
+  _checked = { projects: new Set(), users: new Set(), bugs: new Set() };
+
+  // Summary badges
+  document.getElementById('previewSummary').textContent =
+    _allData.projects.length + ' Projekte · ' + _allData.users.length + ' Nutzer · ' + _allData.bugs.length + ' Tickets';
+  document.getElementById('badge-projects').textContent = _allData.projects.length;
+  document.getElementById('badge-users').textContent    = _allData.users.length;
+  document.getElementById('badge-tickets').textContent  = _allData.bugs.length;
+
+  // Reset pages and render
+  _curPage = { projects: 1, users: 1, bugs: 1 };
+  _filter  = { projects: '', users: '', bugs: '' };
+  ['projects', 'users', 'bugs'].forEach(renderTab);
+
+  document.getElementById('previewCol').style.display = '';
+  document.getElementById('btnSync').disabled = false;
+  updateSyncButton();
+}
+
+// ── Update preview after sync ─────────────────────────────────────────────────
+function markSyncedAsImported() {
+  ['projects', 'users', 'bugs'].forEach(function (tab) {
+    _allData[tab].forEach(function (item) {
+      if (_checked[tab].has(item.id)) {
+        item.exists_in_taskify = true;
+        item.existing = true;  // for projects
+      }
+    });
+    _checked[tab].clear();
+    _curPage[tab] = 1;
+    renderTab(tab);
+  });
+}
+
+// ── Submit & poll ─────────────────────────────────────────────────────────────
+var _pollTimer = null;
+var _logShown  = 0;
+
 window.submitSync = function () {
   var conn = document.getElementById('connForm');
+  var fd   = new FormData();
+  fd.append('host',        conn.elements['host'].value);
+  fd.append('port',        conn.elements['port'].value);
+  fd.append('dbname',      conn.elements['dbname'].value);
+  fd.append('user',        conn.elements['user'].value);
+  fd.append('password',    conn.elements['password'].value);
+  fd.append('prefix',      conn.elements['prefix'].value);
+  fd.append('upload_path', conn.elements['upload_path'].value);
+  fd.append('dry_run',     document.getElementById('chkDryRun').checked ? '1' : '0');
 
-  // Copy connection params to hidden sync form
-  document.getElementById('sfHost').value     = conn.elements['host'].value;
-  document.getElementById('sfPort').value     = conn.elements['port'].value;
-  document.getElementById('sfDbname').value   = conn.elements['dbname'].value;
-  document.getElementById('sfUser').value     = conn.elements['user'].value;
-  document.getElementById('sfPassword').value = conn.elements['password'].value;
-  document.getElementById('sfPrefix').value      = conn.elements['prefix'].value;
-  document.getElementById('sfUploadPath').value  = conn.elements['upload_path'].value;
-  document.getElementById('sfDryRun').value   = document.getElementById('chkDryRun').checked ? '1' : '0';
-
-  // Rebuild selections
-  var sel = document.getElementById('sfSelections');
-  sel.innerHTML = '';
   [
-    { name: 'chk_project', field: 'project_ids' },
-    { name: 'chk_user',    field: 'user_ids'    },
-    { name: 'chk_bug',     field: 'bug_ids'     },
+    { set: _checked.projects, field: 'project_ids' },
+    { set: _checked.users,    field: 'user_ids'    },
+    { set: _checked.bugs,     field: 'bug_ids'     },
   ].forEach(function (mapping) {
-    document.querySelectorAll('input[name="' + mapping.name + '"]:checked').forEach(function (cb) {
-      var inp = document.createElement('input');
-      inp.type  = 'hidden';
-      inp.name  = mapping.field;
-      inp.value = cb.value;
-      sel.appendChild(inp);
-    });
+    mapping.set.forEach(function (id) { fd.append(mapping.field, id); });
   });
 
-  document.getElementById('syncForm').submit();
+  // Disable button, reset progress panel
+  var btn = document.getElementById('btnSync');
+  btn.disabled = true;
+  _logShown = 0;
+  document.getElementById('logBody').innerHTML   = '';
+  document.getElementById('statsPanel').style.display = 'none';
+  document.getElementById('progressBarWrap').style.display = 'none';
+  document.getElementById('progressStatus').textContent    = 'Läuft…';
+  document.getElementById('progressStatus').className      = 'badge bg-secondary';
+  document.getElementById('progressPanel').style.display   = '';
+
+  fetch('{{ url_for("admin_mantis_execute") }}', { method: 'POST', body: fd })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) {
+        appendLog({ level: 'error', msg: data.error, time: '' });
+        setProgressDone('error');
+        return;
+      }
+      startPolling(data.task_id);
+    })
+    .catch(function (e) {
+      appendLog({ level: 'error', msg: 'Netzwerkfehler: ' + e.message, time: '' });
+      setProgressDone('error');
+    });
 };
+
+function startPolling(taskId) {
+  _pollTimer = setInterval(function () {
+    fetch('{{ url_for("admin_mantis_task_status", task_id="TASK_ID") }}'.replace('TASK_ID', taskId))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        // Append new log lines
+        var newLines = data.log.slice(_logShown);
+        newLines.forEach(function (entry) { appendLog(entry); });
+        _logShown = data.log.length;
+
+        // Update progress bar
+        if (data.total_bugs > 0) {
+          var pct = Math.round(data.bugs_done / data.total_bugs * 100);
+          var bar = document.getElementById('progressBar');
+          document.getElementById('progressBarWrap').style.display = '';
+          bar.style.width = pct + '%';
+          bar.textContent = data.bugs_done + ' / ' + data.total_bugs;
+        }
+
+        if (data.status === 'done' || data.status === 'error') {
+          clearInterval(_pollTimer);
+          setProgressDone(data.status, data.dry_run);
+          renderStats(data.stats, data.dry_run);
+          if (data.status === 'done' && !data.dry_run) {
+            markSyncedAsImported();
+          }
+          document.getElementById('btnSync').disabled = false;
+          updateSyncButton();
+          setTimeout(function () {
+            var el = document.getElementById('logCollapse');
+            if (el.classList.contains('show')) {
+              bootstrap.Collapse.getOrCreateInstance(el).hide();
+            }
+          }, 3000);
+        }
+      })
+      .catch(function () { /* ignore transient network errors */ });
+  }, 1500);
+}
+
+function appendLog(entry) {
+  var cls = entry.level === 'error'   ? 'text-danger'
+           : entry.level === 'warning' ? 'text-warning'
+           : 'text-muted';
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td class="text-muted ps-3" style="width:70px;white-space:nowrap">' + entry.time + '</td>' +
+                 '<td class="' + cls + ' pe-3">' + entry.msg.replace(/</g,'&lt;') + '</td>';
+  var tbody = document.getElementById('logBody');
+  tbody.appendChild(tr);
+  var wrap = document.getElementById('logWrap');
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function setProgressDone(status, dryRun) {
+  var badge = document.getElementById('progressStatus');
+  if (status === 'error') {
+    badge.textContent = 'Fehler'; badge.className = 'badge bg-danger';
+  } else if (dryRun) {
+    badge.textContent = 'Testlauf abgeschlossen'; badge.className = 'badge bg-info';
+  } else {
+    badge.textContent = 'Fertig'; badge.className = 'badge bg-success';
+  }
+  var bar = document.getElementById('progressBar');
+  bar.classList.remove('progress-bar-animated', 'progress-bar-striped');
+  if (status === 'error') bar.classList.add('bg-danger');
+}
+
+function renderStats(stats, dryRun) {
+  var rows = [
+    ['Projekte erstellt',           stats.groups],
+    ['Kunden importiert',           stats.customers],
+    ['Kunden übersprungen',         stats.customers_skipped],
+    ['Mitarbeiter importiert',      stats.employees],
+    ['Mitarbeiter übersprungen',    stats.employees_skipped],
+    ['Tickets importiert',          stats.tickets],
+    ['Tickets übersprungen',        stats.tickets_skipped],
+    ['Notizen importiert',          stats.notes],
+    ['Anhänge importiert',          stats.attachments],
+    ['Anhänge nicht gefunden',      stats.attachments_skipped],
+    ['Historieneinträge',           stats.history],
+  ].filter(function (r) { return r[1] > 0; });
+
+  if (!rows.length) return;
+  var html = '<thead class="table-light"><tr><th>Ergebnis</th><th class="text-end">Anzahl</th></tr></thead><tbody>';
+  rows.forEach(function (r) {
+    html += '<tr><td>' + r[0] + '</td><td class="text-end fw-semibold">' + r[1] + '</td></tr>';
+  });
+  if (dryRun) {
+    html += '<tr><td colspan="2" class="text-info fst-italic">Testlauf – keine Änderungen gespeichert</td></tr>';
+  }
+  html += '</tbody>';
+  document.getElementById('statsTable').innerHTML = html;
+  document.getElementById('statsPanel').style.display = '';
+}
 
 })();
 

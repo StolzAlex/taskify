@@ -3113,7 +3113,7 @@ def admin_mantis_preview():
                 f"FROM {p}bug_table b "
                 f"LEFT JOIN {p}user_table u ON u.id = b.reporter_id "
                 f"LEFT JOIN {p}user_table h ON h.id = b.handler_id "
-                f"ORDER BY b.id DESC"
+                f"ORDER BY b.id ASC"
             ))]
 
         engine.dispose()
@@ -3166,12 +3166,311 @@ def admin_mantis_preview():
         return jsonify({'error': str(e)}), 500
 
 
+# ── Background sync task store ────────────────────────────────────────────────
+_sync_tasks: dict = {}
+
+
+def _do_mantis_sync(flask_app, task: dict, host_url: str) -> None:
+    """Run MantisBT sync in a background thread, writing progress to *task*."""
+    from sqlalchemy import text as _sa_text
+
+    def log(msg: str, level: str = 'info') -> None:
+        task['log'].append({
+            'level': level,
+            'msg': msg,
+            'time': datetime.utcnow().strftime('%H:%M:%S'),
+        })
+
+    with flask_app.test_request_context(base_url=host_url):
+        try:
+            pr       = task['params']
+            host     = pr['host']
+            port     = pr['port']
+            dbname   = pr['dbname']
+            user     = pr['user']
+            password = pr['password']
+            prefix   = pr['prefix']
+            upload_path     = pr.get('upload_path') or None
+            dry_run         = pr['dry_run']
+            sel_project_ids = pr['sel_project_ids']
+            sel_user_ids    = pr['sel_user_ids']
+            sel_bug_ids     = pr['sel_bug_ids']
+            creator_id      = pr['user_id']
+            p = prefix
+            stats = task['stats']
+
+            log(f'Verbinde mit {host}:{port}/{dbname}…')
+            engine = _mantis_engine(host, port, dbname, user, password)
+
+            with engine.connect() as mcon:
+
+                # 1. Projects
+                group_map: dict = {}
+                new_project_ids: set = set()
+                if sel_project_ids:
+                    log(f'Importiere {len(sel_project_ids)} Projekt(e)…')
+                    id_list = ','.join(str(i) for i in sel_project_ids)
+                    for row in mcon.execute(_sa_text(
+                        f"SELECT id, name FROM {p}project_table WHERE id IN ({id_list})"
+                    )).fetchall():
+                        grp = Group.query.filter_by(name=row.name).first()
+                        if not grp:
+                            grp = Group(name=row.name)
+                            db.session.add(grp)
+                            db.session.flush()
+                            stats['groups'] += 1
+                            new_project_ids.add(row.id)
+                        group_map[row.id] = grp
+
+                # 2. Users
+                if sel_user_ids:
+                    log(f'Importiere {len(sel_user_ids)} Benutzer…')
+                    id_list = ','.join(str(i) for i in sel_user_ids)
+                    user_rows = mcon.execute(_sa_text(
+                        f"SELECT id, username, realname, email, access_level "
+                        f"FROM {p}user_table WHERE id IN ({id_list})"
+                    )).fetchall()
+                    memb_rows = mcon.execute(_sa_text(
+                        f"SELECT user_id, project_id FROM {p}project_user_list_table "
+                        f"WHERE user_id IN ({id_list})"
+                    )).fetchall()
+                    user_proj_map: dict = {}
+                    for m in memb_rows:
+                        user_proj_map.setdefault(m.user_id, []).append(m.project_id)
+
+                    for row in user_rows:
+                        target_type, is_manager = _MANTIS_ROLE_MAP.get(
+                            row.access_level, ('customer', False)
+                        )
+                        display_name = (row.realname or '').strip() or row.username
+                        if target_type == 'employee':
+                            if Employee.query.filter_by(email=row.email).first():
+                                stats['employees_skipped'] += 1
+                            else:
+                                emp = Employee(
+                                    username=display_name, email=row.email,
+                                    is_manager=is_manager, is_active=True,
+                                    mantis_imported=True,
+                                )
+                                emp.set_password(secrets.token_hex(32))
+                                db.session.add(emp)
+                                db.session.flush()
+                                if not dry_run:
+                                    token     = _make_setup_token(emp)
+                                    setup_url = url_for('setup_password', token=token, _external=True)
+                                    send_setup_email(emp.email, emp.username, setup_url)
+                                stats['employees'] += 1
+                                log(f'Mitarbeiter importiert: {display_name}')
+                        else:
+                            existing_cust = Customer.query.filter_by(email=row.email).first()
+                            if existing_cust:
+                                cust = existing_cust
+                                stats['customers_skipped'] += 1
+                            else:
+                                cust = Customer(
+                                    email=row.email, name=display_name,
+                                    created_by_id=creator_id, mantis_imported=True,
+                                )
+                                cust.set_password(secrets.token_hex(32))
+                                db.session.add(cust)
+                                db.session.flush()
+                                stats['customers'] += 1
+                                log(f'Kunde importiert: {display_name}')
+                            for pid in user_proj_map.get(row.id, []):
+                                if pid in new_project_ids and pid in group_map \
+                                        and group_map[pid] not in cust.groups:
+                                    cust.groups.append(group_map[pid])
+
+                # 3. Tickets
+                if sel_bug_ids:
+                    log(f'Lade {len(sel_bug_ids)} Ticket(e) aus MantisBT…')
+                    id_list = ','.join(str(i) for i in sel_bug_ids)
+                    bug_rows = mcon.execute(_sa_text(
+                        f"SELECT b.id, b.project_id, b.summary, b.status, "
+                        f"b.date_submitted, "
+                        f"u.email AS reporter_email, "
+                        f"h.email AS handler_email, h.username AS handler_username, "
+                        f"bt.description "
+                        f"FROM {p}bug_table b "
+                        f"JOIN {p}bug_text_table bt ON bt.id = b.bug_text_id "
+                        f"LEFT JOIN {p}user_table u ON u.id = b.reporter_id "
+                        f"LEFT JOIN {p}user_table h ON h.id = b.handler_id "
+                        f"WHERE b.id IN ({id_list})"
+                    )).fetchall()
+
+                    unmapped_pids = {r.project_id for r in bug_rows} - set(group_map.keys())
+                    if unmapped_pids:
+                        pid_csv = ','.join(str(i) for i in unmapped_pids)
+                        for proj in mcon.execute(_sa_text(
+                            f"SELECT id, name FROM {p}project_table WHERE id IN ({pid_csv})"
+                        )).fetchall():
+                            existing_grp = Group.query.filter_by(name=proj.name).first()
+                            if existing_grp:
+                                group_map[proj.id] = existing_grp
+
+                    task['total_bugs'] = len(bug_rows)
+                    log(f'Importiere {len(bug_rows)} Ticket(e)…')
+
+                    for idx, row in enumerate(bug_rows):
+                        task['bugs_done'] = idx + 1
+                        if Ticket.query.filter(
+                            Ticket.internal_title.like(f'%[mantis:{row.id}]%')
+                        ).first():
+                            stats['tickets_skipped'] += 1
+                            continue
+
+                        log(f'#{row.id}: {row.summary[:70]}')
+                        ticket = Ticket(
+                            submitter_email=row.reporter_email or 'mantis-import@taskify.local',
+                            subject=row.summary,
+                            body=_plain_to_html(row.description),
+                            status=_MANTIS_STATUS_MAP.get(row.status, 'open'),
+                            internal_title=f'[mantis:{row.id}] {row.summary}',
+                            group_id=group_map[row.project_id].id if row.project_id in group_map else None,
+                        )
+                        if row.date_submitted:
+                            ts = datetime.utcfromtimestamp(row.date_submitted)
+                            ticket.created_at = ts
+                            ticket.updated_at = ts
+                        db.session.add(ticket)
+                        db.session.flush()
+                        stats['tickets'] += 1
+
+                        if not dry_run:
+                            os.makedirs(os.path.join(
+                                flask_app.config['UPLOAD_FOLDER'], str(ticket.id)
+                            ), exist_ok=True)
+
+                        if row.handler_email:
+                            handler_emp = Employee.query.filter(
+                                Employee.email.ilike(row.handler_email)
+                            ).first()
+                            if handler_emp:
+                                db.session.add(Assignment(
+                                    ticket_id=ticket.id, employee_id=handler_emp.id,
+                                ))
+
+                        note_rows = mcon.execute(_sa_text(
+                            f"SELECT bn.id, bn.date_submitted, bn.view_state, "
+                            f"u.email AS reporter_email, bnt.note "
+                            f"FROM {p}bugnote_table bn "
+                            f"JOIN {p}bugnote_text_table bnt ON bnt.id = bn.bugnote_text_id "
+                            f"LEFT JOIN {p}user_table u ON u.id = bn.reporter_id "
+                            f"WHERE bn.bug_id = :bid ORDER BY bn.date_submitted"
+                        ), {'bid': row.id}).fetchall()
+
+                        for note in note_rows:
+                            note_body = _plain_to_html(note.note)
+                            if not note_body:
+                                continue
+                            is_public = (note.view_state == 10)
+                            emp = cust_author = None
+                            if note.reporter_email:
+                                emp = Employee.query.filter(
+                                    Employee.email.ilike(note.reporter_email)
+                                ).first()
+                                if not emp:
+                                    cust_author = Customer.query.filter(
+                                        Customer.email.ilike(note.reporter_email)
+                                    ).first()
+                            msg = Message(
+                                ticket_id=ticket.id,
+                                employee_id=emp.id if emp else None,
+                                body=note_body,
+                                is_customer_visible=True if cust_author else is_public,
+                                is_customer_reply=bool(cust_author),
+                            )
+                            if note.date_submitted:
+                                msg.created_at = datetime.utcfromtimestamp(note.date_submitted)
+                            db.session.add(msg)
+                            db.session.flush()
+                            stats['notes'] += 1
+
+                            if not dry_run:
+                                att_rows = mcon.execute(_sa_text(
+                                    f"SELECT title, filename, diskfile, folder, content, date_added "
+                                    f"FROM {p}bug_file_table "
+                                    f"WHERE bug_id = :bid AND bugnote_id = :nid"
+                                ), {'bid': row.id, 'nid': note.id}).fetchall()
+                                for att in att_rows:
+                                    if _save_mantis_attachment(ticket.id, msg.id, att, upload_path):
+                                        stats['attachments'] += 1
+                                    else:
+                                        stats['attachments_skipped'] += 1
+
+                        if not dry_run:
+                            att_rows = mcon.execute(_sa_text(
+                                f"SELECT title, filename, diskfile, folder, content, date_added "
+                                f"FROM {p}bug_file_table "
+                                f"WHERE bug_id = :bid AND (bugnote_id = 0 OR bugnote_id IS NULL)"
+                            ), {'bid': row.id}).fetchall()
+                            for att in att_rows:
+                                if _save_mantis_attachment(ticket.id, None, att, upload_path):
+                                    stats['attachments'] += 1
+                                else:
+                                    stats['attachments_skipped'] += 1
+
+                        hist_rows = mcon.execute(_sa_text(
+                            f"SELECT bh.date_modified, bh.field_name, bh.old_value, "
+                            f"bh.new_value, bh.type, u.email AS user_email "
+                            f"FROM {p}bug_history_table bh "
+                            f"LEFT JOIN {p}user_table u ON u.id = bh.user_id "
+                            f"WHERE bh.bug_id = :bid AND bh.type = 0 "
+                            f"ORDER BY bh.date_modified"
+                        ), {'bid': row.id}).fetchall()
+
+                        for h in hist_rows:
+                            actor = (Employee.query.filter(Employee.email.ilike(h.user_email)).first()
+                                     if h.user_email else None)
+                            if h.field_name == 'status':
+                                try:
+                                    from_val = _MANTIS_STATUS_LABEL.get(int(h.old_value), h.old_value)
+                                    to_val   = _MANTIS_STATUS_LABEL.get(int(h.new_value), h.new_value)
+                                except (ValueError, TypeError):
+                                    from_val, to_val = h.old_value, h.new_value
+                                ev_type = 'status'
+                            elif h.field_name == 'assigned_to':
+                                ev_type  = 'assignment'
+                                from_val = h.old_value
+                                to_val   = h.new_value
+                            else:
+                                ev_type  = 'mantis_history'
+                                from_val = f'{h.field_name}: {h.old_value}' if h.old_value else h.field_name
+                                to_val   = h.new_value
+                            ev = TicketEvent(
+                                ticket_id=ticket.id,
+                                employee_id=actor.id if actor else None,
+                                event_type=ev_type,
+                                from_value=str(from_val)[:500] if from_val else None,
+                                to_value=str(to_val)[:500]     if to_val   else None,
+                            )
+                            if h.date_modified:
+                                ev.created_at = datetime.utcfromtimestamp(h.date_modified)
+                            db.session.add(ev)
+                            stats['history'] += 1
+
+            if dry_run:
+                db.session.rollback()
+                log('Testlauf abgeschlossen – keine Änderungen gespeichert.', 'warning')
+            else:
+                db.session.commit()
+                log('Synchronisation abgeschlossen.', 'info')
+
+            engine.dispose()
+            task['status'] = 'done'
+
+        except Exception as e:
+            db.session.rollback()
+            flask_app.logger.exception('MantisBT sync failed')
+            log(f'Fehler: {e}', 'error')
+            task['status'] = 'error'
+            task['error'] = str(e)
+
+
 @app.route('/admin/mantis-sync/execute', methods=['POST'])
 @login_required
 @admin_required
 def admin_mantis_execute():
-    from sqlalchemy import text as _sa_text
-
     host     = request.form.get('host', '').strip()
     port     = request.form.get('port', '3306').strip() or '3306'
     dbname   = request.form.get('dbname', '').strip()
@@ -3179,315 +3478,65 @@ def admin_mantis_execute():
     password = request.form.get('password', '')
     prefix      = request.form.get('prefix', 'mantis_').strip() or 'mantis_'
     upload_path = request.form.get('upload_path', '').strip() or None
-
-    dry_run = request.form.get('dry_run') == '1'
+    dry_run     = request.form.get('dry_run') == '1'
 
     sel_project_ids = {int(x) for x in request.form.getlist('project_ids') if x.isdigit()}
     sel_user_ids    = {int(x) for x in request.form.getlist('user_ids')    if x.isdigit()}
     sel_bug_ids     = {int(x) for x in request.form.getlist('bug_ids')     if x.isdigit()}
 
     if not host or not dbname or not user:
-        flash(_('Host, database name, and user are required.'), 'danger')
-        return redirect(url_for('admin_mantis_sync'))
-
+        return jsonify({'error': 'Host, Datenbankname und Benutzer sind erforderlich.'}), 400
     if not sel_project_ids and not sel_user_ids and not sel_bug_ids:
-        flash(_('Nothing selected for sync.'), 'warning')
-        return redirect(url_for('admin_mantis_sync'))
+        return jsonify({'error': 'Nichts zur Synchronisation ausgewählt.'}), 400
 
-    stats = dict(groups=0,
-                 customers=0, customers_skipped=0,
-                 employees=0, employees_skipped=0,
-                 tickets=0,   tickets_skipped=0,
-                 notes=0,     attachments=0, attachments_skipped=0,
-                 history=0)
+    task_id = str(uuid.uuid4())
+    task = {
+        'status': 'running',
+        'log': [],
+        'stats': dict(groups=0, customers=0, customers_skipped=0,
+                      employees=0, employees_skipped=0,
+                      tickets=0, tickets_skipped=0,
+                      notes=0, attachments=0, attachments_skipped=0, history=0),
+        'dry_run': dry_run,
+        'total_bugs': len(sel_bug_ids),
+        'bugs_done': 0,
+        'error': None,
+        'params': {
+            'host': host, 'port': port, 'dbname': dbname,
+            'user': user, 'password': password, 'prefix': prefix,
+            'upload_path': upload_path, 'dry_run': dry_run,
+            'sel_project_ids': sel_project_ids,
+            'sel_user_ids': sel_user_ids,
+            'sel_bug_ids': sel_bug_ids,
+            'user_id': current_user.id,
+        },
+    }
+    _sync_tasks[task_id] = task
+    host_url = request.host_url
+    threading.Thread(
+        target=_do_mantis_sync,
+        args=(app, task, host_url),
+        daemon=True,
+    ).start()
+    return jsonify({'task_id': task_id})
 
-    try:
-        engine = _mantis_engine(host, port, dbname, user, password)
-        p = prefix
 
-        with engine.connect() as mcon:
-            # 1. Ensure Taskify Groups exist for selected MantisBT projects
-            group_map: dict = {}    # mantis project_id → Group
-            new_project_ids: set = set()  # mantis project_ids that were newly created
-            if sel_project_ids:
-                id_list = ','.join(str(i) for i in sel_project_ids)
-                for row in mcon.execute(_sa_text(
-                    f"SELECT id, name FROM {p}project_table WHERE id IN ({id_list})"
-                )).fetchall():
-                    grp = Group.query.filter_by(name=row.name).first()
-                    if not grp:
-                        grp = Group(name=row.name)
-                        db.session.add(grp)
-                        db.session.flush()
-                        stats['groups'] += 1
-                        new_project_ids.add(row.id)
-                    group_map[row.id] = grp
-
-            # 2. Import selected MantisBT users, mapped to Taskify role by access_level
-            if sel_user_ids:
-                id_list = ','.join(str(i) for i in sel_user_ids)
-                user_rows = mcon.execute(_sa_text(
-                    f"SELECT id, username, realname, email, access_level "
-                    f"FROM {p}user_table WHERE id IN ({id_list})"
-                )).fetchall()
-
-                memb_rows = mcon.execute(_sa_text(
-                    f"SELECT user_id, project_id FROM {p}project_user_list_table "
-                    f"WHERE user_id IN ({id_list})"
-                )).fetchall()
-                user_proj_map: dict = {}
-                for m in memb_rows:
-                    user_proj_map.setdefault(m.user_id, []).append(m.project_id)
-
-                for row in user_rows:
-                    target_type, is_manager = _MANTIS_ROLE_MAP.get(
-                        row.access_level, ('customer', False)
-                    )
-                    display_name = (row.realname or '').strip() or row.username
-
-                    if target_type == 'employee':
-                        existing_emp = Employee.query.filter_by(email=row.email).first()
-                        if existing_emp:
-                            stats['employees_skipped'] += 1
-                        else:
-                            emp = Employee(
-                                username=display_name,
-                                email=row.email,
-                                is_manager=is_manager,
-                                is_active=True,
-                                mantis_imported=True,
-                            )
-                            emp.set_password(secrets.token_hex(32))
-                            db.session.add(emp)
-                            db.session.flush()
-                            if not dry_run:
-                                token     = _make_setup_token(emp)
-                                setup_url = url_for('setup_password', token=token, _external=True)
-                                send_setup_email(emp.email, emp.username, setup_url)
-                            stats['employees'] += 1
-                    else:
-                        # target_type == 'customer'
-                        existing_cust = Customer.query.filter_by(email=row.email).first()
-                        if existing_cust:
-                            cust = existing_cust
-                            stats['customers_skipped'] += 1
-                        else:
-                            cust = Customer(
-                                email=row.email,
-                                name=display_name,
-                                created_by_id=current_user.id,
-                                mantis_imported=True,
-                            )
-                            cust.set_password(secrets.token_hex(32))
-                            db.session.add(cust)
-                            db.session.flush()
-                            stats['customers'] += 1
-
-                        # Assign customer to newly created projects only
-                        for pid in user_proj_map.get(row.id, []):
-                            if pid in new_project_ids and pid in group_map and group_map[pid] not in cust.groups:
-                                cust.groups.append(group_map[pid])
-
-            # 3. Import selected MantisBT bugs as Taskify Tickets
-            if sel_bug_ids:
-                id_list = ','.join(str(i) for i in sel_bug_ids)
-                bug_rows = mcon.execute(_sa_text(
-                    f"SELECT b.id, b.project_id, b.summary, b.status, "
-                    f"b.date_submitted, "
-                    f"u.email AS reporter_email, "
-                    f"h.email AS handler_email, h.username AS handler_username, "
-                    f"bt.description "
-                    f"FROM {p}bug_table b "
-                    f"JOIN {p}bug_text_table bt ON bt.id = b.bug_text_id "
-                    f"LEFT JOIN {p}user_table u ON u.id = b.reporter_id "
-                    f"LEFT JOIN {p}user_table h ON h.id = b.handler_id "
-                    f"WHERE b.id IN ({id_list})"
-                )).fetchall()
-
-                # 3a. Extend group_map with existing Taskify groups for any
-                #     project_ids referenced by tickets but not explicitly selected.
-                unmapped_pids = {r.project_id for r in bug_rows} - set(group_map.keys())
-                if unmapped_pids:
-                    pid_csv = ','.join(str(i) for i in unmapped_pids)
-                    for proj in mcon.execute(_sa_text(
-                        f"SELECT id, name FROM {p}project_table WHERE id IN ({pid_csv})"
-                    )).fetchall():
-                        existing_grp = Group.query.filter_by(name=proj.name).first()
-                        if existing_grp:
-                            group_map[proj.id] = existing_grp
-
-                for row in bug_rows:
-                    if Ticket.query.filter(
-                        Ticket.internal_title.like(f'%[mantis:{row.id}]%')
-                    ).first():
-                        stats['tickets_skipped'] += 1
-                        continue
-
-                    ticket = Ticket(
-                        submitter_email=row.reporter_email or 'mantis-import@taskify.local',
-                        subject=row.summary,
-                        body=_plain_to_html(row.description),
-                        status=_MANTIS_STATUS_MAP.get(row.status, 'open'),
-                        internal_title=f'[mantis:{row.id}] {row.summary}',
-                        group_id=group_map[row.project_id].id if row.project_id in group_map else None,
-                    )
-                    if row.date_submitted:
-                        ts = datetime.utcfromtimestamp(row.date_submitted)
-                        ticket.created_at = ts
-                        ticket.updated_at = ts
-                    db.session.add(ticket)
-                    db.session.flush()
-                    stats['tickets'] += 1
-
-                    # Create upload folder for this ticket immediately
-                    if not dry_run:
-                        os.makedirs(os.path.join(
-                            app.config['UPLOAD_FOLDER'], str(ticket.id)
-                        ), exist_ok=True)
-
-                    # 3b. Map assignee (handler) to an existing Taskify employee
-                    if row.handler_email:
-                        handler_emp = Employee.query.filter(
-                            Employee.email.ilike(row.handler_email)
-                        ).first()
-                        if handler_emp:
-                            db.session.add(Assignment(
-                                ticket_id=ticket.id,
-                                employee_id=handler_emp.id,
-                            ))
-
-                    # 3c. Import bugnotes as Messages, mapped to employee or customer
-                    note_rows = mcon.execute(_sa_text(
-                        f"SELECT bn.id, bn.date_submitted, bn.view_state, "
-                        f"u.email AS reporter_email, bnt.note "
-                        f"FROM {p}bugnote_table bn "
-                        f"JOIN {p}bugnote_text_table bnt ON bnt.id = bn.bugnote_text_id "
-                        f"LEFT JOIN {p}user_table u ON u.id = bn.reporter_id "
-                        f"WHERE bn.bug_id = :bid ORDER BY bn.date_submitted"
-                    ), {'bid': row.id}).fetchall()
-
-                    for note in note_rows:
-                        note_body = _plain_to_html(note.note)
-                        if not note_body:
-                            continue
-                        is_public = (note.view_state == 10)  # VS_PUBLIC
-                        emp = cust_author = None
-                        if note.reporter_email:
-                            emp = Employee.query.filter(
-                                Employee.email.ilike(note.reporter_email)
-                            ).first()
-                            if not emp:
-                                cust_author = Customer.query.filter(
-                                    Customer.email.ilike(note.reporter_email)
-                                ).first()
-                        msg = Message(
-                            ticket_id=ticket.id,
-                            employee_id=emp.id if emp else None,
-                            body=note_body,
-                            is_customer_visible=True if cust_author else is_public,
-                            is_customer_reply=bool(cust_author),
-                        )
-                        if note.date_submitted:
-                            msg.created_at = datetime.utcfromtimestamp(note.date_submitted)
-                        db.session.add(msg)
-                        db.session.flush()
-                        stats['notes'] += 1
-
-                        if not dry_run:
-                            att_rows = mcon.execute(_sa_text(
-                                f"SELECT title, filename, diskfile, folder, content, date_added "
-                                f"FROM {p}bug_file_table "
-                                f"WHERE bug_id = :bid AND bugnote_id = :nid"
-                            ), {'bid': row.id, 'nid': note.id}).fetchall()
-                            for att in att_rows:
-                                if _save_mantis_attachment(ticket.id, msg.id, att, upload_path):
-                                    stats['attachments'] += 1
-                                else:
-                                    stats['attachments_skipped'] += 1
-
-                    # 3d. Ticket-level attachments (not linked to a note)
-                    if not dry_run:
-                        att_rows = mcon.execute(_sa_text(
-                            f"SELECT title, filename, diskfile, folder, content, date_added "
-                            f"FROM {p}bug_file_table "
-                            f"WHERE bug_id = :bid AND (bugnote_id = 0 OR bugnote_id IS NULL)"
-                        ), {'bid': row.id}).fetchall()
-                        for att in att_rows:
-                            if _save_mantis_attachment(ticket.id, None, att, upload_path):
-                                stats['attachments'] += 1
-                            else:
-                                stats['attachments_skipped'] += 1
-
-                    # 3e. Import activity history as TicketEvents
-                    hist_rows = mcon.execute(_sa_text(
-                        f"SELECT bh.date_modified, bh.field_name, bh.old_value, "
-                        f"bh.new_value, bh.type, u.email AS user_email "
-                        f"FROM {p}bug_history_table bh "
-                        f"LEFT JOIN {p}user_table u ON u.id = bh.user_id "
-                        f"WHERE bh.bug_id = :bid AND bh.type = 0 "
-                        f"ORDER BY bh.date_modified"
-                    ), {'bid': row.id}).fetchall()
-
-                    for h in hist_rows:
-                        actor = (Employee.query.filter(Employee.email.ilike(h.user_email)).first()
-                                 if h.user_email else None)
-                        if h.field_name == 'status':
-                            try:
-                                from_val = _MANTIS_STATUS_LABEL.get(int(h.old_value), h.old_value)
-                                to_val   = _MANTIS_STATUS_LABEL.get(int(h.new_value), h.new_value)
-                            except (ValueError, TypeError):
-                                from_val, to_val = h.old_value, h.new_value
-                            ev_type = 'status'
-                        elif h.field_name == 'assigned_to':
-                            ev_type  = 'assignment'
-                            from_val = h.old_value
-                            to_val   = h.new_value
-                        else:
-                            ev_type  = 'mantis_history'
-                            from_val = f'{h.field_name}: {h.old_value}' if h.old_value else h.field_name
-                            to_val   = h.new_value
-                        ev = TicketEvent(
-                            ticket_id=ticket.id,
-                            employee_id=actor.id if actor else None,
-                            event_type=ev_type,
-                            from_value=str(from_val)[:500] if from_val else None,
-                            to_value=str(to_val)[:500]   if to_val   else None,
-                        )
-                        if h.date_modified:
-                            ev.created_at = datetime.utcfromtimestamp(h.date_modified)
-                        db.session.add(ev)
-                        stats['history'] += 1
-
-        if dry_run:
-            db.session.rollback()
-        else:
-            db.session.commit()
-        engine.dispose()
-
-        parts = []
-        if stats['groups']:              parts.append(_('%(n)d project(s) created',           n=stats['groups']))
-        if stats['customers']:           parts.append(_('%(n)d customer(s) imported',         n=stats['customers']))
-        if stats['customers_skipped']:   parts.append(_('%(n)d customer(s) already existed',  n=stats['customers_skipped']))
-        if stats['employees']:           parts.append(_('%(n)d employee(s) imported',         n=stats['employees']))
-        if stats['employees_skipped']:   parts.append(_('%(n)d employee(s) already existed',  n=stats['employees_skipped']))
-        if stats['tickets']:             parts.append(_('%(n)d ticket(s) imported',           n=stats['tickets']))
-        if stats['tickets_skipped']:     parts.append(_('%(n)d ticket(s) already imported',   n=stats['tickets_skipped']))
-        if stats['notes']:                parts.append(_('%(n)d note(s) imported',              n=stats['notes']))
-        if stats['attachments']:          parts.append(_('%(n)d attachment(s) imported',        n=stats['attachments']))
-        if stats['attachments_skipped']:  parts.append(_('%(n)d attachment(s) not found on disk', n=stats['attachments_skipped']))
-        if stats['history']:              parts.append(_('%(n)d history event(s) imported',    n=stats['history']))
-        summary = ', '.join(parts) or _('nothing to do')
-        if dry_run:
-            flash(_('Dry run complete (no changes saved): %(details)s.', details=summary), 'info')
-        else:
-            flash(_('Sync complete: %(details)s.', details=summary), 'success')
-
-    except Exception as e:
-        db.session.rollback()
-        app.logger.exception('MantisBT sync failed')
-        flash(_('Sync failed: %(error)s', error=str(e)), 'danger')
-
-    return redirect(url_for('admin_mantis_sync'))
+@app.route('/admin/mantis-sync/task/<task_id>')
+@login_required
+@admin_required
+def admin_mantis_task_status(task_id):
+    task = _sync_tasks.get(task_id)
+    if not task:
+        return jsonify({'error': 'Task not found'}), 404
+    return jsonify({
+        'status':     task['status'],
+        'log':        task['log'],
+        'stats':      task['stats'],
+        'dry_run':    task['dry_run'],
+        'total_bugs': task.get('total_bugs', 0),
+        'bugs_done':  task.get('bugs_done', 0),
+        'error':      task.get('error'),
+    })
 
 
 @app.route('/admin/mantis-sync/revert', methods=['POST'])
