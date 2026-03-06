@@ -1336,8 +1336,8 @@ def _sync_github_ref(ticket):
             new_status = 'resolved'
             msg = _('GitHub PR was merged — ticket status updated to Resolved.')
         elif not gh_merged and ticket.status not in ('resolved', 'closed'):
-            new_status = 'closed'
-            msg = _('GitHub issue was closed — ticket status updated to Closed.')
+            new_status = 'resolved'
+            msg = _('GitHub issue was closed — ticket status updated to Resolved.')
     elif gh_state == 'open' and ticket.status in ('resolved', 'closed'):
         new_status = 'open'
         msg = _('GitHub issue was reopened — ticket status updated to Open.')
