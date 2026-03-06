@@ -21,6 +21,31 @@ body {
   margin-bottom: 0;
 }
 
+.ticket-body pre.ql-syntax,
+.message-body pre.ql-syntax {
+  background: var(--bs-tertiary-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: .375rem;
+  padding: .75rem 1rem;
+  font-size: .875em;
+  overflow-x: auto;
+  white-space: pre;
+  margin-bottom: 1rem;
+}
+
+.ticket-body pre.ql-syntax:last-child,
+.message-body pre.ql-syntax:last-child {
+  margin-bottom: 0;
+}
+
+.ticket-body code,
+.message-body code {
+  background: var(--bs-tertiary-bg);
+  border-radius: .25rem;
+  padding: .1em .35em;
+  font-size: .875em;
+}
+
 /* Quill editor border to match Bootstrap */
 .ql-toolbar.ql-snow {
   border-color: #dee2e6;
