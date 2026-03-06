@@ -577,6 +577,9 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
+// Initialise sync button label on page load
+updateSyncButton();
+
 // ── Load preview ─────────────────────────────────────────────────────────────
 document.getElementById('btnPreview').addEventListener('click', function () {
   var form = document.getElementById('connForm');
