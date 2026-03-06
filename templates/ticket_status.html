@@ -55,7 +55,7 @@
               <span class="me-3 small">
                 <i class="bi bi-file-earmark me-1 text-muted"></i>
                 {% if current_customer and current_customer.email|lower == ticket.submitter_email|lower %}
-                <a href="{{ url_for('serve_attachment_customer', ticket_id=ticket.id, filename=att.filename) }}">
+                <a href="{{ url_for('serve_attachment_customer', ticket_id=ticket.id, filename=att.filename) }}" target="_blank" rel="noopener">
                   {{ att.original_filename }}
                 </a>
                 {% else %}
@@ -84,7 +84,7 @@
                 {% for att in msg_attachments %}
                 <span class="me-3 small">
                   <i class="bi bi-file-earmark me-1 text-muted"></i>
-                  <a href="{{ url_for('serve_attachment_customer', ticket_id=ticket.id, filename=att.filename) }}">
+                  <a href="{{ url_for('serve_attachment_customer', ticket_id=ticket.id, filename=att.filename) }}" target="_blank" rel="noopener">
                     {{ att.original_filename }}
                   </a>
                   <span class="text-muted">({{ (att.size / 1024) | round(1) }} KB)</span>
