@@ -3113,7 +3113,7 @@ def admin_mantis_preview():
                 f"FROM {p}bug_table b "
                 f"LEFT JOIN {p}user_table u ON u.id = b.reporter_id "
                 f"LEFT JOIN {p}user_table h ON h.id = b.handler_id "
-                f"ORDER BY b.id DESC LIMIT 1000"
+                f"ORDER BY b.id DESC"
             ))]
 
         engine.dispose()
@@ -3139,6 +3139,25 @@ def admin_mantis_preview():
         } if projects else set()
         for p in projects:
             p['existing'] = p['name'] in existing_names
+
+        # Mark users already in Taskify (by email)
+        import re as _re
+        all_emp_emails  = {e.email.lower() for e in Employee.query.with_entities(Employee.email).all()}
+        all_cust_emails = {c.email.lower() for c in Customer.query.with_entities(Customer.email).all()}
+        existing_emails = all_emp_emails | all_cust_emails
+        for u in users:
+            u['exists_in_taskify'] = (u.get('email') or '').lower() in existing_emails
+
+        # Mark bugs already imported into Taskify (by mantis ID in internal_title)
+        existing_mantis_ids = set()
+        for (title,) in db.session.query(Ticket.internal_title).filter(
+            Ticket.internal_title.like('[mantis:%')
+        ).all():
+            m = _re.match(r'\[mantis:(\d+)\]', title or '')
+            if m:
+                existing_mantis_ids.add(int(m.group(1)))
+        for b in bugs:
+            b['exists_in_taskify'] = b['id'] in existing_mantis_ids
 
         return jsonify({'projects': projects, 'users': users, 'bugs': bugs})
 

@@ -197,11 +197,11 @@
         <span class="text-muted small" id="syncNote"></span>
         <div class="d-flex align-items-center gap-3">
           <div class="form-check mb-0">
-            <input class="form-check-input" type="checkbox" id="chkLimit" checked>
-            <label class="form-check-label small" for="chkLimit">
-              Nur 5 Tickets
+            <input class="form-check-input" type="checkbox" id="chkNewOnly" checked>
+            <label class="form-check-label small" for="chkNewOnly">
+              Nur neue
               <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
-                 data-bs-title="Beschränkt die Auswahl auf die 5 neuesten Tickets, um den Import vorab zu prüfen."></i>
+                 data-bs-title="Blendet Einträge aus, die bereits in Taskify importiert wurden, und wählt sie nicht aus."></i>
             </label>
           </div>
           <div class="form-check mb-0">
@@ -440,7 +440,7 @@ function renderPreview(data) {
   document.getElementById('previewCol').style.display = '';
   document.getElementById('btnSync').disabled = false;
   updateSyncButton();
-  applyTicketLimit();
+  applyNewOnly();
   updateCounters();
 }
 
@@ -470,14 +470,15 @@ function renderUsers(users) {
     var projBadges = pids.map(function (pid) {
       return badge('light text-dark border', _projectMap[pid] || 'Projekt ' + pid);
     }).join(' ');
+    var existsBadge = u.exists_in_taskify ? ' <span class="badge bg-secondary ms-1">Bereits importiert</span>' : '';
 
     html +=
-      '<tr>' +
+      '<tr' + (u.exists_in_taskify ? ' data-existing="1"' : '') + '>' +
       '<td><input class="form-check-input" type="checkbox" name="chk_user"' +
-      ' value="' + u.id + '" checked onchange="updateCounters()"></td>' +
+      ' value="' + u.id + '"' + (u.exists_in_taskify ? '' : ' checked') + ' onchange="updateCounters()"></td>' +
       '<td><span class="fw-semibold">' + esc(u.username) + '</span>' +
       (u.realname ? '<br><span class="text-muted small">' + esc(u.realname) + '</span>' : '') +
-      '</td>' +
+      existsBadge + '</td>' +
       '<td class="small">' + esc(u.email) + '</td>' +
       '<td>' + badge(acc.cls, acc.label) + '</td>' +
       '<td><span class="badge bg-' + role.cls + '">' +
@@ -500,12 +501,13 @@ function renderTickets(bugs) {
       ? '<span class="fw-semibold">' + esc(b.handler_realname || b.handler_username) + '</span>' +
         '<br><span class="text-muted">' + esc(b.handler_username) + '</span>'
       : '<span class="text-muted">–</span>';
+    var existsBadge = b.exists_in_taskify ? ' <span class="badge bg-secondary ms-1">Bereits importiert</span>' : '';
     html +=
-      '<tr>' +
+      '<tr' + (b.exists_in_taskify ? ' data-existing="1"' : '') + '>' +
       '<td><input class="form-check-input" type="checkbox" name="chk_bug"' +
-      ' value="' + b.id + '" checked onchange="updateCounters()"></td>' +
+      ' value="' + b.id + '"' + (b.exists_in_taskify ? '' : ' checked') + ' onchange="updateCounters()"></td>' +
       '<td class="text-muted small">#' + b.id + '</td>' +
-      '<td>' + esc(b.summary) + '</td>' +
+      '<td>' + esc(b.summary) + existsBadge + '</td>' +
       '<td class="small text-nowrap">' + esc(b.project_name) + '</td>' +
       '<td>' + badge(st.cls, st.label) + '</td>' +
       '<td class="small">' + reporter + '</td>' +
@@ -573,32 +575,24 @@ function updateSyncButton() {
 
 document.getElementById('chkDryRun').addEventListener('change', updateSyncButton);
 
-var TICKET_LIMIT = 5;
-
-function applyTicketLimit() {
-  var limited = document.getElementById('chkLimit').checked;
-  var rows = document.querySelectorAll('#bodyTickets tr');
-  var shown = 0;
-  rows.forEach(function (tr) {
-    var cb = tr.querySelector('input[name="chk_bug"]');
-    if (!cb) return;
-    if (limited) {
-      if (shown < TICKET_LIMIT) {
-        tr.classList.remove('d-none');
-        cb.checked = true;
-        shown++;
-      } else {
+function applyNewOnly() {
+  var newOnly = document.getElementById('chkNewOnly').checked;
+  ['#bodyProjects tr', '#bodyUsers tr', '#bodyTickets tr'].forEach(function (sel) {
+    document.querySelectorAll(sel).forEach(function (tr) {
+      if (!tr.dataset.existing) return;
+      var cb = tr.querySelector('input[type="checkbox"]');
+      if (newOnly) {
         tr.classList.add('d-none');
-        cb.checked = false;
+        if (cb) cb.checked = false;
+      } else {
+        tr.classList.remove('d-none');
       }
-    } else {
-      tr.classList.remove('d-none');
-    }
+    });
   });
   updateCounters();
 }
 
-document.getElementById('chkLimit').addEventListener('change', applyTicketLimit);
+document.getElementById('chkNewOnly').addEventListener('change', applyNewOnly);
 
 // ── Submit sync ──────────────────────────────────────────────────────────────
 window.submitSync = function () {
