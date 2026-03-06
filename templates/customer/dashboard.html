@@ -85,6 +85,16 @@
               <i class="bi bi-check-circle me-1"></i>{{ _('Resolved / Closed') }}
             </a>
           </li>
+          {% if customer_groups %}
+          <li class="nav-item">
+            <a class="nav-link {{ 'active' if view == 'groups' }}"
+               href="{{ url_for('customer_dashboard', view='groups', q=q or None) }}"
+               data-bs-toggle="tooltip"
+               data-bs-title="{{ customer_groups | map(attribute='name') | join(', ') }}">
+              <i class="bi bi-folder me-1"></i>{{ _('Project Tickets') }}
+            </a>
+          </li>
+          {% endif %}
         </ul>
 
         <!-- Filter row -->
@@ -153,6 +163,11 @@
                     {{ ticket.subject }}
                   </a>
                 {% endif %}
+                {% if ticket.group %}
+                <span class="badge bg-light text-dark border ms-1 small">
+                  <i class="bi bi-folder me-1"></i>{{ ticket.group.name }}
+                </span>
+                {% endif %}
                 {% if meta.awaiting_reply %}
                 <span class="badge bg-warning text-dark ms-1">
                   <i class="bi bi-chat-dots-fill me-1"></i>{{ _('Reply from support') }}
@@ -180,6 +195,14 @@
           {{ _('No tickets are awaiting your reply.') }}
         {% elif view == 'closed' %}
           {{ _('No resolved or closed tickets.') }}
+        {% elif view == 'groups' %}
+          {% if not customer_groups %}
+            {{ _('You are not assigned to any projects.') }}
+          {% elif q or status_filter %}
+            {{ _('No tickets match your filters.') }}
+          {% else %}
+            {{ _('No open tickets in your projects.') }}
+          {% endif %}
         {% elif q or status_filter %}
           {{ _('No tickets match your filters.') }}
         {% else %}
@@ -249,6 +272,8 @@
               <i class="bi bi-paperclip text-muted mt-1 flex-shrink-0"></i>
             {% elif ev.event_type == 'assignment' %}
               <i class="bi bi-person-check text-primary mt-1 flex-shrink-0"></i>
+            {% elif ev.event_type == 'group' %}
+              <i class="bi bi-folder text-primary mt-1 flex-shrink-0"></i>
             {% endif %}
             <div class="flex-grow-1 overflow-hidden">
               <div>
@@ -264,6 +289,12 @@
                     {{ _('Assigned to') }} <strong>{{ ev.to_value }}</strong>
                   {% else %}
                     {{ _('Assignment removed') }}
+                  {% endif %}
+                {% elif ev.event_type == 'group' %}
+                  {% if ev.to_value %}
+                    {{ _('Added to project') }} <strong>{{ ev.to_value }}</strong>
+                  {% else %}
+                    {{ _('Removed from project') }}
                   {% endif %}
                 {% endif %}
               </div>

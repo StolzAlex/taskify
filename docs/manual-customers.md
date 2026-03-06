@@ -10,7 +10,8 @@ Go to the portal URL provided by your support team and click **Customer Login**.
 
 1. Click **New Ticket** on your dashboard (or fill in the form on the home page if you don't have an account).
 2. Enter a **Subject** and describe your issue.
-3. Click **Submit**.
+3. If you belong to multiple projects, select the relevant **Project** from the dropdown.
+4. Click **Submit**.
 
 You'll receive a confirmation email with a link to track your ticket.
 
@@ -36,6 +37,12 @@ Scroll to the bottom of the ticket, type your message, and click **Send Reply**.
 | In Progress | Being worked on |
 | Resolved | Fixed — reply if you need more help |
 | Closed | No further action expected |
+
+---
+
+## Project Tickets
+
+If you are a member of one or more projects, your dashboard has a **Project Tickets** tab. It shows all tickets assigned to your projects — including tickets submitted by other members of those projects.
 
 ---
 

@@ -24,9 +24,9 @@
                    required value="{{ request.form.email or '' }}">
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold">{{ _('Groups') }}
+            <label class="form-label small fw-semibold">{{ _('Projects') }}
               <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
-                 data-bs-title="{{ _('Groups organise customers by company or team and can be used to filter tickets on the dashboard.') }}"></i>
+                 data-bs-title="{{ _('Projects organise customers by company or team and can be used to filter tickets on the dashboard.') }}"></i>
             </label>
             {% if all_groups %}
             <select multiple class="form-select form-select-sm mb-1" name="group_ids" size="3">
@@ -37,7 +37,7 @@
             <div class="form-text mb-1">{{ _('Hold Ctrl/Cmd to select multiple.') }}</div>
             {% endif %}
             <input type="text" class="form-control form-control-sm" name="new_group"
-                   placeholder="{{ _('Add new group\u2026') }}"
+                   placeholder="{{ _('Add new project\u2026') }}"
                    value="{{ request.form.new_group or '' }}">
           </div>
           <button type="submit" class="btn btn-primary btn-sm w-100">
@@ -60,7 +60,7 @@
             <tr>
               <th>{{ _('Name') }}</th>
               <th>{{ _('Email') }}</th>
-              <th>{{ _('Groups') }}</th>
+              <th>{{ _('Projects') }}</th>
               <th>{{ _('Status') }}</th>
               <th>{{ _('Created') }}</th>
               <th>{{ _('Created by') }}</th>
@@ -160,7 +160,7 @@
             <input type="email" name="email" id="editEmail" class="form-control form-control-sm" required>
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold">{{ _('Groups') }}</label>
+            <label class="form-label small fw-semibold">{{ _('Projects') }}</label>
             {% if all_groups %}
             <select multiple class="form-select form-select-sm mb-1" name="group_ids" id="editGroupIds" size="3">
               {% for grp in all_groups %}
@@ -170,7 +170,7 @@
             <div class="form-text mb-1">{{ _('Hold Ctrl/Cmd to select multiple.') }}</div>
             {% endif %}
             <input type="text" class="form-control form-control-sm" name="new_group"
-                   id="editNewGroup" placeholder="{{ _('Add new group\u2026') }}">
+                   id="editNewGroup" placeholder="{{ _('Add new project\u2026') }}">
           </div>
           <div class="mb-1">
             <label class="form-label small fw-semibold">{{ _('New Password') }}</label>

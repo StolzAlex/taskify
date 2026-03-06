@@ -9,11 +9,12 @@ Die **Hilfe**-Seite ermöglicht das Wechseln zwischen allen vier Handbüchern (M
 1. [Mitarbeiterverwaltung](#1-mitarbeiterverwaltung)
 2. [Tickets löschen](#2-tickets-loschen)
 3. [GitHub-Integration](#3-github-integration)
-4. [E-Mail-Test](#4-e-mail-test)
-5. [Systemtests](#5-systemtests)
-6. [Umgebungsvariablen](#6-umgebungsvariablen)
-7. [Eingehende E-Mails](#7-eingehende-e-mails)
-8. [Notfallmaßnahmen](#8-notfallmasnahmen)
+4. [MantisBT-Synchronisation](#4-mantisbt-synchronisation)
+5. [E-Mail-Test](#5-e-mail-test)
+6. [Systemtests](#6-systemtests)
+7. [Umgebungsvariablen](#7-umgebungsvariablen)
+8. [Eingehende E-Mails](#8-eingehende-e-mails)
+9. [Notfallmaßnahmen](#9-notfallmasnahmen)
 
 ---
 
@@ -30,7 +31,7 @@ Füllen Sie **Name**, **E-Mail** und **Passwort** aus und setzen Sie bei Bedarf 
 | Rolle | Kann |
 |-------|------|
 | Staff | Tickets bearbeiten |
-| Manager | Tickets bearbeiten + Kunden und Gruppen verwalten + Staff bearbeiten |
+| Manager | Tickets bearbeiten + Kunden und Projekte verwalten + Staff bearbeiten |
 | Admin | Vollzugriff inkl. Mitarbeiterverwaltung und Systemkonfiguration |
 
 ### Bearbeiten
@@ -82,7 +83,7 @@ Klicken Sie auf **✕** neben dem verknüpften Benutzernamen. Die Passwort-Anmel
 
 ### Erforderliche Konfiguration
 
-Setzen Sie folgende Umgebungsvariablen (siehe [Umgebungsvariablen](#6-umgebungsvariablen)):
+Setzen Sie folgende Umgebungsvariablen (siehe [Umgebungsvariablen](#7-umgebungsvariablen)):
 
 | Variable | Beschreibung |
 |----------|--------------|
@@ -93,7 +94,64 @@ Erstellen Sie die OAuth-App unter *GitHub → Einstellungen → Entwicklereinste
 
 ---
 
-## 4. E-Mail-Test
+## 4. MantisBT-Synchronisation
+
+Gehen Sie zu **Admin → MantisBT Sync**, um Daten aus einer bestehenden MantisBT-Installation zu importieren.
+
+### Funktionsweise
+
+1. Geben Sie die **MySQL/MariaDB-Verbindungsdaten** Ihrer MantisBT-Datenbank ein und klicken Sie auf **Vorschau laden**.
+2. Das Vorschau-Panel zeigt drei Tabs – **Projekte**, **Nutzer** und **Tickets** – jeweils mit Filtereingabe und Auswahlkästchen.
+3. Wählen Sie die gewünschten Einträge aus und klicken Sie auf **Testlauf starten** (standardmäßig aktiviert), um zu prüfen was importiert würde, ohne etwas zu speichern.
+4. Deaktivieren Sie **Testlauf** und klicken Sie auf **Sync starten**, um die Änderungen zu übernehmen.
+
+### Rollenzuordnung
+
+MantisBT-Zugriffsebenen werden wie folgt auf Taskify-Rollen abgebildet:
+
+| MantisBT-Ebene | Taskify-Rolle |
+|----------------|---------------|
+| Betrachter / Melder / Aktualisierer | Kunde |
+| Entwickler | Mitarbeiter (Staff) |
+| Projektleiter | Manager |
+
+### Projektverwaltung
+
+- MantisBT-Projekte werden als Taskify-**Projekte** importiert.
+- Projekte, die in Taskify bereits existieren (Abgleich per Name), werden mit dem Badge *Bereits vorhanden* markiert und standardmäßig abgewählt – nur neue Projekte sind vorausgewählt.
+- Kunden werden anhand ihrer MantisBT-Projektmitgliedschaften den neu erstellten Projekten zugewiesen. Mitgliedschaften für bereits vorhandene Projekte bleiben unverändert.
+
+### Ticket-Zuordnung
+
+| MantisBT-Status | Taskify-Status |
+|-----------------|----------------|
+| Neu / Feedback / Bestätigt / Anerkannt | Offen |
+| Zugewiesen | In Bearbeitung |
+| Gelöst | Gelöst |
+| Geschlossen | Geschlossen |
+
+Bereits importierte Tickets (erkennbar am `[mantis:ID]`-Tag im internen Titel) werden übersprungen.
+
+### Testlauf
+
+Das Kontrollkästchen **Testlauf** ist standardmäßig aktiviert. Im Testlauf werden alle Änderungen berechnet, aber nicht in der Datenbank gespeichert, und es werden keine Einrichtungs-E-Mails an neue Nutzer verschickt. Die Ergebnismeldung zeigt, was *passiert wäre*.
+
+### Erforderliche Konfiguration
+
+Die MantisBT-Datenbankverbindung kann über Umgebungsvariablen vorausgefüllt werden:
+
+| Variable | Beschreibung |
+|----------|--------------|
+| `MANTIS_DB_HOST` | MySQL/MariaDB-Hostname |
+| `MANTIS_DB_PORT` | Port (Standard: `3306`) |
+| `MANTIS_DB_NAME` | Datenbankname (Standard: `bugtracker`) |
+| `MANTIS_DB_USER` | Datenbankbenutzername |
+| `MANTIS_DB_PASS` | Datenbankpasswort |
+| `MANTIS_TABLE_PREFIX` | Tabellenpräfix (Standard: `mantis_`) |
+
+---
+
+## 5. E-Mail-Test
 
 Gehen Sie zu **Admin → E-Mail-Test**, um eine Test-E-Mail an eine beliebige Adresse zu senden. Damit können Sie überprüfen, ob Ihre SMTP-Konfiguration funktioniert.
 
@@ -101,7 +159,7 @@ Das Ergebnis zeigt, ob die Nachricht vom Server akzeptiert wurde. Prüfen Sie de
 
 ---
 
-## 5. Systemtests
+## 6. Systemtests
 
 Gehen Sie zu **Admin → Systemtests**, um eine vollständige Zustandsprüfung der Anwendung durchzuführen.
 
@@ -125,7 +183,7 @@ Ergebnisse zeigen **Bestanden**, **Fehlgeschlagen**, **Warnung** oder **Info**. 
 
 ---
 
-## 6. Umgebungsvariablen
+## 7. Umgebungsvariablen
 
 Die gesamte Konfiguration erfolgt über Umgebungsvariablen (oder eine `.env`-Datei im Projektstamm).
 
@@ -157,7 +215,7 @@ Nach dem Ändern von Umgebungsvariablen muss die Anwendung neu gestartet werden.
 
 ---
 
-## 7. Eingehende E-Mails
+## 8. Eingehende E-Mails
 
 Bei entsprechender Konfiguration fragt Taskify ein IMAP-Postfach ab und leitet Antworten automatisch an das richtige Ticket weiter.
 
@@ -181,7 +239,7 @@ Der Thread für eingehende E-Mails wird auf der Seite **Systemtests** unter *Ein
 
 ---
 
-## 8. Notfallmaßnahmen
+## 9. Notfallmaßnahmen
 
 ### Admin gesperrt / Passwort vergessen
 

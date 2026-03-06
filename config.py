@@ -42,3 +42,11 @@ class Config:
     AZURE_CLIENT_SECRET = os.environ.get('AZURE_CLIENT_SECRET', '')
     GRAPH_MAILBOX       = os.environ.get('GRAPH_MAILBOX', '')   # e.g. support@example.com
     GRAPH_POLL_INTERVAL = int(os.environ.get('GRAPH_POLL_INTERVAL', 60))
+
+    # ── MantisBT synchronisation ─────────────────────────────────────────────
+    MANTIS_DB_HOST   = os.environ.get('MANTIS_DB_HOST', '')
+    MANTIS_DB_PORT   = int(os.environ.get('MANTIS_DB_PORT', 3306))
+    MANTIS_DB_NAME   = os.environ.get('MANTIS_DB_NAME', 'bugtracker')
+    MANTIS_DB_USER   = os.environ.get('MANTIS_DB_USER', '')
+    MANTIS_DB_PASS   = os.environ.get('MANTIS_DB_PASS', '')
+    MANTIS_TABLE_PREFIX = os.environ.get('MANTIS_TABLE_PREFIX', 'mantis_')

@@ -12,6 +12,7 @@
 8. [Searching](#8-searching)
 9. [Email Notifications](#9-email-notifications)
 10. [Language](#10-language)
+11. [Project Assignment](#11-project-assignment)
 
 ---
 
@@ -52,7 +53,7 @@ The four cards at the top count tickets in the current view. Click a card to fil
 
 - **Search box** — searches subject, description, messages, and submitter email.
 - **Status dropdown** — show only one status at a time.
-- **Group dropdown** — filter by customer group (appears when groups exist).
+- **Project dropdown** — filter by project (appears when projects exist).
 - **Clear** — removes all active filters.
 
 Closed tickets are hidden by default. Click *Closed hidden* to show them.
@@ -75,7 +76,7 @@ Click the ticket subject or ID to open the detail view.
 | Green | Staff reply visible to the customer |
 | Grey | Internal note — staff only |
 
-The **sidebar** on the right contains all actions: status, assignee, watching, internal title, and ticket info.
+The **sidebar** on the right contains all actions: status, assignee, watching, internal title, project assignment, and ticket info.
 
 The **activity log** at the bottom of the sidebar records every status change, assignment, and file upload.
 
@@ -124,7 +125,7 @@ Click **Watch** in the sidebar to receive email updates for tickets not assigned
 
 Click the magnifier icon in the navigation bar or go to `/search`.
 
-You can filter by any combination of: keyword, status, assignee, date range, and group. Results are paginated, and the URL reflects all active filters — bookmark or share it freely.
+You can filter by any combination of: keyword, status, assignee, date range, and project. Results are paginated, and the URL reflects all active filters — bookmark or share it freely.
 
 ---
 
@@ -142,3 +143,13 @@ You can filter by any combination of: keyword, status, assignee, date range, and
 ## 10. Language
 
 Click the language button in the top navigation bar to switch between **English** and **German**. The preference is stored per browser session.
+
+---
+
+## 11. Project Assignment
+
+Every ticket can be linked to a **project** from the sidebar. All customers who are members of that project will see the ticket in their **Project Tickets** tab.
+
+Select a project from the *Project* dropdown in the sidebar and click **Save**. Select *— No project —* to remove the assignment.
+
+The sidebar shows "Visible to all customers in **ProjectName**" when a project is set.

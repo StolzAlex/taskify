@@ -36,7 +36,7 @@
                    {{ 'checked' if request.form.is_manager }}>
             <label class="form-check-label small" for="is_manager">{{ _('Manager privileges') }}
               <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
-                 data-bs-title="{{ _('Can manage customers (including creating groups inline), and edit staff employees. Cannot access system settings.') }}"></i>
+                 data-bs-title="{{ _('Can manage customers (including creating projects inline), and edit staff employees. Cannot access system settings.') }}"></i>
             </label>
           </div>
           <button type="submit" class="btn btn-primary btn-sm w-100">
@@ -225,7 +225,7 @@
               <input class="form-check-input" type="checkbox" name="is_manager" id="editIsManager" value="1">
               <label class="form-check-label small" for="editIsManager">{{ _('Manager privileges') }}
                 <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
-                   data-bs-title="{{ _('Can manage customers (including creating groups inline), and edit staff employees. Cannot access system settings.') }}"></i>
+                   data-bs-title="{{ _('Can manage customers (including creating projects inline), and edit staff employees. Cannot access system settings.') }}"></i>
               </label>
             </div>
           </div>

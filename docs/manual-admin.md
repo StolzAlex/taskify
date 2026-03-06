@@ -9,11 +9,13 @@ The **Help** page lets you switch between all four manuals (Employee, Manager, A
 1. [Employee Management](#1-employee-management)
 2. [Deleting Tickets](#2-deleting-tickets)
 3. [GitHub Integration](#3-github-integration)
-4. [Mail Test](#4-mail-test)
-5. [System Tests](#5-system-tests)
-6. [Environment Variables](#6-environment-variables)
-7. [Inbound Email](#7-inbound-email)
-8. [Emergency Procedures](#8-emergency-procedures)
+4. [MantisBT Sync](#4-mantisbt-sync)
+5. [Mail Test](#5-mail-test)
+6. [System Tests](#6-system-tests)
+7. [Environment Variables](#7-environment-variables)
+8. [Inbound Email](#8-inbound-email)
+9. [Emergency Procedures](#9-emergency-procedures)
+
 
 ---
 
@@ -30,7 +32,7 @@ Fill in **Name**, **Email**, and **Password**, then tick *Admin privileges* or *
 | Role | Can do |
 |------|--------|
 | Staff | Handle tickets |
-| Manager | Handle tickets + manage customers and groups + edit staff |
+| Manager | Handle tickets + manage customers and projects + edit staff |
 | Admin | Full access including employee management and system configuration |
 
 ### Editing
@@ -82,7 +84,7 @@ Click **✕** next to the linked username. The employee's password login is unaf
 
 ### Required configuration
 
-Set the following environment variables (see [Environment Variables](#6-environment-variables)):
+Set the following environment variables (see [Environment Variables](#7-environment-variables)):
 
 | Variable | Description |
 |----------|-------------|
@@ -93,7 +95,64 @@ Create the OAuth App at *GitHub → Settings → Developer settings → OAuth Ap
 
 ---
 
-## 4. Mail Test
+## 4. MantisBT Sync
+
+Go to **Admin → MantisBT Sync** to import data from an existing MantisBT installation.
+
+### How it works
+
+1. Enter the **MySQL/MariaDB connection details** for your MantisBT database and click **Load Preview**.
+2. The preview panel shows three tabs — **Projects**, **Users**, and **Tickets** — each with a filter input and checkboxes.
+3. Select what to import and click **Start Test Run** (dry run is on by default) to verify what would happen without saving anything.
+4. Uncheck **Test Run** and click **Start Sync** to apply the changes.
+
+### Role mapping
+
+MantisBT access levels are mapped to Taskify roles as follows:
+
+| MantisBT level | Taskify role |
+|----------------|--------------|
+| Viewer / Reporter / Updater | Customer |
+| Developer | Staff employee |
+| Project manager | Manager employee |
+
+### Project handling
+
+- MantisBT projects are imported as Taskify **Projects**.
+- Projects that already exist in Taskify (matched by name) are shown with a *Already exists* badge and pre-unchecked — only new projects are selected by default.
+- Customers are assigned to newly created projects based on their MantisBT project memberships. Memberships for pre-existing projects are left unchanged.
+
+### Ticket mapping
+
+| MantisBT status | Taskify status |
+|-----------------|----------------|
+| New / Feedback / Acknowledged / Confirmed | Open |
+| Assigned | In Progress |
+| Resolved | Resolved |
+| Closed | Closed |
+
+Tickets already imported (detected by the `[mantis:ID]` tag in the internal title) are skipped.
+
+### Dry run
+
+The **Test Run** checkbox is on by default. In test run mode all changes are calculated and counted, but nothing is saved to the database and no setup emails are sent to new users. The result flash message shows what *would* have happened.
+
+### Required configuration
+
+The MantisBT database connection can be pre-filled via environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `MANTIS_DB_HOST` | MySQL/MariaDB hostname |
+| `MANTIS_DB_PORT` | Port (default `3306`) |
+| `MANTIS_DB_NAME` | Database name (default `bugtracker`) |
+| `MANTIS_DB_USER` | Database username |
+| `MANTIS_DB_PASS` | Database password |
+| `MANTIS_TABLE_PREFIX` | Table prefix (default `mantis_`) |
+
+---
+
+## 5. Mail Test
 
 Go to **Admin → Mail Test** to send a test email to any address. Use this to verify your SMTP configuration is working before relying on notifications.
 
@@ -101,7 +160,7 @@ The result shows whether the message was accepted by the server. Check the targe
 
 ---
 
-## 5. System Tests
+## 6. System Tests
 
 Go to **Admin → System Tests** to run a full health check of the application.
 
@@ -125,7 +184,7 @@ Results show **Pass**, **Fail**, **Warn**, or **Info**. Click the chevron on any
 
 ---
 
-## 6. Environment Variables
+## 7. Environment Variables
 
 All configuration is done via environment variables (or a `.env` file in the project root).
 
@@ -157,7 +216,7 @@ After changing environment variables, restart the application for changes to tak
 
 ---
 
-## 7. Inbound Email
+## 8. Inbound Email
 
 When configured, Taskify polls an IMAP mailbox and routes replies back to the correct ticket automatically.
 
@@ -181,7 +240,7 @@ The inbound email thread is shown on the **System Tests** page under *Inbound em
 
 ---
 
-## 8. Emergency Procedures
+## 9. Emergency Procedures
 
 ### Admin locked out / forgotten password
 

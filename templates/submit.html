@@ -33,6 +33,19 @@
             <div id="quill-editor" style="min-height: 160px;">{{ request.form.body or '' }}</div>
             <input type="hidden" name="body" id="body">
           </div>
+          {% if customer_projects|length > 1 %}
+          <div class="mb-3">
+            <label for="group_id" class="form-label fw-semibold">{{ _('Project') }}</label>
+            <select class="form-select" id="group_id" name="group_id">
+              <option value="">— {{ _('No project') }} —</option>
+              {% for grp in customer_projects %}
+              <option value="{{ grp.id }}" {{ 'selected' if request.form.group_id == grp.id|string }}>
+                {{ grp.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
           <button type="submit" class="btn btn-primary px-4">
             <i class="bi bi-send me-1"></i>{{ _('Submit Ticket') }}
           </button>

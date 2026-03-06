@@ -388,7 +388,7 @@ msgstr "Mitarbeiter"
 #: templates/admin/mail_test.html:2 templates/base.html:64
 #, fuzzy
 msgid "Mail Test"
-msgstr "Alle Tickets"
+msgstr "E-Mail Funktionstest"
 
 #: templates/admin/tests.html:2 templates/admin/tests.html:6
 #: templates/base.html:69
@@ -468,8 +468,8 @@ msgid "All Statuses"
 msgstr "Alle Status"
 
 #: templates/dashboard.html:131
-msgid "All Groups"
-msgstr "Alle Gruppen"
+msgid "All Projects"
+msgstr "Alle Projekte"
 
 #: templates/customer/dashboard.html:118 templates/dashboard.html:140
 #: templates/search.html:82
@@ -662,13 +662,17 @@ msgstr "Beliebiger Status"
 msgid "Anyone"
 msgstr "Beliebig"
 
-#: templates/search.html:52
-msgid "Group"
-msgstr "Gruppe"
+#: templates/search.html:52 templates/submit.html templates/ticket.html
+msgid "Project"
+msgstr "Projekt"
+
+#: templates/submit.html templates/ticket.html
+msgid "No project"
+msgstr "Kein Projekt"
 
 #: templates/search.html:54
-msgid "All groups"
-msgstr "Alle Gruppen"
+msgid "All projects"
+msgstr "Alle Projekte"
 
 #: templates/search.html:65
 msgid "Created from"
@@ -1109,10 +1113,10 @@ msgstr "Manager-Rechte"
 
 #: templates/admin/employees.html:39 templates/admin/employees.html:220
 msgid ""
-"Can manage customers (including creating groups inline), and edit staff "
+"Can manage customers (including creating projects inline), and edit staff "
 "employees. Cannot access system settings."
 msgstr ""
-"Kann Kunden verwalten (inkl. Gruppen beim Kunden anlegen) und Mitarbeiter"
+"Kann Kunden verwalten (inkl. Projekte beim Kunden anlegen) und Mitarbeiter"
 " ohne Sonderrechte bearbeiten. Kein Zugriff auf Systemeinstellungen."
 
 #: templates/admin/employees.html:43 templates/manager/customers.html:44
@@ -1382,15 +1386,15 @@ msgstr "Kunden erstellen"
 
 #: templates/manager/customers.html:27 templates/manager/customers.html:62
 #: templates/manager/customers.html:160
-msgid "Groups"
-msgstr "Gruppen"
+msgid "Projects"
+msgstr "Projekte"
 
 #: templates/manager/customers.html:29
 msgid ""
-"Groups organise customers by company or team and can be used to filter "
+"Projects organise customers by company or team and can be used to filter "
 "tickets on the dashboard."
 msgstr ""
-"Gruppen organisieren Kunden nach Unternehmen oder Team und können zum "
+"Projekte organisieren Kunden nach Unternehmen oder Team und können zum "
 "Filtern von Tickets im Dashboard verwendet werden."
 
 #: templates/manager/customers.html:37 templates/manager/customers.html:167
@@ -1398,8 +1402,8 @@ msgid "Hold Ctrl/Cmd to select multiple."
 msgstr "Strg/Cmd gedrückt halten, um mehrere auszuwählen."
 
 #: templates/manager/customers.html:40 templates/manager/customers.html:170
-msgid "Add new group…"
-msgstr "Neue Gruppe hinzufügen…"
+msgid "Add new project…"
+msgstr "Neues Projekt hinzufügen…"
 
 #: templates/manager/customers.html:54
 msgid "All Customers"
@@ -1517,6 +1521,124 @@ msgstr "Sie haben dieses Ticket bereits bewertet."
 #: app.py
 msgid "Please select a rating."
 msgstr "Bitte wählen Sie eine Bewertung."
+
+#: app.py
+#, python-format
+msgid "%(n)d project(s) created"
+msgstr "%(n)d Projekt(e) erstellt"
+
+#: templates/ticket.html
+msgid "Assign this ticket to a project. All customers in that project can see the ticket in their Project Tickets tab."
+msgstr "Dieses Ticket einem Projekt zuweisen. Alle Kunden in diesem Projekt können das Ticket im Tab „Projekttickets" sehen."
+
+#: templates/customer/dashboard.html
+msgid "You are not assigned to any projects."
+msgstr "Sie sind keinem Projekt zugewiesen."
+
+#: templates/customer/dashboard.html
+msgid "No open tickets in your projects."
+msgstr "Keine offenen Tickets in Ihren Projekten."
+
+#: templates/ticket.html templates/dashboard.html
+msgid "Workflow"
+msgstr "Workflow"
+
+#: templates/ticket.html templates/dashboard.html
+msgid "set project to"
+msgstr "Projekt gesetzt auf"
+
+#: templates/ticket.html
+msgid "removed project assignment"
+msgstr "Projektzuweisung entfernt"
+
+#: templates/dashboard.html
+msgid "removed project"
+msgstr "Projekt entfernt"
+
+#: templates/ticket.html
+msgid "Visible to all customers in"
+msgstr "Sichtbar für alle Kunden in"
+
+#: templates/customer/dashboard.html
+msgid "Project Tickets"
+msgstr "Projekttickets"
+
+#: templates/customer/dashboard.html
+msgid "Added to project"
+msgstr "Zum Projekt hinzugefügt"
+
+#: templates/customer/dashboard.html
+msgid "Removed from project"
+msgstr "Vom Projekt entfernt"
+
+#: templates/base.html
+msgid "MantisBT Sync"
+msgstr "MantisBT-Sync"
+
+#: app.py
+msgid "Host, database name, and user are required."
+msgstr "Host, Datenbankname und Benutzer sind erforderlich."
+
+#: app.py
+msgid "Nothing selected for sync."
+msgstr "Keine Einträge zur Synchronisation ausgewählt."
+
+#: app.py
+msgid "nothing to do"
+msgstr "nichts zu tun"
+
+#: app.py
+#, python-format
+msgid "Sync complete: %(details)s."
+msgstr "Synchronisation abgeschlossen: %(details)s."
+
+#: app.py
+#, python-format
+msgid "Dry run complete (no changes saved): %(details)s."
+msgstr "Testlauf abgeschlossen (keine Änderungen gespeichert): %(details)s."
+
+#: app.py
+#, python-format
+msgid "Sync failed: %(error)s"
+msgstr "Synchronisation fehlgeschlagen: %(error)s"
+
+#: app.py
+msgid "Project not found."
+msgstr "Projekt nicht gefunden."
+
+#: app.py
+msgid "Project updated."
+msgstr "Projekt aktualisiert."
+
+#: app.py
+#, python-format
+msgid "%(n)d customer(s) imported"
+msgstr "%(n)d Kunde(n) importiert"
+
+#: app.py
+#, python-format
+msgid "%(n)d customer(s) already existed"
+msgstr "%(n)d Kunde(n) bereits vorhanden"
+
+#: app.py
+#, python-format
+msgid "%(n)d employee(s) imported"
+msgstr "%(n)d Mitarbeiter importiert"
+
+#: app.py
+#, python-format
+msgid "%(n)d employee(s) already existed"
+msgstr "%(n)d Mitarbeiter bereits vorhanden"
+
+#: app.py
+#, python-format
+msgid "%(n)d ticket(s) imported"
+msgstr "%(n)d Ticket(s) importiert"
+
+#: app.py
+#, python-format
+msgid "%(n)d ticket(s) already imported"
+msgstr "%(n)d Ticket(s) bereits importiert"
 
 #~ msgid "Employee \"%(name)s\" created."
 #~ msgstr "Mitarbeiter \"%(name)s\" erstellt."

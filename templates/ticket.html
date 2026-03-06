@@ -27,6 +27,11 @@
             <i class="bi bi-tag me-1"></i>{{ ticket.internal_title }}
           </div>
           {% endif %}
+          {% if ticket.group %}
+          <div class="small text-muted mt-1">
+            <i class="bi bi-folder me-1"></i>{{ ticket.group.name }}
+          </div>
+          {% endif %}
         </div>
         <span class="badge bg-{{ ticket.status_badge }} fs-6">
           {{ status_label(ticket.status) }}
@@ -196,6 +201,17 @@
                 <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
                 {{ _('attached') }} <em>{{ ev.to_value }}</em>
               </span>
+            {% elif ev.event_type == 'group' %}
+              <i class="bi bi-folder text-primary mt-1 flex-shrink-0"></i>
+              <span class="flex-grow-1">
+                <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                {% if ev.to_value %}
+                  {{ _('set project to') }} <strong>{{ ev.to_value }}</strong>
+                {% else %}
+                  {{ _('removed project assignment') }}
+                  {% if ev.from_value %}({{ _('was') }} {{ ev.from_value }}){% endif %}
+                {% endif %}
+              </span>
             {% elif ev.event_type == 'customer_reply' %}
               <i class="bi bi-person-exclamation text-warning mt-1 flex-shrink-0"></i>
               <span class="flex-grow-1 text-muted">{{ _('Customer replied') }}</span>
@@ -315,6 +331,38 @@
         </form>
         {% endif %}
 
+      </div>
+    </div>
+
+    <!-- Project / Group -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header">
+        <h6 class="mb-0">
+          <i class="bi bi-folder me-1"></i>{{ _('Project') }}
+          <i class="bi bi-info-circle text-muted ms-1 fw-normal" data-bs-toggle="tooltip"
+             data-bs-title="{{ _('Assign this ticket to a project. All customers in that project can see the ticket in their Project Tickets tab.') }}"></i>
+        </h6>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('set_ticket_group', ticket_id=ticket.id) }}">
+          <select name="group_id" class="form-select form-select-sm mb-2">
+            <option value="">— {{ _('No project') }} —</option>
+            {% for grp in groups %}
+            <option value="{{ grp.id }}" {{ 'selected' if ticket.group_id == grp.id }}>
+              {{ grp.name }}
+            </option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-primary btn-sm w-100">
+            <i class="bi bi-folder-check me-1"></i>{{ _('Save') }}
+          </button>
+        </form>
+        {% if ticket.group %}
+        <p class="text-muted small mt-2 mb-0">
+          <i class="bi bi-people me-1"></i>
+          {{ _('Visible to all customers in') }} <strong>{{ ticket.group.name }}</strong>
+        </p>
+        {% endif %}
       </div>
     </div>
 

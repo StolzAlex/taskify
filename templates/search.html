@@ -49,9 +49,9 @@
 
         {% if groups %}
         <div class="col-sm-6 col-md-3">
-          <label class="form-label small text-muted mb-1">{{ _('Group') }}</label>
+          <label class="form-label small text-muted mb-1">{{ _('Project') }}</label>
           <select name="group" class="form-select form-select-sm">
-            <option value="">{{ _('All groups') }}</option>
+            <option value="">{{ _('All projects') }}</option>
             {% for grp in groups %}
             <option value="{{ grp.name }}" {{ 'selected' if group_filter == grp.name }}>
               {{ grp.name }}
@@ -126,6 +126,11 @@
             </a>
             {% if ticket.internal_title and ticket.internal_title != ticket.subject %}
             <div class="small text-muted">{{ ticket.subject }}</div>
+            {% endif %}
+            {% if ticket.group %}
+            <span class="badge bg-light text-dark border ms-1">
+              <i class="bi bi-folder me-1"></i>{{ ticket.group.name }}
+            </span>
             {% endif %}
           </td>
           <td class="small">

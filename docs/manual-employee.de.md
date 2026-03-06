@@ -12,6 +12,7 @@
 8. [Suche](#8-suche)
 9. [E-Mail-Benachrichtigungen](#9-e-mail-benachrichtigungen)
 10. [Sprache](#10-sprache)
+11. [Projektzuweisung](#11-projektzuweisung)
 
 ---
 
@@ -52,7 +53,7 @@ Die vier Karten oben zählen Tickets in der aktuellen Ansicht. Klicken Sie auf e
 
 - **Suchfeld** — durchsucht Betreff, Beschreibung, Nachrichten und Absender-E-Mail.
 - **Status-Dropdown** — zeigt nur einen Status gleichzeitig.
-- **Gruppen-Dropdown** — filtert nach Kundengruppe (erscheint wenn Gruppen vorhanden).
+- **Projekt-Dropdown** — filtert nach Projekt (erscheint wenn Projekte vorhanden).
 - **Zurücksetzen** — entfernt alle aktiven Filter.
 
 Geschlossene Tickets sind standardmäßig ausgeblendet. Klicken Sie auf *Geschlossene ausgeblendet*, um sie anzuzeigen.
@@ -75,7 +76,7 @@ Klicken Sie auf den Ticketbetreff oder die ID, um die Detailansicht zu öffnen.
 | Grün | Mitarbeiterantwort (für den Kunden sichtbar) |
 | Grau | Interne Notiz — nur für Mitarbeiter |
 
-Die **Seitenleiste** rechts enthält alle Aktionen: Status, Bearbeiter, Beobachten, interner Titel und Ticketinfo.
+Die **Seitenleiste** rechts enthält alle Aktionen: Status, Bearbeiter, Beobachten, interner Titel, Projektzuweisung und Ticketinfo.
 
 Das **Aktivitätsprotokoll** am unteren Ende der Seitenleiste erfasst jeden Statuswechsel, jede Zuweisung und jeden Datei-Upload.
 
@@ -124,7 +125,7 @@ Klicken Sie in der Seitenleiste auf **Beobachten**, um E-Mail-Updates für Ticke
 
 Klicken Sie auf das Lupensymbol in der Navigationsleiste oder gehen Sie zu `/search`.
 
-Sie können nach beliebigen Kombinationen filtern: Stichwort, Status, Bearbeiter, Datumsbereich und Gruppe. Ergebnisse werden seitenweise angezeigt, und die URL spiegelt alle aktiven Filter wider – speichern oder teilen Sie sie beliebig.
+Sie können nach beliebigen Kombinationen filtern: Stichwort, Status, Bearbeiter, Datumsbereich und Projekt. Ergebnisse werden seitenweise angezeigt, und die URL spiegelt alle aktiven Filter wider – speichern oder teilen Sie sie beliebig.
 
 ---
 
@@ -142,3 +143,13 @@ Sie können nach beliebigen Kombinationen filtern: Stichwort, Status, Bearbeiter
 ## 10. Sprache
 
 Klicken Sie auf die Sprachschaltfläche in der oberen Navigationsleiste, um zwischen **Englisch** und **Deutsch** zu wechseln. Die Einstellung wird pro Browser-Sitzung gespeichert.
+
+---
+
+## 11. Projektzuweisung
+
+Jedes Ticket kann über die Seitenleiste einem **Projekt** zugewiesen werden. Alle Kunden, die Mitglieder dieses Projekts sind, sehen das Ticket dann in ihrem Tab **Projekttickets**.
+
+Wählen Sie ein Projekt aus dem Dropdown *Projekt* in der Seitenleiste und klicken Sie auf **Speichern**. Wählen Sie *— Kein Projekt —*, um die Zuweisung zu entfernen.
+
+Die Seitenleiste zeigt „Sichtbar für alle Kunden in **Projektname**", wenn ein Projekt gesetzt ist.

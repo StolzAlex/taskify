@@ -58,6 +58,11 @@
                   <i class="bi bi-people me-2"></i>{{ _('Employees') }}
                 </a>
               </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('admin_mantis_sync') }}">
+                  <i class="bi bi-arrow-left-right me-2"></i>{{ _('MantisBT Sync') }}
+                </a>
+              </li>
               <li><hr class="dropdown-divider"></li>
               <li>
                 <a class="dropdown-item" href="{{ url_for('admin_mail_test') }}">

@@ -214,7 +214,7 @@
 
           {% if groups %}
           <select name="group" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
-            <option value="">{{ _('All Groups') }}</option>
+            <option value="">{{ _('All Projects') }}</option>
             {% for grp in groups %}
             <option value="{{ grp.name }}" {{ 'selected' if group_filter == grp.name }}>{{ grp.name }}</option>
             {% endfor %}
@@ -264,6 +264,14 @@
             <tr>
               <td class="text-muted small ps-3">{{ ticket.id }}</td>
               <td>
+                {% if ticket.group %}
+                <div class="small text-nowrap mb-1">
+                  <a href="{{ url_for('dashboard', group=ticket.group.name) }}"
+                     class="text-decoration-none text-muted">
+                    <i class="bi bi-folder-fill me-1 text-primary opacity-75"></i>{{ ticket.group.name }}
+                  </a>
+                </div>
+                {% endif %}
                 <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}"
                    class="text-decoration-none fw-semibold">
                   {{ ticket.internal_title or ticket.subject }}
@@ -285,9 +293,6 @@
                 {% set cust = customer_map.get(ticket.submitter_email.lower()) %}
                 {% if cust %}
                   <div class="fw-semibold text-dark">{{ cust.name }}</div>
-                  {% for grp in cust.groups %}
-                  <span class="badge bg-secondary me-1">{{ grp.name }}</span>
-                  {% endfor %}
                   <div class="text-muted">{{ ticket.submitter_email }}</div>
                 {% else %}
                   <span class="text-muted">{{ ticket.submitter_email }}</span>
@@ -382,6 +387,8 @@
               <i class="bi bi-arrow-repeat text-warning mt-1 flex-shrink-0"></i>
             {% elif ev.event_type == 'assignment' %}
               <i class="bi bi-person-check text-primary mt-1 flex-shrink-0"></i>
+            {% elif ev.event_type == 'group' %}
+              <i class="bi bi-folder text-primary mt-1 flex-shrink-0"></i>
             {% elif ev.event_type in ('github_link', 'github_issue_created') %}
               <i class="bi bi-github mt-1 flex-shrink-0"></i>
             {% elif ev.event_type == 'attachment' %}
@@ -403,6 +410,14 @@
                     {{ _('assigned to') }} <strong>{{ ev.to_value }}</strong>
                   {% else %}
                     {{ _('removed assignment') }}
+                  {% endif %}
+                {% elif ev.event_type == 'group' %}
+                  <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                  {% if ev.to_value %}
+                    {{ _('set project to') }} <strong>{{ ev.to_value }}</strong>
+                  {% else %}
+                    {{ _('removed project') }}
+                    {% if ev.from_value %}({{ ev.from_value }}){% endif %}
                   {% endif %}
                 {% elif ev.event_type == 'github_link' %}
                   <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>

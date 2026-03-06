@@ -112,9 +112,12 @@ class Ticket(db.Model):
     satisfaction_comment      = db.Column(db.Text, nullable=True)
     satisfaction_submitted_at = db.Column(db.DateTime, nullable=True)
 
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=True)
+
     messages = db.relationship('Message', backref='ticket', lazy='dynamic', order_by='Message.created_at')
     attachments = db.relationship('Attachment', backref='ticket', lazy='dynamic')
     assignment = db.relationship('Assignment', backref='ticket', uselist=False)
+    group = db.relationship('Group', backref=db.backref('tickets', lazy='dynamic'))
     events = db.relationship('TicketEvent', backref='ticket', lazy='dynamic',
                              order_by='TicketEvent.created_at')
     watches = db.relationship('TicketWatch', backref='ticket', lazy='dynamic',

@@ -5,7 +5,7 @@ Dieses Handbuch ergänzt das [Mitarbeiter-Handbuch](/help?manual=manual-employee
 ## Inhaltsverzeichnis
 
 1. [Kundenkonten](#1-kundenkonten)
-2. [Kundengruppen](#2-kundengruppen)
+2. [Kundenprojekte](#2-kundenprojekte)
 3. [Mitarbeiter bearbeiten](#3-mitarbeiter-bearbeiten)
 
 ---
@@ -17,14 +17,14 @@ Gehen Sie zu **Kunden** in der Navigationsleiste.
 ### Kundenkonto erstellen
 
 1. Füllen Sie im Formular *Kunden erstellen* die Felder **Name** und **E-Mail** aus.
-2. Weisen Sie den Kunden optional einer **Gruppe** zu.
+2. Weisen Sie den Kunden optional einem oder mehreren **Projekten** zu.
 3. Klicken Sie auf **Erstellen**.
 
 Der Kunde erhält eine E-Mail mit einem Einrichtungslink, über den er sein eigenes Passwort festlegen kann.
 
 ### Kunden bearbeiten
 
-Klicken Sie auf das Stift-Symbol in einer Kundenzeile, um Name, E-Mail oder Gruppenzugehörigkeit zu ändern. Um das Passwort eines Kunden zurückzusetzen, geben Sie im Bearbeitungsformular ein neues Passwort ein; lassen Sie das Feld leer, um das aktuelle Passwort beizubehalten.
+Klicken Sie auf das Stift-Symbol in einer Kundenzeile, um Name, E-Mail, Projektzugehörigkeit oder Passwort zu ändern. Um das Passwort eines Kunden zurückzusetzen, geben Sie im Bearbeitungsformular ein neues Passwort ein; lassen Sie das Feld leer, um das aktuelle Passwort beizubehalten.
 
 ### Deaktivieren / Reaktivieren
 
@@ -32,21 +32,19 @@ Klicken Sie auf **Deaktivieren**, um eine Anmeldung zu verhindern, ohne den Kund
 
 ---
 
-## 2. Kundengruppen
+## 2. Kundenprojekte
 
-Gruppen ermöglichen die Organisation von Kunden nach Unternehmen oder Team. Sie dienen auch als Filter im Ticket-Dashboard, damit Mitarbeiter schnell die Tickets eines Kunden anzeigen können.
+Projekte ermöglichen die Organisation von Kunden nach Unternehmen oder Team. Sie dienen auch als Filter im Ticket-Dashboard, damit Mitarbeiter schnell die Tickets eines Projekts anzeigen können.
 
-### Gruppe erstellen
+Ein Ticket kann auf der Ticket-Detailseite einem Projekt zugewiesen werden – alle Kunden dieses Projekts können es dann im Tab **Projekttickets** einsehen.
 
-Geben Sie im Panel *Gruppen* auf der Kundenseite einen Gruppenname ein und klicken Sie auf **Gruppe erstellen**.
+### Projekt erstellen
 
-### Umbenennen oder löschen
+Geben Sie im Formular *Kunden erstellen* oder im Bearbeitungs-Modal im Feld **Neues Projekt hinzufügen…** einen neuen Projektnamen ein. Das Projekt wird beim Speichern automatisch angelegt.
 
-Verwenden Sie das Stift-Symbol zum Umbenennen. Das Papierkorb-Symbol löscht die Gruppe – die Kunden der Gruppe werden dabei nicht gelöscht, sondern keiner Gruppe mehr zugeordnet.
+### Kunden Projekten zuweisen
 
-### Kunden Gruppen zuweisen
-
-Setzen Sie die Gruppe beim Anlegen eines Kunden, oder bearbeiten Sie einen bestehenden Kunden und ändern Sie das Dropdown *Gruppe*.
+Wählen Sie beim Erstellen oder Bearbeiten eines Kunden ein oder mehrere Projekte aus der Mehrfachauswahl-Liste. Halten Sie **Strg/Cmd** gedrückt, um mehrere Projekte auszuwählen.
 
 ---
 

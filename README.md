@@ -83,6 +83,12 @@ All settings are loaded from a **`.env` file** in the project root (via `python-
 | `GITHUB_CLIENT_SECRET` | _(none)_ | GitHub OAuth App client secret |
 | `GITHUB_ORG` | _(none)_ | GitHub organisation name — scopes PR/issue search and repo listing |
 | `GITHUB_TOKEN` | _(none)_ | GitHub Personal Access Token — enables PR/issue search and issue creation |
+| `MANTIS_DB_HOST` | _(none)_ | MantisBT MySQL/MariaDB hostname — pre-fills the sync form |
+| `MANTIS_DB_PORT` | `3306` | MantisBT database port |
+| `MANTIS_DB_NAME` | `bugtracker` | MantisBT database name |
+| `MANTIS_DB_USER` | _(none)_ | MantisBT database username |
+| `MANTIS_DB_PASS` | _(none)_ | MantisBT database password |
+| `MANTIS_TABLE_PREFIX` | `mantis_` | MantisBT table prefix |
 
 ---
 
@@ -220,13 +226,14 @@ Managers create customer accounts at `/manager/customers`. The customer receives
    - Staff accounts default to *My Tickets* (tickets assigned to them).
    - A **Watched** tab shows only tickets you are subscribed to, each marked with an eye icon.
    - The chosen view is **saved per user** in the database and restored on next login.
-   - Filter by status or company using the dropdowns (auto-submit on change). The company dropdown appears automatically when any customer accounts have a company set. The submitter column shows the company name when known.
+   - Filter by status or project using the dropdowns (auto-submit on change). The project dropdown appears automatically when any projects exist.
 3. On a ticket detail page you can:
    - **Add a message** using the Quill rich-text editor. Optionally attach a file inline. Check *Visible to customer* to send it as an email reply.
    - **Change status** — triggers an email notification to the submitter and all watchers.
    - **Assign** the ticket to an active employee.
    - **Watch / Unwatch** — subscribe to email notifications for this ticket (status changes, customer replies, new internal messages). The sidebar button toggles your watch. Watched tickets appear in the **Watched** tab on the dashboard and are marked with an eye icon in the ticket table.
    - **Set an internal title** — optional free-text title visible only to employees. When set, it is used as the GitHub issue title instead of the customer-facing subject.
+   - **Assign to a project** — select a project from the *Project* sidebar card. All customers in that project can see the ticket in their **Project Tickets** tab.
    - **Link a GitHub PR or Issue** — search via the sidebar card; supports `reponame: query` prefix.
    - **Create a GitHub Issue** — select a repo and click Create; the issue is linked automatically. Uses the internal title if set, otherwise falls back to the ticket subject.
    - If the linked GitHub issue is closed, the ticket status is synced to *Closed* on next page load.
@@ -234,13 +241,16 @@ Managers create customer accounts at `/manager/customers`. The customer receives
 ### For managers
 
 Managers have access to **`/manager/customers`**:
-- Create customer accounts (sends a welcome email with credentials). An optional **Company** name can be set on each account.
-- Edit a customer's name, email address, company, or password (pencil button).
+- Create customer accounts (sends a welcome email with credentials).
+- Assign customers to one or more **Projects** (multi-select; type a new name to create inline).
+- Edit a customer's name, email, project assignments, or password (pencil button).
 - Activate/deactivate or delete customer accounts.
 
 ### For admins
 
-Admins have access to **`/admin/employees`**, **`/admin/mail-test`**, and **`/admin/tests`**.
+Admins have access to **`/admin/employees`**, **`/admin/mantis-sync`**, **`/admin/mail-test`**, and **`/admin/tests`**.
+
+**`/admin/mantis-sync`** — import projects, users, and tickets from a MantisBT MySQL/MariaDB database. A **Test Run** mode (on by default) calculates and previews all changes without saving anything. MantisBT access levels map to Taskify roles: Viewer/Reporter/Updater → Customer, Developer → Staff, Project Manager → Manager. Projects that already exist in Taskify are pre-unchecked in the selection.
 - Create new employee accounts with optional **Admin** or **Manager** roles.
 - Edit an employee's name, email address, or password (pencil button).
 - Activate/deactivate or delete employee accounts.
@@ -344,6 +354,7 @@ taskify/
 │   ├── error.html              # 403 / 404 error page
 │   ├── admin/
 │   │   ├── employees.html      # Admin: manage employees + GitHub linking
+│   │   ├── mantis_sync.html    # Admin: MantisBT import with dry-run preview
 │   │   ├── mail_test.html      # Admin: live SMTP config check + test send
 │   │   └── tests.html          # Admin: infrastructure + functional system tests
 │   ├── customer/
@@ -363,11 +374,12 @@ taskify/
 Employee   — id, username, email, password_hash (nullable), is_admin, is_manager,
              is_active, github_id (unique), github_login, preferences (JSON),
              created_at
-Company    — id, name (unique), created_at
+Group      — id, name (unique), created_at           [called "Project" in the UI]
 Customer   — id, email (unique), name, password_hash, is_active,
              created_by_id FK → employees, created_at
-             ↔ companies  (many-to-many via customer_companies)
+             ↔ groups  (many-to-many via customer_groups)
 Ticket     — id, token (UUID), submitter_email, subject, body, status,
+             internal_title, group_id FK → groups (nullable),
              github_pr_url, github_pr_title, created_at, updated_at
 Assignment — ticket_id FK, employee_id FK          [one per ticket]
 Message    — ticket_id FK, employee_id FK (null = customer reply),
@@ -546,6 +558,22 @@ CREATE TABLE IF NOT EXISTS ticket_watches (
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (ticket_id, employee_id)
 );
+
+-- Added later: projects (stored as "groups" internally) and per-ticket project assignment
+CREATE TABLE IF NOT EXISTS groups (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       VARCHAR(120) UNIQUE NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS customer_groups (
+    customer_id INTEGER NOT NULL REFERENCES customers(id),
+    group_id    INTEGER NOT NULL REFERENCES groups(id),
+    PRIMARY KEY (customer_id, group_id)
+);
+ALTER TABLE tickets ADD COLUMN group_id INTEGER REFERENCES groups(id);
+
+-- Added later: ticket locale (for submitter emails in their language)
+ALTER TABLE tickets ADD COLUMN locale VARCHAR(10) NOT NULL DEFAULT 'en';
 ```
 
 ---

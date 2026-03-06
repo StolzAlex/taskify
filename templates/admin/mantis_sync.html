@@ -1,0 +1,512 @@
+{% extends 'base.html' %}
+{% block title %}MantisBT-Sync – {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0"><i class="bi bi-arrow-left-right me-2"></i>MantisBT Synchronisation</h1>
+</div>
+
+<div class="row g-4" id="mainRow">
+
+  {# ── Connection form ───────────────────────────────────────────────── #}
+  <div class="col-lg-4" id="connCol">
+    <div class="card shadow-sm h-100">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-plug me-1"></i>Datenbankverbindung</h6>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          Verbindungsparameter zur MantisBT-Datenbank (MySQL/MariaDB).
+          Die Zugangsdaten können auch als Umgebungsvariablen
+          (<code>MANTIS_DB_HOST</code>, <code>MANTIS_DB_USER</code>, …) gesetzt werden.
+        </p>
+        <form id="connForm" autocomplete="off">
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Host</label>
+            <input type="text" class="form-control form-control-sm" name="host"
+                   id="fHost" value="{{ conn.host }}" placeholder="localhost" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Port</label>
+            <input type="number" class="form-control form-control-sm" name="port"
+                   id="fPort" value="{{ conn.port }}" placeholder="3306" min="1" max="65535">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Datenbankname</label>
+            <input type="text" class="form-control form-control-sm" name="dbname"
+                   id="fDbname" value="{{ conn.dbname }}" placeholder="bugtracker" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Benutzer</label>
+            <input type="text" class="form-control form-control-sm" name="user"
+                   id="fUser" value="{{ conn.user }}" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Passwort</label>
+            <input type="password" class="form-control form-control-sm" name="password"
+                   id="fPassword" value="{{ conn.password }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Tabellenpräfix</label>
+            <input type="text" class="form-control form-control-sm" name="prefix"
+                   id="fPrefix" value="{{ conn.prefix }}" placeholder="mantis_">
+          </div>
+          <button type="button" id="btnPreview" class="btn btn-primary btn-sm w-100">
+            <span id="previewBtnIcon"><i class="bi bi-search me-1"></i></span>
+            <span id="previewBtnText">Vorschau laden</span>
+          </button>
+        </form>
+
+        <div id="connError" class="alert alert-danger mt-3 mb-0 small d-none"></div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Preview panel ─────────────────────────────────────────────────── #}
+  <div class="col-lg-8" id="previewCol" style="display:none">
+
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-table me-1"></i>Vorschau</h6>
+        <span id="previewSummary" class="text-muted small"></span>
+      </div>
+      <div class="card-body p-0">
+
+        {# Tabs #}
+        <ul class="nav nav-tabs px-3 pt-2" id="previewTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-projects-btn"
+                    data-bs-toggle="tab" data-bs-target="#tab-projects"
+                    type="button" role="tab">
+              <i class="bi bi-folder me-1"></i>Projekte
+              <span class="badge bg-secondary ms-1" id="badge-projects">0</span>
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-users-btn"
+                    data-bs-toggle="tab" data-bs-target="#tab-users"
+                    type="button" role="tab">
+              <i class="bi bi-people me-1"></i>Nutzer
+              <span class="badge bg-secondary ms-1" id="badge-users">0</span>
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-tickets-btn"
+                    data-bs-toggle="tab" data-bs-target="#tab-tickets"
+                    type="button" role="tab">
+              <i class="bi bi-bug me-1"></i>Tickets
+              <span class="badge bg-secondary ms-1" id="badge-tickets">0</span>
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content p-3" id="previewTabContent">
+
+          {# Projects tab #}
+          <div class="tab-pane fade show active" id="tab-projects" role="tabpanel">
+            <div class="d-flex gap-2 mb-2 align-items-center">
+              <input type="text" class="form-control form-control-sm" style="max-width:220px"
+                     placeholder="Filter…" id="filterProjects"
+                     oninput="filterTable('tableProjects', this.value)">
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_project', true)">Alle</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_project', false)">Keine</button>
+              <span class="text-muted small ms-auto" id="selProjects">0 / 0 gewählt</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm align-middle mb-0" id="tableProjects">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:36px"></th>
+                    <th>Projektname</th>
+                    <th class="text-muted small">MantisBT-ID</th>
+                  </tr>
+                </thead>
+                <tbody id="bodyProjects"></tbody>
+              </table>
+            </div>
+          </div>
+
+          {# Users tab #}
+          <div class="tab-pane fade" id="tab-users" role="tabpanel">
+            <div class="d-flex gap-2 mb-2 align-items-center flex-wrap">
+              <input type="text" class="form-control form-control-sm" style="max-width:220px"
+                     placeholder="Filter…" id="filterUsers"
+                     oninput="filterTable('tableUsers', this.value)">
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_user', true)">Alle</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_user', false)">Keine</button>
+              <span class="text-muted small ms-auto" id="selUsers">0 / 0 gewählt</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm align-middle mb-0" id="tableUsers">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:36px"></th>
+                    <th>Benutzername</th>
+                    <th>E-Mail</th>
+                    <th>Rolle (MantisBT)</th>
+                    <th>Zielrolle (Taskify)</th>
+                    <th>Projekte</th>
+                  </tr>
+                </thead>
+                <tbody id="bodyUsers"></tbody>
+              </table>
+            </div>
+          </div>
+
+          {# Tickets tab #}
+          <div class="tab-pane fade" id="tab-tickets" role="tabpanel">
+            <div class="d-flex gap-2 mb-2 align-items-center flex-wrap">
+              <input type="text" class="form-control form-control-sm" style="max-width:220px"
+                     placeholder="Filter…" id="filterTickets"
+                     oninput="filterTable('tableTickets', this.value)">
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_bug', true)">Alle</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectAll('chk_bug', false)">Keine</button>
+              <span class="text-muted small ms-auto" id="selTickets">0 / 0 gewählt</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm align-middle mb-0" id="tableTickets">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:36px"></th>
+                    <th style="width:60px">#ID</th>
+                    <th>Zusammenfassung</th>
+                    <th>Projekt</th>
+                    <th>Status</th>
+                    <th>Melder</th>
+                    <th>Bearbeiter</th>
+                  </tr>
+                </thead>
+                <tbody id="bodyTickets"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>{# /tab-content #}
+      </div>
+
+      <div class="card-footer d-flex justify-content-between align-items-center gap-3 flex-wrap">
+        <span class="text-muted small" id="syncNote"></span>
+        <div class="d-flex align-items-center gap-3">
+          <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="chkDryRun" checked>
+            <label class="form-check-label small" for="chkDryRun">
+              Testlauf
+              <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 data-bs-title="Im Testlauf werden alle Änderungen berechnet, aber nicht gespeichert. Keine E-Mails werden verschickt."></i>
+            </label>
+          </div>
+          <button type="button" class="btn btn-sm" id="btnSync" onclick="submitSync()" disabled
+                  style="min-width:140px">
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>{# /row #}
+
+{# Hidden sync form – populated by JS before submit #}
+<form id="syncForm" method="post" action="{{ url_for('admin_mantis_execute') }}" style="display:none">
+  <input type="hidden" name="host"     id="sfHost">
+  <input type="hidden" name="port"     id="sfPort">
+  <input type="hidden" name="dbname"   id="sfDbname">
+  <input type="hidden" name="user"     id="sfUser">
+  <input type="hidden" name="password" id="sfPassword">
+  <input type="hidden" name="prefix"   id="sfPrefix">
+  <input type="hidden" name="dry_run"  id="sfDryRun" value="1">
+  <div id="sfSelections"></div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+
+// ── Lookup maps ─────────────────────────────────────────────────────────────
+var ACCESS_LABELS = {
+  10: { label: 'Betrachter',      cls: 'secondary' },
+  25: { label: 'Melder',          cls: 'secondary' },
+  40: { label: 'Aktualisierer',   cls: 'info'      },
+  55: { label: 'Entwickler',      cls: 'primary'   },
+  70: { label: 'Projektleiter',   cls: 'warning'   },
+};
+
+// Maps MantisBT access_level → Taskify target role displayed in preview
+var ROLE_MAP = {
+  10: { label: 'Kunde',       cls: 'secondary', icon: 'bi-person'        },
+  25: { label: 'Kunde',       cls: 'secondary', icon: 'bi-person'        },
+  40: { label: 'Kunde',       cls: 'secondary', icon: 'bi-person'        },
+  55: { label: 'Mitarbeiter', cls: 'info',       icon: 'bi-person-badge'  },
+  70: { label: 'Manager',     cls: 'warning',    icon: 'bi-person-gear'   },
+};
+
+// Shown as the resulting Taskify status (not the raw MantisBT label)
+var BUG_STATUS = {
+  10: { label: 'Offen',           cls: 'secondary' },
+  20: { label: 'Offen',           cls: 'secondary' },
+  30: { label: 'Offen',           cls: 'secondary' },
+  40: { label: 'Offen',           cls: 'secondary' },
+  50: { label: 'In Bearbeitung',  cls: 'primary'   },
+  80: { label: 'Gelöst',          cls: 'success'   },
+  90: { label: 'Geschlossen',     cls: 'dark'      },
+};
+
+// Stored preview data (project_id → name lookup for user tab)
+var _projectMap = {};
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function badge(cls, label) {
+  return '<span class="badge bg-' + cls + '">' + esc(label) + '</span>';
+}
+
+function fmtDate(ts) {
+  if (!ts) return '';
+  var d = new Date(ts * 1000);
+  return d.toISOString().slice(0, 10);
+}
+
+// ── Load preview ─────────────────────────────────────────────────────────────
+document.getElementById('btnPreview').addEventListener('click', function () {
+  var form = document.getElementById('connForm');
+  if (!form.checkValidity()) { form.reportValidity(); return; }
+
+  var btn      = document.getElementById('btnPreview');
+  var btnText  = document.getElementById('previewBtnText');
+  var btnIcon  = document.getElementById('previewBtnIcon');
+  var errEl    = document.getElementById('connError');
+
+  btn.disabled = true;
+  btnIcon.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
+  btnText.textContent = 'Lade…';
+  errEl.classList.add('d-none');
+
+  fetch('{{ url_for("admin_mantis_preview") }}', {
+    method: 'POST',
+    body: new FormData(form),
+  })
+  .then(function (r) { return r.json(); })
+  .then(function (data) {
+    btn.disabled = false;
+    btnIcon.innerHTML = '<i class="bi bi-search me-1"></i>';
+    btnText.textContent = 'Vorschau laden';
+
+    if (data.error) {
+      errEl.textContent = data.error;
+      errEl.classList.remove('d-none');
+      return;
+    }
+    renderPreview(data);
+  })
+  .catch(function (e) {
+    btn.disabled = false;
+    btnIcon.innerHTML = '<i class="bi bi-search me-1"></i>';
+    btnText.textContent = 'Vorschau laden';
+    errEl.textContent = 'Netzwerkfehler: ' + e.message;
+    errEl.classList.remove('d-none');
+  });
+});
+
+// ── Render preview ───────────────────────────────────────────────────────────
+function renderPreview(data) {
+  var projects = data.projects || [];
+  var users    = data.users    || [];
+  var bugs     = data.bugs     || [];
+
+  // Build project lookup
+  _projectMap = {};
+  projects.forEach(function (p) { _projectMap[p.id] = p.name; });
+
+  // Summary
+  document.getElementById('previewSummary').textContent =
+    projects.length + ' Projekte · ' + users.length + ' Nutzer · ' + bugs.length + ' Tickets';
+
+  // Badges
+  document.getElementById('badge-projects').textContent = projects.length;
+  document.getElementById('badge-users').textContent    = users.length;
+  document.getElementById('badge-tickets').textContent  = bugs.length;
+
+  // Render each table
+  renderProjects(projects);
+  renderUsers(users);
+  renderTickets(bugs);
+
+  // Show panel
+  document.getElementById('previewCol').style.display = '';
+  document.getElementById('btnSync').disabled = false;
+  updateSyncButton();
+  updateCounters();
+}
+
+function renderProjects(projects) {
+  var html = '';
+  projects.forEach(function (p) {
+    var existsBadge = p.existing
+      ? ' <span class="badge bg-secondary ms-1">Bereits vorhanden</span>'
+      : '';
+    html +=
+      '<tr>' +
+      '<td><input class="form-check-input" type="checkbox" name="chk_project"' +
+      ' value="' + p.id + '"' + (p.existing ? '' : ' checked') + ' onchange="updateCounters()"></td>' +
+      '<td class="fw-semibold">' + esc(p.name) + existsBadge + '</td>' +
+      '<td class="text-muted small">' + p.id + '</td>' +
+      '</tr>';
+  });
+  document.getElementById('bodyProjects').innerHTML = html || '<tr><td colspan="3" class="text-center text-muted py-3">Keine Projekte gefunden.</td></tr>';
+}
+
+function renderUsers(users) {
+  var html = '';
+  users.forEach(function (u) {
+    var acc  = ACCESS_LABELS[u.access_level] || { label: 'Level ' + u.access_level, cls: 'secondary' };
+    var role = ROLE_MAP[u.access_level] || { label: 'Kunde', cls: 'secondary', icon: 'bi-person' };
+    var pids = (u.project_ids || []);
+    var projBadges = pids.map(function (pid) {
+      return badge('light text-dark border', _projectMap[pid] || 'Projekt ' + pid);
+    }).join(' ');
+
+    html +=
+      '<tr>' +
+      '<td><input class="form-check-input" type="checkbox" name="chk_user"' +
+      ' value="' + u.id + '" checked onchange="updateCounters()"></td>' +
+      '<td><span class="fw-semibold">' + esc(u.username) + '</span>' +
+      (u.realname ? '<br><span class="text-muted small">' + esc(u.realname) + '</span>' : '') +
+      '</td>' +
+      '<td class="small">' + esc(u.email) + '</td>' +
+      '<td>' + badge(acc.cls, acc.label) + '</td>' +
+      '<td><span class="badge bg-' + role.cls + '">' +
+        '<i class="bi ' + role.icon + ' me-1"></i>' + esc(role.label) +
+      '</span></td>' +
+      '<td class="small">' + (projBadges || '<span class="text-muted">–</span>') + '</td>' +
+      '</tr>';
+  });
+  document.getElementById('bodyUsers').innerHTML = html || '<tr><td colspan="6" class="text-center text-muted py-3">Keine Nutzer gefunden.</td></tr>';
+}
+
+function renderTickets(bugs) {
+  var html = '';
+  bugs.forEach(function (b) {
+    var st = BUG_STATUS[b.status] || { label: 'Status ' + b.status, cls: 'secondary' };
+    var reporter = b.reporter_username
+      ? esc(b.reporter_username) + (b.reporter_email ? '<br><span class="text-muted">' + esc(b.reporter_email) + '</span>' : '')
+      : esc(b.reporter_email || '–');
+    var handler = b.handler_username
+      ? '<span class="fw-semibold">' + esc(b.handler_realname || b.handler_username) + '</span>' +
+        '<br><span class="text-muted">' + esc(b.handler_username) + '</span>'
+      : '<span class="text-muted">–</span>';
+    html +=
+      '<tr>' +
+      '<td><input class="form-check-input" type="checkbox" name="chk_bug"' +
+      ' value="' + b.id + '" checked onchange="updateCounters()"></td>' +
+      '<td class="text-muted small">#' + b.id + '</td>' +
+      '<td>' + esc(b.summary) + '</td>' +
+      '<td class="small text-nowrap">' + esc(b.project_name) + '</td>' +
+      '<td>' + badge(st.cls, st.label) + '</td>' +
+      '<td class="small">' + reporter + '</td>' +
+      '<td class="small">' + handler + '</td>' +
+      '</tr>';
+  });
+  document.getElementById('bodyTickets').innerHTML = html || '<tr><td colspan="7" class="text-center text-muted py-3">Keine Tickets gefunden.</td></tr>';
+}
+
+// ── Selection helpers ────────────────────────────────────────────────────────
+window.selectAll = function (name, checked) {
+  document.querySelectorAll('input[name="' + name + '"]').forEach(function (cb) {
+    if (!cb.closest('tr').classList.contains('d-none')) cb.checked = checked;
+  });
+  updateCounters();
+};
+
+window.filterTable = function (tableId, q) {
+  var term = q.toLowerCase();
+  document.querySelectorAll('#' + tableId + ' tbody tr').forEach(function (tr) {
+    tr.classList.toggle('d-none', !!term && !tr.textContent.toLowerCase().includes(term));
+  });
+  updateCounters();
+};
+
+function countChecked(name) {
+  var total = 0, checked = 0;
+  document.querySelectorAll('input[name="' + name + '"]').forEach(function (cb) {
+    if (!cb.closest('tr').classList.contains('d-none')) {
+      total++;
+      if (cb.checked) checked++;
+    }
+  });
+  return { total: total, checked: checked };
+}
+
+function updateCounters() {
+  var p = countChecked('chk_project');
+  var u = countChecked('chk_user');
+  var b = countChecked('chk_bug');
+
+  document.getElementById('selProjects').textContent = p.checked + ' / ' + p.total + ' gewählt';
+  document.getElementById('selUsers').textContent    = u.checked + ' / ' + u.total + ' gewählt';
+  document.getElementById('selTickets').textContent  = b.checked + ' / ' + b.total + ' gewählt';
+
+  var total = p.checked + u.checked + b.checked;
+  document.getElementById('syncNote').textContent = total > 0
+    ? total + ' Einträge zur Synchronisation ausgewählt'
+    : 'Keine Einträge ausgewählt';
+
+  updateSyncButton();
+}
+
+function updateSyncButton() {
+  var isDry = document.getElementById('chkDryRun').checked;
+  var btn = document.getElementById('btnSync');
+  if (isDry) {
+    btn.className = 'btn btn-outline-primary btn-sm';
+    btn.innerHTML = '<i class="bi bi-search me-1"></i>Testlauf starten';
+  } else {
+    btn.className = 'btn btn-success btn-sm';
+    btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>Sync starten';
+  }
+}
+
+document.getElementById('chkDryRun').addEventListener('change', updateSyncButton);
+
+// ── Submit sync ──────────────────────────────────────────────────────────────
+window.submitSync = function () {
+  var conn = document.getElementById('connForm');
+
+  // Copy connection params to hidden sync form
+  document.getElementById('sfHost').value     = conn.elements['host'].value;
+  document.getElementById('sfPort').value     = conn.elements['port'].value;
+  document.getElementById('sfDbname').value   = conn.elements['dbname'].value;
+  document.getElementById('sfUser').value     = conn.elements['user'].value;
+  document.getElementById('sfPassword').value = conn.elements['password'].value;
+  document.getElementById('sfPrefix').value   = conn.elements['prefix'].value;
+  document.getElementById('sfDryRun').value   = document.getElementById('chkDryRun').checked ? '1' : '0';
+
+  // Rebuild selections
+  var sel = document.getElementById('sfSelections');
+  sel.innerHTML = '';
+  [
+    { name: 'chk_project', field: 'project_ids' },
+    { name: 'chk_user',    field: 'user_ids'    },
+    { name: 'chk_bug',     field: 'bug_ids'     },
+  ].forEach(function (mapping) {
+    document.querySelectorAll('input[name="' + mapping.name + '"]:checked').forEach(function (cb) {
+      var inp = document.createElement('input');
+      inp.type  = 'hidden';
+      inp.name  = mapping.field;
+      inp.value = cb.value;
+      sel.appendChild(inp);
+    });
+  });
+
+  document.getElementById('syncForm').submit();
+};
+
+})();
+</script>
+{% endblock %}

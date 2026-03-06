@@ -5,7 +5,7 @@ This guide covers everything in the [Employee Guide](/help?manual=manual-employe
 ## Table of Contents
 
 1. [Customer Accounts](#1-customer-accounts)
-2. [Customer Groups](#2-customer-groups)
+2. [Customer Projects](#2-customer-projects)
 3. [Editing Employees](#3-editing-employees)
 
 ---
@@ -17,14 +17,14 @@ Go to **Customers** in the navigation bar.
 ### Creating a customer account
 
 1. Fill in the **Name** and **Email** fields in the *Create Customer* form.
-2. Optionally assign the customer to a **Group**.
+2. Optionally assign the customer to one or more **Projects**.
 3. Click **Create**.
 
 A setup link is emailed to the customer. They use it to set their own password before logging in.
 
 ### Editing a customer
 
-Click the pencil icon on any customer row to change their name, email, or group assignment. To reset a customer's password, enter a new password in the edit form; leave it blank to keep the current one.
+Click the pencil icon on any customer row to change their name, email, project assignments, or password. To reset a customer's password, enter a new password in the edit form; leave it blank to keep the current one.
 
 ### Deactivating / reactivating
 
@@ -32,21 +32,19 @@ Click **Deactivate** to prevent a customer from logging in without deleting thei
 
 ---
 
-## 2. Customer Groups
+## 2. Customer Projects
 
-Groups let you organise customers by company or team. They also serve as a filter on the ticket dashboard, so agents can quickly focus on one customer's tickets.
+Projects let you organise customers by company or team. They also serve as a filter on the ticket dashboard, so agents can quickly focus on one project's tickets.
 
-### Creating a group
+A ticket can be assigned to a project from the ticket detail page — all customers in that project can then see it in their **Project Tickets** tab.
 
-In the *Groups* panel on the Customers page, enter a group name and click **Create Group**.
+### Creating a project
 
-### Renaming or deleting
+In the *Create Customer* form or the edit modal, type a new project name in the **Add new project…** field. The project is created automatically when you save.
 
-Use the pencil icon to rename. Use the trash icon to delete — the group is removed but its customers are not deleted; they become ungrouped.
+### Assigning customers to projects
 
-### Assigning customers to groups
-
-Set the group when creating a customer, or edit an existing customer and change the *Group* dropdown.
+Select one or more projects from the multi-select list when creating or editing a customer. Hold **Ctrl/Cmd** to select multiple projects.
 
 ---
 

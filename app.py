@@ -511,6 +511,7 @@ def submit():
     customer = get_current_customer()
     if not app.config['PUBLIC_TICKETS'] and not current_user.is_authenticated and not customer:
         return redirect(url_for('login'))
+    customer_projects = list(customer.groups) if customer else []
     if request.method == 'POST':
         if current_user.is_authenticated:
             email = current_user.email
@@ -522,9 +523,20 @@ def submit():
         body = request.form.get('body', '').strip()
         if not email or not subject or not body:
             flash(_('All fields are required.'), 'danger')
-            return render_template('submit.html', customer=customer)
+            return render_template('submit.html', customer=customer,
+                                   customer_projects=customer_projects)
+        # Resolve project assignment
+        group_id = None
+        if len(customer_projects) == 1:
+            group_id = customer_projects[0].id
+        elif len(customer_projects) > 1:
+            raw = request.form.get('group_id', '').strip()
+            if raw.isdigit():
+                gid = int(raw)
+                if any(g.id == gid for g in customer_projects):
+                    group_id = gid
         ticket = Ticket(submitter_email=email, subject=subject, body=body,
-                        locale=session.get('lang', 'en'))
+                        locale=session.get('lang', 'en'), group_id=group_id)
         db.session.add(ticket)
         db.session.commit()
         notify_submitter_confirmation(ticket)
@@ -536,7 +548,8 @@ def submit():
             'success'
         )
         return redirect(url_for('submit'))
-    return render_template('submit.html', customer=customer)
+    return render_template('submit.html', customer=customer,
+                           customer_projects=customer_projects)
 
 
 @app.route('/status/<token>')
@@ -729,12 +742,15 @@ def customer_dashboard():
     customer = get_current_customer()
 
     view          = request.args.get('view', 'all')
-    if view not in ('all', 'awaiting', 'closed'):
+    if view not in ('all', 'awaiting', 'closed', 'groups'):
         view = 'all'
     status_filter = request.args.get('status', '')
     q             = request.args.get('q', '').strip()
 
-    base_query = Ticket.query.filter(Ticket.submitter_email.ilike(customer.email))
+    customer_group_ids = [g.id for g in customer.groups]
+
+    # Always base own-ticket queries on the customer's email (for stats + awaiting)
+    own_base = Ticket.query.filter(Ticket.submitter_email.ilike(customer.email))
 
     # Tickets where the last customer-visible message is from support (not the customer)
     cust_ticket_ids_sq = db.session.query(Ticket.id).filter(
@@ -760,7 +776,15 @@ def customer_dashboard():
         .all()
     }
 
-    query = base_query
+    # Choose list base: own tickets or group tickets
+    if view == 'groups' and customer_group_ids:
+        list_base = Ticket.query.filter(Ticket.group_id.in_(customer_group_ids))
+    elif view == 'groups':
+        list_base = Ticket.query.filter(db.false())
+    else:
+        list_base = own_base
+
+    query       = list_base
     hide_closed = False
 
     if view == 'awaiting':
@@ -787,17 +811,17 @@ def customer_dashboard():
         page=page, per_page=per_page, error_out=False)
     tickets = pagination.items
 
-    # Stats computed from the full unfiltered set
-    all_tickets = base_query.all()
+    # Stats always from own tickets
+    all_own_tickets = own_base.all()
     stats = {
-        'open':           sum(1 for t in all_tickets if t.status == 'open'),
-        'in_progress':    sum(1 for t in all_tickets if t.status == 'in_progress'),
-        'awaiting_reply': sum(1 for t in all_tickets
+        'open':           sum(1 for t in all_own_tickets if t.status == 'open'),
+        'in_progress':    sum(1 for t in all_own_tickets if t.status == 'in_progress'),
+        'awaiting_reply': sum(1 for t in all_own_tickets
                               if t.id in awaiting_reply_ids and t.status not in ('resolved', 'closed')),
-        'closed':         sum(1 for t in all_tickets if t.status in ('resolved', 'closed')),
+        'closed':         sum(1 for t in all_own_tickets if t.status in ('resolved', 'closed')),
     }
 
-    # Per-ticket metadata for the displayed page only
+    # Per-ticket metadata for the displayed page
     ticket_meta = {
         t.id: {
             'reply_count':    t.messages.filter_by(is_customer_visible=True).count(),
@@ -806,14 +830,14 @@ def customer_dashboard():
         for t in tickets
     }
 
-    all_ticket_ids = [t.id for t in all_tickets]
+    all_own_ids = [t.id for t in all_own_tickets]
     recent_events = (TicketEvent.query
                      .filter(
-                         TicketEvent.ticket_id.in_(all_ticket_ids),
-                         TicketEvent.event_type.in_(['status', 'customer_reply', 'attachment', 'assignment'])
+                         TicketEvent.ticket_id.in_(all_own_ids),
+                         TicketEvent.event_type.in_(['status', 'customer_reply', 'attachment', 'assignment', 'group'])
                      )
                      .order_by(TicketEvent.created_at.desc())
-                     .limit(15).all()) if all_ticket_ids else []
+                     .limit(15).all()) if all_own_ids else []
 
     return render_template('customer/dashboard.html',
                            customer=customer,
@@ -827,7 +851,9 @@ def customer_dashboard():
                            status_choices=Ticket.STATUS_CHOICES,
                            q=q,
                            hide_closed=hide_closed,
-                           awaiting_reply_ids=awaiting_reply_ids)
+                           awaiting_reply_ids=awaiting_reply_ids,
+                           customer_group_ids=customer_group_ids,
+                           customer_groups=customer.groups)
 
 
 @app.route('/customer/uploads/<int:ticket_id>/<filename>')
@@ -985,8 +1011,7 @@ def dashboard():
     if group_filter:
         grp = Group.query.filter_by(name=group_filter).first()
         if grp:
-            grp_emails = [c.email.lower() for c in grp.customers]
-            query = query.filter(db.func.lower(Ticket.submitter_email).in_(grp_emails))
+            query = query.filter(Ticket.group_id == grp.id)
     if date_filter:
         query = query.filter(db.func.date(Ticket.created_at) == date_filter)
     watched_ids = {w.ticket_id for w in TicketWatch.query.filter_by(employee_id=current_user.id).all()}
@@ -1182,8 +1207,7 @@ def search():
         if group_f:
             grp = Group.query.filter_by(name=group_f).first()
             if grp:
-                grp_emails = [c.email.lower() for c in grp.customers]
-                query = query.filter(db.func.lower(Ticket.submitter_email).in_(grp_emails))
+                query = query.filter(Ticket.group_id == grp.id)
 
         page     = request.args.get('page', 1, type=int)
         per_page = 25
@@ -1269,10 +1293,12 @@ def ticket_detail(ticket_id):
         ticket_id=ticket_id, employee_id=current_user.id).first() is not None
     submitter_customer = Customer.query.filter(
         Customer.email.ilike(ticket.submitter_email)).first()
+    groups = Group.query.order_by(Group.name).all()
     return render_template('ticket.html', ticket=ticket, employees=employees,
                            status_choices=Ticket.STATUS_CHOICES, events=events,
                            is_watching=is_watching,
-                           submitter_customer=submitter_customer)
+                           submitter_customer=submitter_customer,
+                           groups=groups)
 
 
 @app.route('/tickets/<int:ticket_id>/message', methods=['POST'])
@@ -1409,6 +1435,30 @@ def assign_ticket(ticket_id):
     if employee_id and emp and new_assignee != old_assignee:
         notify_assignee_assigned(ticket, emp)
     flash(_('Assignment updated.'), 'success')
+    return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+
+
+@app.route('/tickets/<int:ticket_id>/group', methods=['POST'])
+@login_required
+def set_ticket_group(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    old_group = ticket.group.name if ticket.group else None
+    group_id_raw = request.form.get('group_id', '').strip()
+    if group_id_raw and group_id_raw.isdigit():
+        grp = db.session.get(Group, int(group_id_raw))
+        if not grp:
+            flash(_('Project not found.'), 'danger')
+            return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+        ticket.group_id = grp.id
+        new_group = grp.name
+    else:
+        ticket.group_id = None
+        new_group = None
+    ticket.updated_at = datetime.utcnow()
+    log_event(ticket, 'group', from_value=old_group, to_value=new_group,
+              actor_id=current_user.id)
+    db.session.commit()
+    flash(_('Project updated.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 
 
@@ -2651,6 +2701,316 @@ MANUALS = [
     ('manual-customers', _l('Customer Manual')),
 ]
 
+
+# ---------------------------------------------------------------------------
+# Admin – MantisBT synchronisation
+# ---------------------------------------------------------------------------
+
+_MANTIS_STATUS_MAP = {
+    10: 'open',         # new
+    20: 'open',         # feedback
+    30: 'open',         # acknowledged
+    40: 'open',         # confirmed
+    50: 'in_progress',  # assigned
+    80: 'resolved',     # resolved
+    90: 'closed',       # closed
+}
+
+# Maps MantisBT access_level → (target_type, is_manager)
+# target_type: 'customer' | 'employee'
+_MANTIS_ROLE_MAP = {
+    10: ('customer', False),   # Betrachter     → Kunde
+    25: ('customer', False),   # Melder         → Kunde
+    40: ('customer', False),   # Aktualisierer  → Kunde
+    55: ('employee', False),   # Entwickler     → Mitarbeiter
+    70: ('employee', True),    # Projektleiter  → Manager
+}
+
+
+def _mantis_engine(host, port, dbname, user, password):
+    """Create a disposable SQLAlchemy engine for a MantisBT MySQL database."""
+    from sqlalchemy import create_engine
+    import urllib.parse
+    pw  = urllib.parse.quote_plus(password)
+    usr = urllib.parse.quote_plus(user)
+    return create_engine(
+        f'mysql+pymysql://{usr}:{pw}@{host}:{port}/{dbname}',
+        connect_args={'connect_timeout': 5},
+        pool_pre_ping=True,
+    )
+
+
+@app.route('/admin/mantis-sync')
+@login_required
+@admin_required
+def admin_mantis_sync():
+    cfg  = app.config
+    conn = {
+        'host':     cfg.get('MANTIS_DB_HOST', ''),
+        'port':     str(cfg.get('MANTIS_DB_PORT', 3306)),
+        'dbname':   cfg.get('MANTIS_DB_NAME', 'bugtracker'),
+        'user':     cfg.get('MANTIS_DB_USER', ''),
+        'password': cfg.get('MANTIS_DB_PASS', ''),
+        'prefix':   cfg.get('MANTIS_TABLE_PREFIX', 'mantis_'),
+    }
+    return render_template('admin/mantis_sync.html', conn=conn)
+
+
+@app.route('/admin/mantis-sync/preview', methods=['POST'])
+@login_required
+@admin_required
+def admin_mantis_preview():
+    from sqlalchemy import text as _sa_text
+
+    host     = request.form.get('host', '').strip()
+    port     = request.form.get('port', '3306').strip() or '3306'
+    dbname   = request.form.get('dbname', '').strip()
+    user     = request.form.get('user', '').strip()
+    password = request.form.get('password', '')
+    prefix   = request.form.get('prefix', 'mantis_').strip() or 'mantis_'
+
+    if not host or not dbname or not user:
+        return jsonify({'error': 'Host, Datenbankname und Benutzer sind erforderlich.'}), 400
+
+    try:
+        engine = _mantis_engine(host, port, dbname, user, password)
+        p = prefix
+
+        with engine.connect() as con:
+            projects = [dict(r._mapping) for r in con.execute(_sa_text(
+                f"SELECT id, name FROM {p}project_table "
+                f"WHERE enabled=1 ORDER BY name"
+            ))]
+
+            users = [dict(r._mapping) for r in con.execute(_sa_text(
+                f"SELECT id, username, realname, email, access_level "
+                f"FROM {p}user_table "
+                f"WHERE access_level < 90 AND enabled = 1 "
+                f"ORDER BY username"
+            ))]
+
+            memberships = [dict(r._mapping) for r in con.execute(_sa_text(
+                f"SELECT user_id, project_id FROM {p}project_user_list_table"
+            ))]
+
+            bugs = [dict(r._mapping) for r in con.execute(_sa_text(
+                f"SELECT b.id, b.project_id, b.summary, b.status, b.date_submitted, "
+                f"u.email AS reporter_email, u.username AS reporter_username, "
+                f"h.username AS handler_username, h.realname AS handler_realname "
+                f"FROM {p}bug_table b "
+                f"LEFT JOIN {p}user_table u ON u.id = b.reporter_id "
+                f"LEFT JOIN {p}user_table h ON h.id = b.handler_id "
+                f"ORDER BY b.id DESC LIMIT 1000"
+            ))]
+
+        engine.dispose()
+
+        # Build user → project_ids map
+        user_proj: dict = {}
+        for m in memberships:
+            user_proj.setdefault(m['user_id'], []).append(m['project_id'])
+        for u in users:
+            u['project_ids'] = user_proj.get(u['id'], [])
+
+        # Annotate bugs with project name
+        proj_map = {row['id']: row['name'] for row in projects}
+        for b in bugs:
+            b['project_name'] = proj_map.get(b['project_id'], '?')
+            b['date_submitted'] = b.get('date_submitted') or 0
+
+        # Mark projects that already exist in Taskify
+        existing_names = {
+            g.name for g in Group.query.filter(
+                Group.name.in_([p['name'] for p in projects])
+            ).all()
+        } if projects else set()
+        for p in projects:
+            p['existing'] = p['name'] in existing_names
+
+        return jsonify({'projects': projects, 'users': users, 'bugs': bugs})
+
+    except Exception as e:
+        app.logger.exception('MantisBT preview failed')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/mantis-sync/execute', methods=['POST'])
+@login_required
+@admin_required
+def admin_mantis_execute():
+    from sqlalchemy import text as _sa_text
+
+    host     = request.form.get('host', '').strip()
+    port     = request.form.get('port', '3306').strip() or '3306'
+    dbname   = request.form.get('dbname', '').strip()
+    user     = request.form.get('user', '').strip()
+    password = request.form.get('password', '')
+    prefix   = request.form.get('prefix', 'mantis_').strip() or 'mantis_'
+
+    dry_run = request.form.get('dry_run') == '1'
+
+    sel_project_ids = {int(x) for x in request.form.getlist('project_ids') if x.isdigit()}
+    sel_user_ids    = {int(x) for x in request.form.getlist('user_ids')    if x.isdigit()}
+    sel_bug_ids     = {int(x) for x in request.form.getlist('bug_ids')     if x.isdigit()}
+
+    if not host or not dbname or not user:
+        flash(_('Host, database name, and user are required.'), 'danger')
+        return redirect(url_for('admin_mantis_sync'))
+
+    if not sel_project_ids and not sel_user_ids and not sel_bug_ids:
+        flash(_('Nothing selected for sync.'), 'warning')
+        return redirect(url_for('admin_mantis_sync'))
+
+    stats = dict(groups=0,
+                 customers=0, customers_skipped=0,
+                 employees=0, employees_skipped=0,
+                 tickets=0,   tickets_skipped=0)
+
+    try:
+        engine = _mantis_engine(host, port, dbname, user, password)
+        p = prefix
+
+        with engine.connect() as mcon:
+            # 1. Ensure Taskify Groups exist for selected MantisBT projects
+            group_map: dict = {}    # mantis project_id → Group
+            new_project_ids: set = set()  # mantis project_ids that were newly created
+            if sel_project_ids:
+                id_list = ','.join(str(i) for i in sel_project_ids)
+                for row in mcon.execute(_sa_text(
+                    f"SELECT id, name FROM {p}project_table WHERE id IN ({id_list})"
+                )).fetchall():
+                    grp = Group.query.filter_by(name=row.name).first()
+                    if not grp:
+                        grp = Group(name=row.name)
+                        db.session.add(grp)
+                        db.session.flush()
+                        stats['groups'] += 1
+                        new_project_ids.add(row.id)
+                    group_map[row.id] = grp
+
+            # 2. Import selected MantisBT users, mapped to Taskify role by access_level
+            if sel_user_ids:
+                id_list = ','.join(str(i) for i in sel_user_ids)
+                user_rows = mcon.execute(_sa_text(
+                    f"SELECT id, username, realname, email, access_level "
+                    f"FROM {p}user_table WHERE id IN ({id_list})"
+                )).fetchall()
+
+                memb_rows = mcon.execute(_sa_text(
+                    f"SELECT user_id, project_id FROM {p}project_user_list_table "
+                    f"WHERE user_id IN ({id_list})"
+                )).fetchall()
+                user_proj_map: dict = {}
+                for m in memb_rows:
+                    user_proj_map.setdefault(m.user_id, []).append(m.project_id)
+
+                for row in user_rows:
+                    target_type, is_manager = _MANTIS_ROLE_MAP.get(
+                        row.access_level, ('customer', False)
+                    )
+                    display_name = (row.realname or '').strip() or row.username
+
+                    if target_type == 'employee':
+                        existing_emp = Employee.query.filter_by(email=row.email).first()
+                        if existing_emp:
+                            stats['employees_skipped'] += 1
+                        else:
+                            emp = Employee(
+                                username=display_name,
+                                email=row.email,
+                                is_manager=is_manager,
+                                is_active=True,
+                            )
+                            emp.set_password(secrets.token_hex(32))
+                            db.session.add(emp)
+                            db.session.flush()
+                            if not dry_run:
+                                token     = _make_setup_token(emp)
+                                setup_url = url_for('setup_password', token=token, _external=True)
+                                send_setup_email(emp.email, emp.username, setup_url)
+                            stats['employees'] += 1
+                    else:
+                        # target_type == 'customer'
+                        existing_cust = Customer.query.filter_by(email=row.email).first()
+                        if existing_cust:
+                            cust = existing_cust
+                            stats['customers_skipped'] += 1
+                        else:
+                            cust = Customer(
+                                email=row.email,
+                                name=display_name,
+                                created_by_id=current_user.id,
+                            )
+                            cust.set_password(secrets.token_hex(32))
+                            db.session.add(cust)
+                            db.session.flush()
+                            stats['customers'] += 1
+
+                        # Assign customer to newly created projects only
+                        for pid in user_proj_map.get(row.id, []):
+                            if pid in new_project_ids and pid in group_map and group_map[pid] not in cust.groups:
+                                cust.groups.append(group_map[pid])
+
+            # 3. Import selected MantisBT bugs as Taskify Tickets
+            if sel_bug_ids:
+                id_list = ','.join(str(i) for i in sel_bug_ids)
+                for row in mcon.execute(_sa_text(
+                    f"SELECT b.id, b.project_id, b.summary, b.status, "
+                    f"b.date_submitted, u.email AS reporter_email, bt.description "
+                    f"FROM {p}bug_table b "
+                    f"JOIN {p}bug_text_table bt ON bt.id = b.bug_text_id "
+                    f"LEFT JOIN {p}user_table u ON u.id = b.reporter_id "
+                    f"WHERE b.id IN ({id_list})"
+                )).fetchall():
+                    if Ticket.query.filter(
+                        Ticket.internal_title.like(f'%[mantis:{row.id}]%')
+                    ).first():
+                        stats['tickets_skipped'] += 1
+                        continue
+
+                    ticket = Ticket(
+                        submitter_email=row.reporter_email or 'mantis-import@taskify.local',
+                        subject=row.summary,
+                        body=row.description or '(no description)',
+                        status=_MANTIS_STATUS_MAP.get(row.status, 'open'),
+                        internal_title=f'[mantis:{row.id}] {row.summary}',
+                        group_id=group_map[row.project_id].id if row.project_id in group_map else None,
+                    )
+                    if row.date_submitted:
+                        ts = datetime.utcfromtimestamp(row.date_submitted)
+                        ticket.created_at = ts
+                        ticket.updated_at = ts
+                    db.session.add(ticket)
+                    stats['tickets'] += 1
+
+        if dry_run:
+            db.session.rollback()
+        else:
+            db.session.commit()
+        engine.dispose()
+
+        parts = []
+        if stats['groups']:              parts.append(_('%(n)d project(s) created',           n=stats['groups']))
+        if stats['customers']:           parts.append(_('%(n)d customer(s) imported',         n=stats['customers']))
+        if stats['customers_skipped']:   parts.append(_('%(n)d customer(s) already existed',  n=stats['customers_skipped']))
+        if stats['employees']:           parts.append(_('%(n)d employee(s) imported',         n=stats['employees']))
+        if stats['employees_skipped']:   parts.append(_('%(n)d employee(s) already existed',  n=stats['employees_skipped']))
+        if stats['tickets']:             parts.append(_('%(n)d ticket(s) imported',           n=stats['tickets']))
+        if stats['tickets_skipped']:     parts.append(_('%(n)d ticket(s) already imported',   n=stats['tickets_skipped']))
+        summary = ', '.join(parts) or _('nothing to do')
+        if dry_run:
+            flash(_('Dry run complete (no changes saved): %(details)s.', details=summary), 'info')
+        else:
+            flash(_('Sync complete: %(details)s.', details=summary), 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('MantisBT sync failed')
+        flash(_('Sync failed: %(error)s', error=str(e)), 'danger')
+
+    return redirect(url_for('admin_mantis_sync'))
+
+
 @app.route('/help')
 @login_required
 def help_page():
@@ -3135,11 +3495,12 @@ def _startup_checks():
     elif not app.config.get('MAIL_SERVER'):
         log.warning('[startup] WARN – MAIL_SERVER not configured; outbound email is disabled')
 
-    # 6. Auto-migrate: satisfaction rating columns on tickets table
+    # 6. Auto-migrate: new columns on tickets table
     for col, defn in [
         ('satisfaction_rating',       'INTEGER'),
         ('satisfaction_comment',      'TEXT'),
         ('satisfaction_submitted_at', 'DATETIME'),
+        ('group_id',                  'INTEGER REFERENCES groups(id)'),
     ]:
         try:
             db.session.execute(_text(f'ALTER TABLE tickets ADD COLUMN {col} {defn}'))
