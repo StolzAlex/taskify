@@ -936,7 +936,11 @@ def manager_customers():
         return redirect(url_for('manager_customers'))
     customers  = Customer.query.order_by(Customer.created_at.desc()).all()
     all_groups = Group.query.order_by(Group.name).all()
-    return render_template('manager/customers.html', customers=customers, all_groups=all_groups)
+    group_ticket_counts = {
+        g.id: g.tickets.count() for g in all_groups
+    }
+    return render_template('manager/customers.html', customers=customers,
+                           all_groups=all_groups, group_ticket_counts=group_ticket_counts)
 
 
 @app.route('/manager/customers/<int:cust_id>/toggle', methods=['POST'])
@@ -979,6 +983,23 @@ def admin_customers_delete_bulk():
         deleted += 1
     db.session.commit()
     flash(_('%(n)d customer(s) deleted.', n=deleted), 'success')
+    return redirect(url_for('manager_customers'))
+
+
+@app.route('/manager/groups/<int:group_id>/delete', methods=['POST'])
+@login_required
+@manager_required
+def delete_group(group_id):
+    grp = db.session.get(Group, group_id)
+    if not grp:
+        abort(404)
+    if grp.tickets.count() > 0:
+        flash(_('Cannot delete project "%(name)s" because it has tickets assigned to it.', name=grp.name), 'danger')
+        return redirect(url_for('manager_customers'))
+    name = grp.name
+    db.session.delete(grp)
+    db.session.commit()
+    flash(_('Project "%(name)s" deleted.', name=name), 'success')
     return redirect(url_for('manager_customers'))
 
 
@@ -1097,8 +1118,8 @@ def dashboard():
     else:
         customer_map = {}
 
-    # All groups for filter dropdown
-    groups = Group.query.order_by(Group.name).all()
+    # Only groups that have at least one ticket assigned
+    groups = Group.query.filter(Group.tickets.any()).order_by(Group.name).all()
 
     if view == 'mine':
         my_ticket_ids = db.session.query(Assignment.ticket_id).filter(
@@ -1267,7 +1288,7 @@ def search():
         db.func.lower(Customer.email).in_(submitter_emails)).all()} if submitter_emails else {}
 
     employees = Employee.query.filter_by(is_active=True).order_by(Employee.username).all()
-    groups = Group.query.order_by(Group.name).all()
+    groups = Group.query.filter(Group.tickets.any()).order_by(Group.name).all()
 
     return render_template('search.html',
                            tickets=tickets, pagination=pagination, per_page=25,
