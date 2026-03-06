@@ -634,6 +634,26 @@ def customer_reply(token):
     return redirect(url_for('ticket_status', token=token))
 
 
+@app.route('/status/<token>/resolve', methods=['POST'])
+def customer_resolve(token):
+    customer = get_current_customer()
+    if not app.config['PUBLIC_TICKETS'] and not current_user.is_authenticated and not customer:
+        return redirect(url_for('login'))
+    ticket = Ticket.query.filter_by(token=token).first_or_404()
+    # Only the submitter may resolve their own ticket
+    if not customer or customer.email.lower() != ticket.submitter_email.lower():
+        abort(403)
+    if ticket.status in ('resolved', 'closed'):
+        return redirect(url_for('ticket_status', token=token))
+    old_status = ticket.status
+    ticket.status = 'resolved'
+    ticket.updated_at = datetime.utcnow()
+    log_event(ticket, 'status', from_value=old_status, to_value='resolved')
+    db.session.commit()
+    flash(_('Ticket marked as resolved.'), 'success')
+    return redirect(url_for('ticket_status', token=token))
+
+
 @app.route('/status/<token>/rate', methods=['POST'])
 def rate_ticket(token):
     ticket = Ticket.query.filter_by(token=token).first_or_404()
@@ -804,10 +824,6 @@ def customer_dashboard():
         query = query.filter(Ticket.id.in_(awaiting_reply_ids))
     elif view == 'closed':
         query = query.filter(Ticket.status.in_(['resolved', 'closed']))
-    else:
-        if not status_filter:
-            query = query.filter(Ticket.status.notin_(['resolved', 'closed']))
-            hide_closed = True
 
     if status_filter:
         query = query.filter(Ticket.status == status_filter)

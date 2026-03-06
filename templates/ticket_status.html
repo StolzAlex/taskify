@@ -122,9 +122,19 @@
             </label>
             <input type="file" name="file" class="form-control form-control-sm">
           </div>
-          <button type="submit" class="btn btn-primary btn-sm">
-            <i class="bi bi-send me-1"></i>{{ _('Send Reply') }}
-          </button>
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2">
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i class="bi bi-send me-1"></i>{{ _('Send Reply') }}
+            </button>
+            {% if current_customer and current_customer.email|lower == ticket.submitter_email|lower %}
+            <form method="post" action="{{ url_for('customer_resolve', token=ticket.token) }}"
+                  onsubmit="return confirm('{{ _('Mark this ticket as resolved?') }}')">
+              <button type="submit" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-check-circle me-1"></i>{{ _('Mark as Resolved') }}
+              </button>
+            </form>
+            {% endif %}
+          </div>
         </form>
       </div>
     </div>

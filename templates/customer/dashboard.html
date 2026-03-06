@@ -147,7 +147,7 @@
               <th>{{ _('Subject') }}</th>
               <th>{{ _('Status') }}</th>
               <th class="text-center">{{ _('Replies') }}</th>
-              <th class="text-nowrap">{{ _('Updated') }}</th>
+              <th class="text-nowrap">{{ _('Age') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -186,9 +186,9 @@
                 <span class="badge bg-{{ ticket.status_badge }}">{{ status_label(ticket.status) }}</span>
               </td>
               <td class="text-center text-muted small">{{ meta.reply_count }}</td>
-              <td class="text-muted small text-nowrap"
-                  title="{{ _('Created') }}: {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}">
-                {{ ticket.updated_at.strftime('%d.%m. %H:%M') }}
+              <td class="text-nowrap small"
+                  title="{{ _('Updated') }}: {{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}&#10;{{ _('Created') }}: {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}">
+                <span class="{{ ticket.updated_at | age_class }}">● {{ ticket.updated_at | age_label }}</span>
               </td>
             </tr>
             {% endfor %}
