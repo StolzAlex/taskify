@@ -46,10 +46,19 @@
             <input type="password" class="form-control form-control-sm" name="password"
                    id="fPassword" value="{{ conn.password }}">
           </div>
-          <div class="mb-3">
+          <div class="mb-2">
             <label class="form-label small fw-semibold">Tabellenpräfix</label>
             <input type="text" class="form-control form-control-sm" name="prefix"
                    id="fPrefix" value="{{ conn.prefix }}" placeholder="mantis_">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">
+              Anhang-Pfad
+              <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 data-bs-title="Nur nötig wenn MantisBT Anhänge auf der Festplatte speichert (Standard). Lokaler Pfad zum MantisBT-Upload-Verzeichnis, z. B. /var/www/mantis/uploads."></i>
+            </label>
+            <input type="text" class="form-control form-control-sm" name="upload_path"
+                   id="fUploadPath" value="{{ conn.upload_path }}" placeholder="/var/www/mantis/uploads">
           </div>
           <button type="button" id="btnPreview" class="btn btn-primary btn-sm w-100">
             <span id="previewBtnIcon"><i class="bi bi-search me-1"></i></span>
@@ -300,8 +309,9 @@
   <input type="hidden" name="dbname"   id="sfDbname">
   <input type="hidden" name="user"     id="sfUser">
   <input type="hidden" name="password" id="sfPassword">
-  <input type="hidden" name="prefix"   id="sfPrefix">
-  <input type="hidden" name="dry_run"  id="sfDryRun" value="1">
+  <input type="hidden" name="prefix"      id="sfPrefix">
+  <input type="hidden" name="upload_path" id="sfUploadPath">
+  <input type="hidden" name="dry_run"     id="sfDryRun" value="1">
   <div id="sfSelections"></div>
 </form>
 {% endblock %}
@@ -600,7 +610,8 @@ window.submitSync = function () {
   document.getElementById('sfDbname').value   = conn.elements['dbname'].value;
   document.getElementById('sfUser').value     = conn.elements['user'].value;
   document.getElementById('sfPassword').value = conn.elements['password'].value;
-  document.getElementById('sfPrefix').value   = conn.elements['prefix'].value;
+  document.getElementById('sfPrefix').value      = conn.elements['prefix'].value;
+  document.getElementById('sfUploadPath').value  = conn.elements['upload_path'].value;
   document.getElementById('sfDryRun').value   = document.getElementById('chkDryRun').checked ? '1' : '0';
 
   // Rebuild selections

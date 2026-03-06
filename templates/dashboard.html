@@ -276,6 +276,9 @@
                    class="text-decoration-none fw-semibold">
                   {{ ticket.subject }}
                 </a>
+                {% if ticket.id in has_attachment_ids %}
+                <i class="bi bi-paperclip text-muted ms-1" title="{{ _('Has attachments') }}"></i>
+                {% endif %}
                 {% if ticket.id in awaiting_reply_ids %}
                 <span class="badge bg-warning text-dark ms-1" data-bs-toggle="tooltip"
                       data-bs-title="{{ _('The customer has replied and is waiting for a staff response.') }}">

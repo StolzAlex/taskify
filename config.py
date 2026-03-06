@@ -50,3 +50,4 @@ class Config:
     MANTIS_DB_USER   = os.environ.get('MANTIS_DB_USER', '')
     MANTIS_DB_PASS   = os.environ.get('MANTIS_DB_PASS', '')
     MANTIS_TABLE_PREFIX = os.environ.get('MANTIS_TABLE_PREFIX', 'mantis_')
+    MANTIS_UPLOAD_PATH  = os.environ.get('MANTIS_UPLOAD_PATH', '')

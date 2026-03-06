@@ -835,10 +835,18 @@ def customer_dashboard():
     }
 
     # Per-ticket metadata for the displayed page
+    _page_ticket_ids = [t.id for t in tickets]
+    _att_ids = {
+        row[0] for row in
+        db.session.query(Attachment.ticket_id)
+        .filter(Attachment.ticket_id.in_(_page_ticket_ids))
+        .distinct().all()
+    } if _page_ticket_ids else set()
     ticket_meta = {
         t.id: {
             'reply_count':    t.messages.filter_by(is_customer_visible=True).count(),
             'awaiting_reply': t.id in awaiting_reply_ids,
+            'has_attachment': t.id in _att_ids,
         }
         for t in tickets
     }
@@ -1073,6 +1081,14 @@ def dashboard():
         page=page, per_page=per_page, error_out=False)
     tickets = pagination.items
 
+    ticket_ids = [t.id for t in tickets]
+    has_attachment_ids = {
+        row[0] for row in
+        db.session.query(Attachment.ticket_id)
+        .filter(Attachment.ticket_id.in_(ticket_ids))
+        .distinct().all()
+    } if ticket_ids else set()
+
     # Build customer lookup for submitter column
     submitter_emails = [t.submitter_email.lower() for t in tickets]
     if submitter_emails:
@@ -1178,6 +1194,7 @@ def dashboard():
                            stats=stats,
                            watched_ids=watched_ids,
                            awaiting_reply_ids=awaiting_reply_ids,
+                           has_attachment_ids=has_attachment_ids,
                            hide_closed=hide_closed,
                            heatmap_weeks=heatmap_weeks,
                            show_heatmap=show_heatmap,
@@ -1733,7 +1750,9 @@ def upload_attachment(ticket_id):
 @login_required
 def serve_attachment(ticket_id, filename):
     upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket_id))
-    return send_from_directory(upload_dir, filename)
+    att = Attachment.query.filter_by(ticket_id=ticket_id, filename=filename).first()
+    download_name = att.original_filename if att else filename
+    return send_from_directory(upload_dir, filename, download_name=download_name)
 
 
 def _hard_delete_ticket(ticket_id):
@@ -2804,24 +2823,72 @@ def _plain_to_html(text: str) -> str:
     return ''.join(parts) or '<p></p>'
 
 
-def _save_mantis_attachment(ticket_id, message_id, att_row):
-    """Write a Mantis DB-stored attachment to disk and create an Attachment record."""
+def _save_mantis_attachment(ticket_id, message_id, att_row, mantis_upload_path=None):
+    """Write a Mantis attachment to Taskify's upload folder and create an Attachment record.
+
+    When mantis_upload_path is given, reads from the Mantis upload folder on
+    disk using the diskfile column (standard disk-storage mode).
+    Otherwise falls back to the DB-stored content blob.
+    Returns True on success, False when the file cannot be obtained.
+    """
+    diskfile = getattr(att_row, 'diskfile', None) or ''
+    folder   = getattr(att_row, 'folder',   None) or ''
+    basename = os.path.basename(diskfile) or diskfile
+
+    candidates = []
+    # 1. Original Mantis path from DB columns (works when on the same server)
+    if folder and diskfile:
+        candidates.append(os.path.join(folder, diskfile))
+    # 2. Provided upload path + bare filename
+    if mantis_upload_path and basename:
+        candidates.append(os.path.join(mantis_upload_path, basename))
+    # 3. Provided upload path + full diskfile (in case it carries subdirs)
+    if mantis_upload_path and diskfile and diskfile != basename:
+        candidates.append(os.path.join(mantis_upload_path, diskfile))
+    # 4. diskfile as-is when it is an absolute path
+    if os.path.isabs(diskfile):
+        candidates.append(diskfile)
+
+    raw = None
+    for path in candidates:
+        if path and os.path.isfile(path):
+            try:
+                with open(path, 'rb') as fh:
+                    raw = fh.read()
+            except PermissionError:
+                app.logger.warning('Permission denied reading Mantis attachment: %s', path)
+                return False
+            break
+
+    # Fall back to DB-stored content (database-storage mode)
+    if not raw:
+        blob = att_row.content
+        if isinstance(blob, memoryview):
+            raw = blob.tobytes()
+        elif blob and isinstance(blob, (bytes, bytearray)):
+            raw = blob
+
+    if not raw:
+        return False
+
     ext = os.path.splitext(att_row.filename or '')[1]
     disk_name = f'{uuid.uuid4().hex}{ext}'
     upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket_id))
     os.makedirs(upload_dir, exist_ok=True)
     with open(os.path.join(upload_dir, disk_name), 'wb') as fh:
-        fh.write(bytes(att_row.content))
+        fh.write(raw)
     attachment = Attachment(
         ticket_id=ticket_id,
         message_id=message_id,
         filename=disk_name,
         original_filename=att_row.filename or att_row.title or disk_name,
-        size=len(att_row.content),
+        size=len(raw),
     )
     if att_row.date_added:
         attachment.created_at = datetime.utcfromtimestamp(att_row.date_added)
     db.session.add(attachment)
+    db.session.flush()
+    return True
 
 
 def _mantis_engine(host, port, dbname, user, password):
@@ -2843,12 +2910,13 @@ def _mantis_engine(host, port, dbname, user, password):
 def admin_mantis_sync():
     cfg  = app.config
     conn = {
-        'host':     cfg.get('MANTIS_DB_HOST', ''),
-        'port':     str(cfg.get('MANTIS_DB_PORT', 3306)),
-        'dbname':   cfg.get('MANTIS_DB_NAME', 'bugtracker'),
-        'user':     cfg.get('MANTIS_DB_USER', ''),
-        'password': cfg.get('MANTIS_DB_PASS', ''),
-        'prefix':   cfg.get('MANTIS_TABLE_PREFIX', 'mantis_'),
+        'host':        cfg.get('MANTIS_DB_HOST', ''),
+        'port':        str(cfg.get('MANTIS_DB_PORT', 3306)),
+        'dbname':      cfg.get('MANTIS_DB_NAME', 'bugtracker'),
+        'user':        cfg.get('MANTIS_DB_USER', ''),
+        'password':    cfg.get('MANTIS_DB_PASS', ''),
+        'prefix':      cfg.get('MANTIS_TABLE_PREFIX', 'mantis_'),
+        'upload_path': cfg.get('MANTIS_UPLOAD_PATH', ''),
     }
     revert_counts = {
         'tickets':   Ticket.query.filter(Ticket.internal_title.like('%[mantis:%')).count(),
@@ -2947,7 +3015,8 @@ def admin_mantis_execute():
     dbname   = request.form.get('dbname', '').strip()
     user     = request.form.get('user', '').strip()
     password = request.form.get('password', '')
-    prefix   = request.form.get('prefix', 'mantis_').strip() or 'mantis_'
+    prefix      = request.form.get('prefix', 'mantis_').strip() or 'mantis_'
+    upload_path = request.form.get('upload_path', '').strip() or None
 
     dry_run = request.form.get('dry_run') == '1'
 
@@ -2967,7 +3036,7 @@ def admin_mantis_execute():
                  customers=0, customers_skipped=0,
                  employees=0, employees_skipped=0,
                  tickets=0,   tickets_skipped=0,
-                 notes=0,     attachments=0,
+                 notes=0,     attachments=0, attachments_skipped=0,
                  history=0)
 
     try:
@@ -3108,6 +3177,12 @@ def admin_mantis_execute():
                     db.session.flush()
                     stats['tickets'] += 1
 
+                    # Create upload folder for this ticket immediately
+                    if not dry_run:
+                        os.makedirs(os.path.join(
+                            app.config['UPLOAD_FOLDER'], str(ticket.id)
+                        ), exist_ok=True)
+
                     # 3b. Map assignee (handler) to an existing Taskify employee
                     if row.handler_email:
                         handler_emp = Employee.query.filter(
@@ -3158,28 +3233,28 @@ def admin_mantis_execute():
 
                         if not dry_run:
                             att_rows = mcon.execute(_sa_text(
-                                f"SELECT title, filename, file_type, filesize, content, date_added "
+                                f"SELECT title, filename, diskfile, folder, content, date_added "
                                 f"FROM {p}bug_file_table "
                                 f"WHERE bug_id = :bid AND bugnote_id = :nid"
                             ), {'bid': row.id, 'nid': note.id}).fetchall()
                             for att in att_rows:
-                                if not att.content:
-                                    continue
-                                _save_mantis_attachment(ticket.id, msg.id, att)
-                                stats['attachments'] += 1
+                                if _save_mantis_attachment(ticket.id, msg.id, att, upload_path):
+                                    stats['attachments'] += 1
+                                else:
+                                    stats['attachments_skipped'] += 1
 
                     # 3d. Ticket-level attachments (not linked to a note)
                     if not dry_run:
                         att_rows = mcon.execute(_sa_text(
-                            f"SELECT title, filename, file_type, filesize, content, date_added "
+                            f"SELECT title, filename, diskfile, folder, content, date_added "
                             f"FROM {p}bug_file_table "
                             f"WHERE bug_id = :bid AND (bugnote_id = 0 OR bugnote_id IS NULL)"
                         ), {'bid': row.id}).fetchall()
                         for att in att_rows:
-                            if not att.content:
-                                continue
-                            _save_mantis_attachment(ticket.id, None, att)
-                            stats['attachments'] += 1
+                            if _save_mantis_attachment(ticket.id, None, att, upload_path):
+                                stats['attachments'] += 1
+                            else:
+                                stats['attachments_skipped'] += 1
 
                     # 3e. Import activity history as TicketEvents
                     hist_rows = mcon.execute(_sa_text(
@@ -3235,9 +3310,10 @@ def admin_mantis_execute():
         if stats['employees_skipped']:   parts.append(_('%(n)d employee(s) already existed',  n=stats['employees_skipped']))
         if stats['tickets']:             parts.append(_('%(n)d ticket(s) imported',           n=stats['tickets']))
         if stats['tickets_skipped']:     parts.append(_('%(n)d ticket(s) already imported',   n=stats['tickets_skipped']))
-        if stats['notes']:               parts.append(_('%(n)d note(s) imported',             n=stats['notes']))
-        if stats['attachments']:         parts.append(_('%(n)d attachment(s) imported',       n=stats['attachments']))
-        if stats['history']:             parts.append(_('%(n)d history event(s) imported',    n=stats['history']))
+        if stats['notes']:                parts.append(_('%(n)d note(s) imported',              n=stats['notes']))
+        if stats['attachments']:          parts.append(_('%(n)d attachment(s) imported',        n=stats['attachments']))
+        if stats['attachments_skipped']:  parts.append(_('%(n)d attachment(s) not found on disk', n=stats['attachments_skipped']))
+        if stats['history']:              parts.append(_('%(n)d history event(s) imported',    n=stats['history']))
         summary = ', '.join(parts) or _('nothing to do')
         if dry_run:
             flash(_('Dry run complete (no changes saved): %(details)s.', details=summary), 'info')
@@ -3268,12 +3344,17 @@ def admin_mantis_revert():
                 Ticket.internal_title.like('%[mantis:%')
             ).all()
             for ticket in mantis_tickets:
+                upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket.id))
                 for att in ticket.attachments.all():
-                    disk_path = os.path.join(
-                        app.config['UPLOAD_FOLDER'], str(ticket.id), att.filename)
-                    if os.path.exists(disk_path):
-                        os.remove(disk_path)
+                    disk_path = os.path.join(upload_dir, att.filename)
+                    try:
+                        if os.path.exists(disk_path):
+                            os.remove(disk_path)
+                    except OSError:
+                        app.logger.warning('Could not remove attachment file: %s', disk_path)
                     db.session.delete(att)
+                # Flush attachment deletes before message deletes (FK: attachments → messages)
+                db.session.flush()
                 for msg in ticket.messages.all():
                     db.session.delete(msg)
                 for ev in ticket.events.all():
@@ -3282,6 +3363,12 @@ def admin_mantis_revert():
                     db.session.delete(ticket.assignment)
                 db.session.delete(ticket)
                 stats['tickets'] += 1
+                # Remove the upload directory if now empty
+                try:
+                    if os.path.isdir(upload_dir) and not os.listdir(upload_dir):
+                        os.rmdir(upload_dir)
+                except OSError:
+                    pass
 
         if revert_customers:
             for cust in Customer.query.filter_by(mantis_imported=True).all():
