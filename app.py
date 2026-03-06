@@ -1428,6 +1428,29 @@ def add_message(ticket_id):
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 
 
+@app.route('/tickets/<int:ticket_id>/messages/<int:message_id>/delete', methods=['POST'])
+@login_required
+def delete_message(ticket_id, message_id):
+    if not (current_user.is_admin or current_user.is_manager):
+        abort(403)
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    msg = db.session.get(Message, message_id) or abort(404)
+    if msg.ticket_id != ticket.id:
+        abort(404)
+    for att in msg.attachments.all():
+        disk_path = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket.id), att.filename)
+        try:
+            if os.path.exists(disk_path):
+                os.remove(disk_path)
+        except OSError:
+            pass
+        db.session.delete(att)
+    db.session.delete(msg)
+    db.session.commit()
+    flash(_('Message deleted.'), 'success')
+    return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+
+
 @app.route('/tickets/<int:ticket_id>/messages/<int:message_id>/edit', methods=['POST'])
 @login_required
 def edit_message(ticket_id, message_id):

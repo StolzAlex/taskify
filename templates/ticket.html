@@ -136,6 +136,17 @@
                 <i class="bi bi-pencil"></i>
               </button>
               {% endif %}
+              {% if current_user.is_admin or current_user.is_manager %}
+              <form method="post"
+                    action="{{ url_for('delete_message', ticket_id=ticket.id, message_id=msg.id) }}"
+                    class="d-inline"
+                    onsubmit="return confirm('{{ _('Delete this message?') }}')">
+                <button type="submit" class="btn btn-link btn-sm p-0 text-danger"
+                        title="{{ _('Delete') }}">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+              {% endif %}
             </div>
           </div>
           <!-- View mode -->
@@ -283,7 +294,7 @@
           <div class="d-flex justify-content-between align-items-center mt-2">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="customer_visible"
-                     name="is_customer_visible">
+                     name="is_customer_visible" checked>
               <label class="form-check-label small" for="customer_visible">
                 <i class="bi bi-eye me-1 text-success"></i>{{ _('Visible to customer (sends email)') }}
               </label>
