@@ -814,7 +814,10 @@ def customer_dashboard():
         query = query.filter(Ticket.status == status_filter)
 
     if q:
+        _q_num = q.lstrip('#')
+        _id_filter = [Ticket.id == int(_q_num)] if _q_num.isdigit() else []
         query = query.filter(db.or_(
+            *_id_filter,
             Ticket.subject.ilike(f'%{q}%'),
             Ticket.body.ilike(f'%{q}%'),
         ))
