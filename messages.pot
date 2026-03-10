@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-10 14:51+0100\n"
+"POT-Creation-Date: 2026-03-10 15:00+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -115,7 +115,7 @@ msgstr ""
 msgid "Setup already complete."
 msgstr ""
 
-#: app.py:577 app.py:619 app.py:1057 app.py:2131
+#: app.py:577 app.py:619 app.py:1062 app.py:2134
 msgid "All fields are required."
 msgstr ""
 
@@ -123,397 +123,397 @@ msgstr ""
 msgid "Admin account created. Please log in."
 msgstr ""
 
-#: app.py:642
+#: app.py:648
 #, python-format
 msgid ""
 "Your ticket has been submitted! Track it at <a "
 "href=\"%(url)s\">/status/%(token)s…</a>"
 msgstr ""
 
-#: app.py:659
+#: app.py:665
 msgid "Please log in to view your ticket."
 msgstr ""
 
-#: app.py:682
+#: app.py:688
 msgid "Reply cannot be empty."
 msgstr ""
 
-#: app.py:710 app.py:1629
+#: app.py:715 app.py:1632
 msgid "File upload failed."
 msgstr ""
 
-#: app.py:723
+#: app.py:728
 msgid "Your reply has been sent."
 msgstr ""
 
-#: app.py:743
+#: app.py:748
 msgid "Ticket marked as resolved."
 msgstr ""
 
-#: app.py:753
+#: app.py:758
 msgid "You have already rated this ticket."
 msgstr ""
 
-#: app.py:757
+#: app.py:762
 msgid "Please select a rating."
 msgstr ""
 
-#: app.py:763 templates/ticket_status.html:191
+#: app.py:768 templates/ticket_status.html:191
 msgid "Thank you for your feedback!"
 msgstr ""
 
-#: app.py:792
+#: app.py:797
 msgid "Invalid credentials or account disabled."
 msgstr ""
 
-#: app.py:810
+#: app.py:815
 msgid "GitHub OAuth is not configured."
 msgstr ""
 
-#: app.py:821 app.py:831
+#: app.py:826 app.py:836
 msgid "GitHub authentication failed."
 msgstr ""
 
-#: app.py:843
+#: app.py:848
 msgid "No employee account linked to this GitHub account."
 msgstr ""
 
-#: app.py:1059 app.py:2135 app.py:2244 app.py:2276
+#: app.py:1064 app.py:2138 app.py:2247 app.py:2279
 msgid "Email already in use."
 msgstr ""
 
-#: app.py:1072 app.py:2145
+#: app.py:1077 app.py:2148
 #, python-format
 msgid "A setup link has been sent to %(email)s."
 msgstr ""
 
-#: app.py:1091
+#: app.py:1096
 #, python-format
 msgid "Customer \"%(name)s\" activated."
 msgstr ""
 
-#: app.py:1093
+#: app.py:1098
 #, python-format
 msgid "Customer \"%(name)s\" deactivated."
 msgstr ""
 
-#: app.py:1105
+#: app.py:1110
 #, python-format
 msgid "Customer \"%(name)s\" deleted."
 msgstr ""
 
-#: app.py:1115
+#: app.py:1120
 msgid "No customers selected."
 msgstr ""
 
-#: app.py:1122
+#: app.py:1127
 #, python-format
 msgid "%(n)d customer(s) deleted."
 msgstr ""
 
-#: app.py:1134
+#: app.py:1139
 #, python-format
 msgid "Cannot delete project \"%(name)s\" because it has tickets assigned to it."
 msgstr ""
 
-#: app.py:1139
+#: app.py:1144
 #, python-format
 msgid "Project \"%(name)s\" deleted."
 msgstr ""
 
-#: app.py:1525
+#: app.py:1530
 msgid "GitHub PR was merged — ticket status updated to Resolved."
 msgstr ""
 
-#: app.py:1528
+#: app.py:1533
 msgid "GitHub issue was closed — ticket status updated to Resolved."
 msgstr ""
 
-#: app.py:1531
+#: app.py:1536
 msgid "GitHub issue was reopened — ticket status updated to Open."
 msgstr ""
 
-#: app.py:1600 app.py:1687
+#: app.py:1605 app.py:1690
 msgid "Message body cannot be empty."
 msgstr ""
 
-#: app.py:1651
+#: app.py:1654
 msgid "Message added."
 msgstr ""
 
-#: app.py:1674
+#: app.py:1677
 msgid "Message deleted."
 msgstr ""
 
-#: app.py:1695
+#: app.py:1698
 msgid "Message updated."
 msgstr ""
 
-#: app.py:1705
+#: app.py:1708
 msgid "Invalid status."
 msgstr ""
 
-#: app.py:1723
+#: app.py:1726
 #, python-format
 msgid "Status changed to %(status)s."
 msgstr ""
 
-#: app.py:1736 app.py:1814
+#: app.py:1739 app.py:1817
 msgid "Invalid employee."
 msgstr ""
 
-#: app.py:1755
+#: app.py:1758
 msgid "Assignment updated."
 msgstr ""
 
-#: app.py:1771
+#: app.py:1774
 msgid "Project not found."
 msgstr ""
 
-#: app.py:1774
+#: app.py:1777
 msgid "This project is not available for the ticket submitter."
 msgstr ""
 
-#: app.py:1785
+#: app.py:1788
 msgid "Project updated."
 msgstr ""
 
-#: app.py:1797
+#: app.py:1800
 msgid "You are no longer watching this ticket."
 msgstr ""
 
-#: app.py:1801
+#: app.py:1804
 msgid "You are now watching this ticket."
 msgstr ""
 
-#: app.py:1816 app.py:1827
+#: app.py:1819 app.py:1830
 #, python-format
 msgid "%(name)s is already watching this ticket."
 msgstr ""
 
-#: app.py:1821 app.py:1832
+#: app.py:1824 app.py:1835
 #, python-format
 msgid "%(name)s added as watcher."
 msgstr ""
 
-#: app.py:1825
+#: app.py:1828
 msgid "Invalid customer."
 msgstr ""
 
-#: app.py:1847
+#: app.py:1850
 msgid "Watcher removed."
 msgstr ""
 
-#: app.py:1857
+#: app.py:1860
 msgid "Invalid GitHub PR URL."
 msgstr ""
 
-#: app.py:1864
+#: app.py:1867
 msgid "GitHub link updated."
 msgstr ""
 
-#: app.py:1985
+#: app.py:1988
 msgid "Please select a repository."
 msgstr ""
 
-#: app.py:2010 app.py:2194 app.py:2201
+#: app.py:2013 app.py:2197 app.py:2204
 msgid "GitHub API request failed."
 msgstr ""
 
-#: app.py:2025
+#: app.py:2028
 msgid "GitHub issue created and linked."
 msgstr ""
 
-#: app.py:2039
+#: app.py:2042
 msgid "No file selected."
 msgstr ""
 
-#: app.py:2059
+#: app.py:2062
 #, python-format
 msgid "File \"%(name)s\" uploaded."
 msgstr ""
 
-#: app.py:2113
+#: app.py:2116
 #, python-format
 msgid "Ticket #%(id)s \"%(subject)s\" deleted."
 msgstr ""
 
-#: app.py:2133 app.py:2241
+#: app.py:2136 app.py:2244
 msgid "Username already taken."
 msgstr ""
 
-#: app.py:2157
+#: app.py:2160
 msgid "You cannot deactivate your own account."
 msgstr ""
 
-#: app.py:2162
+#: app.py:2165
 #, python-format
 msgid "Employee \"%(name)s\" activated."
 msgstr ""
 
-#: app.py:2164
+#: app.py:2167
 #, python-format
 msgid "Employee \"%(name)s\" deactivated."
 msgstr ""
 
-#: app.py:2179
+#: app.py:2182
 #, python-format
 msgid "GitHub link removed for \"%(name)s\"."
 msgstr ""
 
-#: app.py:2198
+#: app.py:2201
 #, python-format
 msgid "GitHub user \"%(name)s\" not found."
 msgstr ""
 
-#: app.py:2212
+#: app.py:2215
 #, python-format
 msgid "This GitHub account is already linked to \"%(name)s\"."
 msgstr ""
 
-#: app.py:2218
+#: app.py:2221
 #, python-format
 msgid "GitHub account \"%(gh)s\" linked to \"%(emp)s\"."
 msgstr ""
 
-#: app.py:2237 app.py:2273
+#: app.py:2240 app.py:2276
 msgid "Name and email are required."
 msgstr ""
 
-#: app.py:2256
+#: app.py:2259
 msgid "Cannot remove admin role: no other active admin exists."
 msgstr ""
 
-#: app.py:2261
+#: app.py:2264
 #, python-format
 msgid "Employee \"%(name)s\" updated."
 msgstr ""
 
-#: app.py:2285
+#: app.py:2288
 #, python-format
 msgid "Customer \"%(name)s\" updated."
 msgstr ""
 
-#: app.py:2297 app.py:2309
+#: app.py:2300 app.py:2312
 #, python-format
 msgid "A password reset link has been sent to %(email)s."
 msgstr ""
 
-#: app.py:2319
+#: app.py:2322
 msgid "You cannot delete your own account."
 msgstr ""
 
-#: app.py:2322
+#: app.py:2325
 msgid "Deactivate the employee before deleting them."
 msgstr ""
 
-#: app.py:2333
+#: app.py:2336
 #, python-format
 msgid "Employee \"%(name)s\" deleted."
 msgstr ""
 
-#: app.py:2344
+#: app.py:2347
 msgid "No employees selected."
 msgstr ""
 
-#: app.py:2354
+#: app.py:2357
 #, python-format
 msgid "%(n)d employee(s) deleted."
 msgstr ""
 
-#: app.py:2371 templates/admin/employees.html:88 templates/base.html:85
+#: app.py:2374 templates/admin/employees.html:88 templates/base.html:85
 #: templates/base.html:221
 msgid "Manager"
 msgstr ""
 
-#: app.py:2371 templates/base.html:94 templates/base.html:221
+#: app.py:2374 templates/base.html:94 templates/base.html:221
 msgid "Employee"
 msgstr ""
 
-#: app.py:2372
+#: app.py:2375
 #, python-format
 msgid "Now viewing as: %(role)s. Use \"Return to Admin\" to switch back."
 msgstr ""
 
-#: app.py:2378
+#: app.py:2381
 msgid "Please select a valid customer."
 msgstr ""
 
-#: app.py:2382
+#: app.py:2385
 #, python-format
 msgid "Now viewing as customer: %(name)s. Use \"Return to Admin\" to switch back."
 msgstr ""
 
-#: app.py:2388
+#: app.py:2391
 msgid "Returned to admin view."
 msgstr ""
 
-#: app.py:2416
+#: app.py:2419
 msgid "Please enter a recipient address."
 msgstr ""
 
-#: app.py:3646
+#: app.py:3649
 msgid "Forbidden"
 msgstr ""
 
-#: app.py:3651
+#: app.py:3654
 msgid "Page not found"
 msgstr ""
 
-#: app.py:3656
+#: app.py:3659
 msgid "Too many requests. Please wait a moment."
 msgstr ""
 
-#: app.py:3663
+#: app.py:3666
 msgid "An unexpected error occurred."
 msgstr ""
 
-#: app.py:3688
+#: app.py:3691
 msgid "Employee Manual"
 msgstr ""
 
-#: app.py:3689
+#: app.py:3692
 msgid "Manager Manual"
 msgstr ""
 
-#: app.py:3690
+#: app.py:3693
 msgid "Admin Manual"
 msgstr ""
 
-#: app.py:3691 app.py:4522
+#: app.py:3694 app.py:4525
 msgid "Customer Manual"
 msgstr ""
 
-#: app.py:4479
+#: app.py:4482
 #, python-format
 msgid "%(n)d ticket(s) deleted"
 msgstr ""
 
-#: app.py:4480
+#: app.py:4483
 #, python-format
 msgid "%(n)d customer(s) deleted"
 msgstr ""
 
-#: app.py:4481
+#: app.py:4484
 #, python-format
 msgid "%(n)d employee(s) deleted"
 msgstr ""
 
-#: app.py:4482
+#: app.py:4485
 #, python-format
 msgid "Revert complete: %(details)s."
 msgstr ""
 
-#: app.py:4482
+#: app.py:4485
 msgid "nothing to do"
 msgstr ""
 
-#: app.py:4487
+#: app.py:4490
 #, python-format
 msgid "Revert failed: %(error)s"
 msgstr ""
 
-#: app.py:4509 templates/base.html:46 templates/base.html:147
+#: app.py:4512 templates/base.html:46 templates/base.html:147
 msgid "Help"
 msgstr ""
 
@@ -822,7 +822,7 @@ msgstr ""
 
 #: templates/dashboard.html:435 templates/dashboard.html:442
 #: templates/dashboard.html:450 templates/dashboard.html:454
-#: templates/dashboard.html:457 templates/dashboard.html:477
+#: templates/dashboard.html:457 templates/dashboard.html:484
 #: templates/ticket.html:238 templates/ticket.html:249
 #: templates/ticket.html:259 templates/ticket.html:265
 #: templates/ticket.html:271 templates/ticket.html:310
@@ -865,40 +865,40 @@ msgstr ""
 msgid "replied"
 msgstr ""
 
-#: templates/customer/dashboard.html:328 templates/dashboard.html:468
+#: templates/customer/dashboard.html:331 templates/dashboard.html:468
 #: templates/ticket.html:295
 msgid "submitted this ticket"
 msgstr ""
 
-#: templates/customer/dashboard.html:327 templates/customer/dashboard.html:330
-#: templates/dashboard.html:470 templates/ticket.html:300
-#: templates/ticket_status.html:75
-msgid "Support Team"
-msgstr ""
-
-#: templates/customer/dashboard.html:332 templates/dashboard.html:472
-#: templates/ticket.html:302
-msgid "added an internal message"
-msgstr ""
-
-#: templates/customer/dashboard.html:334 templates/dashboard.html:474
+#: templates/customer/dashboard.html:336 templates/customer/dashboard.html:342
+#: templates/dashboard.html:474 templates/dashboard.html:480
 #: templates/ticket.html:304
 msgid "added a message"
 msgstr ""
 
-#: templates/dashboard.html:479 templates/ticket.html:312
+#: templates/customer/dashboard.html:338 templates/dashboard.html:476
+#: templates/ticket.html:300 templates/ticket_status.html:75
+msgid "Support Team"
+msgstr ""
+
+#: templates/customer/dashboard.html:340 templates/dashboard.html:478
+#: templates/ticket.html:302
+msgid "added an internal message"
+msgstr ""
+
+#: templates/dashboard.html:486 templates/ticket.html:312
 msgid "added"
 msgstr ""
 
-#: templates/dashboard.html:479 templates/ticket.html:312
+#: templates/dashboard.html:486 templates/ticket.html:312
 msgid "as watcher"
 msgstr ""
 
-#: templates/dashboard.html:481 templates/ticket.html:314
+#: templates/dashboard.html:488 templates/ticket.html:314
 msgid "removed watcher"
 msgstr ""
 
-#: templates/customer/dashboard.html:356 templates/dashboard.html:499
+#: templates/customer/dashboard.html:365 templates/dashboard.html:506
 #: templates/ticket.html:330
 msgid "No activity yet."
 msgstr ""
@@ -1739,6 +1739,10 @@ msgstr ""
 
 #: templates/customer/dashboard.html:324
 msgid "Removed from project"
+msgstr ""
+
+#: templates/customer/dashboard.html:328
+msgid "You submitted this ticket"
 msgstr ""
 
 #: templates/customer/login.html:2 templates/customer/login.html:10

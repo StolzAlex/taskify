@@ -324,8 +324,12 @@
                     {{ _('Removed from project') }}
                   {% endif %}
                 {% elif ev.event_type == 'ticket_created' %}
-                  {% set actor = ev.actor.username if ev.actor else ev.to_value %}
-                  <strong>{{ actor }}</strong> {{ _('submitted this ticket') }}
+                  {% if ev.ticket.submitter_email == customer.email %}
+                    {{ _('You submitted this ticket') }}
+                  {% else %}
+                    {% set actor = ev.actor.username if ev.actor else ev.to_value %}
+                    <strong>{{ actor }}</strong> {{ _('submitted this ticket') }}
+                  {% endif %}
                 {% elif ev.event_type in ('message_added', 'email_received') %}
                   {% if ev.event_type == 'email_received' %}
                     <strong>{{ customer.name if ev.ticket.submitter_email == customer.email else ev.ticket.submitter_email }}</strong>
