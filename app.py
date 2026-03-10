@@ -1277,7 +1277,8 @@ def search():
         if q:
             msg_ids = db.session.query(Message.ticket_id).filter(
                 db.func.strip_html(Message.body).ilike(f'%{q}%'))
-            id_filter = [Ticket.id == int(q)] if q.isdigit() else []
+            _q_num = q.lstrip('#')
+            id_filter = [Ticket.id == int(_q_num)] if _q_num.isdigit() else []
             query = query.filter(db.or_(
                 *id_filter,
                 Ticket.subject.ilike(f'%{q}%'),
