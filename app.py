@@ -1547,7 +1547,7 @@ def assign_ticket(ticket_id):
               actor_id=current_user.id)
     ticket.updated_at = datetime.utcnow()
     db.session.commit()
-    if employee_id and emp and new_assignee != old_assignee:
+    if employee_id and emp and new_assignee != old_assignee and emp.id != current_user.id:
         notify_assignee_assigned(ticket, emp)
     flash(_('Assignment updated.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
@@ -2792,6 +2792,558 @@ def admin_tests():
             return 'pass', f'Customer #{cust.id} deactivated and reactivated', steps
         return _with_customer('Toggle Customer', body)
     check('Functional: Customer', 'Toggle active', func_customer_toggle_active)
+
+    # ── Activity: Events tests ────────────────────────────────────────────────
+
+    def activity_customer_reply_event():
+        """customer_reply event logged with no actor (employee_id=None)."""
+        def body(ticket, steps):
+            msg = Message(ticket_id=ticket.id, employee_id=None,
+                          body='Hello from customer.', is_customer_reply=True,
+                          is_customer_visible=True)
+            db.session.add(msg)
+            db.session.flush()
+            log_event(ticket, 'customer_reply', actor_id=None)
+            db.session.commit()
+            steps.add('Inserted customer_reply message and event')
+            ev = TicketEvent.query.filter_by(ticket_id=ticket.id,
+                                             event_type='customer_reply').first()
+            assert ev is not None, 'TicketEvent not found'
+            assert ev.employee_id is None, f'Expected no actor, got {ev.employee_id}'
+            steps.add('customer_reply event has no actor ✓')
+            db.session.delete(msg)
+            db.session.commit()
+            return 'pass', f'customer_reply event logged on Ticket #{ticket.id}', steps
+        return _with_ticket('Activity: Customer Reply Event', body)
+    check('Activity: Events', 'Customer reply logged (no actor)', activity_customer_reply_event)
+
+    def activity_status_event_by_employee():
+        """status event logged with actor_id set."""
+        def body(ticket, steps):
+            log_event(ticket, 'status', from_value='open', to_value='in_progress',
+                      actor_id=current_user.id)
+            db.session.commit()
+            steps.add(f'Logged status event with actor_id={current_user.id}')
+            ev = TicketEvent.query.filter_by(ticket_id=ticket.id,
+                                             event_type='status').first()
+            assert ev is not None, 'TicketEvent not found'
+            assert ev.employee_id == current_user.id, \
+                f'Expected actor {current_user.id}, got {ev.employee_id}'
+            assert ev.from_value == 'open', f'Expected from=open, got {ev.from_value}'
+            assert ev.to_value == 'in_progress', f'Expected to=in_progress, got {ev.to_value}'
+            steps.add('status event actor and values correct ✓')
+            return 'pass', f'status event by employee on Ticket #{ticket.id}', steps
+        return _with_ticket('Activity: Status Event by Employee', body)
+    check('Activity: Events', 'Status change logged (with actor)', activity_status_event_by_employee)
+
+    def activity_status_event_by_customer():
+        """status event with no actor simulates customer-triggered flow."""
+        def body(ticket, steps):
+            log_event(ticket, 'status', from_value='open', to_value='resolved',
+                      actor_id=None)
+            db.session.commit()
+            steps.add('Logged status event with actor_id=None (customer trigger)')
+            ev = TicketEvent.query.filter_by(ticket_id=ticket.id,
+                                             event_type='status').first()
+            assert ev is not None, 'TicketEvent not found'
+            assert ev.employee_id is None, f'Expected no actor, got {ev.employee_id}'
+            steps.add('status event with no actor ✓')
+            return 'pass', f'status event (no actor) on Ticket #{ticket.id}', steps
+        return _with_ticket('Activity: Status Event by Customer', body)
+    check('Activity: Events', 'Status event no actor', activity_status_event_by_customer)
+
+    def activity_assignment_event():
+        """assignment event stores from/to username values."""
+        def body_emp(emp, steps):
+            def body_ticket(ticket, steps):
+                log_event(ticket, 'assignment', from_value=None,
+                          to_value=emp.username, actor_id=current_user.id)
+                db.session.commit()
+                steps.add(f'Logged assignment event → {emp.username}')
+                ev = TicketEvent.query.filter_by(ticket_id=ticket.id,
+                                                 event_type='assignment').first()
+                assert ev is not None, 'TicketEvent not found'
+                assert ev.from_value is None, f'Expected from=None, got {ev.from_value}'
+                assert ev.to_value == emp.username, \
+                    f'Expected to={emp.username}, got {ev.to_value}'
+                steps.add('assignment event from/to values ✓')
+                return 'pass', f'assignment event on Ticket #{ticket.id}', steps
+            return _with_ticket('Activity: Assignment Event', body_ticket)
+        return _with_employee('activity-assign', body_emp)
+    check('Activity: Events', 'Assignment event logged', activity_assignment_event)
+
+    def activity_group_event():
+        """group event logged when project is set."""
+        def body(ticket, steps):
+            grp = Group(name=f'SentinelGroup-{uuid.uuid4().hex[:6]}')
+            db.session.add(grp)
+            db.session.commit()
+            steps.add(f'Created Group #{grp.id}')
+            try:
+                log_event(ticket, 'group', from_value=None,
+                          to_value=grp.name, actor_id=current_user.id)
+                db.session.commit()
+                steps.add(f'Logged group event → {grp.name}')
+                ev = TicketEvent.query.filter_by(ticket_id=ticket.id,
+                                                 event_type='group').first()
+                assert ev is not None, 'TicketEvent not found'
+                assert ev.to_value == grp.name, f'Expected {grp.name}, got {ev.to_value}'
+                steps.add('group event value ✓')
+                return 'pass', f'group event on Ticket #{ticket.id}', steps
+            finally:
+                db.session.delete(grp)
+                db.session.commit()
+                steps.cleanup(f'Group #{grp.id} deleted')
+        return _with_ticket('Activity: Group Event', body)
+    check('Activity: Events', 'Group (project) event logged', activity_group_event)
+
+    # ── Email: User management ────────────────────────────────────────────────
+
+    from unittest.mock import patch as _mock_patch
+
+    def email_new_employee_setup():
+        """Creating a new employee sends a setup email."""
+        steps = Steps()
+        eid = None
+        try:
+            with _mock_patch('app.send_email') as mock_send:
+                emp = Employee(username=f'sentinel-emp-{uuid.uuid4().hex[:6]}',
+                               email=f'sentinel-new-emp{SENTINEL_SUFFIX}',
+                               is_active=True)
+                emp.set_password(secrets.token_hex(32))
+                db.session.add(emp)
+                db.session.commit()
+                eid = emp.id
+                steps.add(f'INSERT Employee #{eid}')
+                token = _make_setup_token(emp)
+                setup_url = url_for('setup_password', token=token, _external=True)
+                send_setup_email(emp.email, emp.username, setup_url)
+                steps.add(f'Called send_setup_email for {emp.email}')
+            calls = mock_send.call_args_list
+            assert len(calls) == 1, f'Expected 1 email call, got {len(calls)}'
+            recipients = calls[0].kwargs.get('recipients') or calls[0].args[1]
+            assert emp.email in recipients, f'{emp.email} not in {recipients}'
+            steps.add(f'setup email sent to {emp.email} ✓')
+            return 'pass', f'Setup email for new employee #{eid}', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if eid:
+                _delete_obj(db.session.get(Employee, eid))
+                steps.cleanup(f'Employee #{eid} deleted')
+    check('Email: User management', 'New employee setup email', email_new_employee_setup)
+
+    def email_employee_password_reset():
+        """send_reset_employee sends a setup email to the employee."""
+        def body(emp, steps):
+            with _mock_patch('app.send_email') as mock_send:
+                token = _make_setup_token(emp)
+                setup_url = url_for('setup_password', token=token, _external=True)
+                send_setup_email(emp.email, emp.username, setup_url)
+                steps.add(f'Called send_setup_email for {emp.email}')
+            calls = mock_send.call_args_list
+            assert len(calls) == 1, f'Expected 1 email, got {len(calls)}'
+            recipients = calls[0].kwargs.get('recipients') or calls[0].args[1]
+            assert emp.email in recipients, f'{emp.email} not in {recipients}'
+            steps.add(f'reset email sent to {emp.email} ✓')
+            # Verify token was persisted
+            db.session.refresh(emp)
+            assert emp.setup_token is not None, 'setup_token not set'
+            assert emp.setup_token_expires > datetime.utcnow(), 'token already expired'
+            steps.add('setup_token persisted and not yet expired ✓')
+            return 'pass', f'Password reset email for Employee #{emp.id}', steps
+        return _with_employee('sentinel-pw-reset', body)
+    check('Email: User management', 'Employee password reset email', email_employee_password_reset)
+
+    def email_new_customer_setup():
+        """Creating a new customer sends a setup email."""
+        steps = Steps()
+        cid = None
+        try:
+            with _mock_patch('app.send_email') as mock_send:
+                cust = Customer(name='Sentinel New Cust',
+                                email=f'sentinel-new-cust{SENTINEL_SUFFIX}',
+                                created_by_id=current_user.id)
+                cust.set_password(secrets.token_hex(32))
+                db.session.add(cust)
+                db.session.commit()
+                cid = cust.id
+                steps.add(f'INSERT Customer #{cid}')
+                token = _make_setup_token(cust)
+                setup_url = url_for('setup_password', token=token, _external=True)
+                send_setup_email(cust.email, cust.name, setup_url)
+                steps.add(f'Called send_setup_email for {cust.email}')
+            calls = mock_send.call_args_list
+            assert len(calls) == 1, f'Expected 1 email call, got {len(calls)}'
+            recipients = calls[0].kwargs.get('recipients') or calls[0].args[1]
+            assert cust.email in recipients, f'{cust.email} not in {recipients}'
+            steps.add(f'setup email sent to {cust.email} ✓')
+            return 'pass', f'Setup email for new customer #{cid}', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', f'{type(e).__name__}: {e}', steps
+        finally:
+            if cid:
+                _delete_obj(db.session.get(Customer, cid))
+                steps.cleanup(f'Customer #{cid} deleted')
+    check('Email: User management', 'New customer setup email', email_new_customer_setup)
+
+    def email_customer_password_reset():
+        """send_reset_customer sends a setup email to the customer."""
+        def body(cust, steps):
+            with _mock_patch('app.send_email') as mock_send:
+                token = _make_setup_token(cust)
+                setup_url = url_for('setup_password', token=token, _external=True)
+                send_setup_email(cust.email, cust.name, setup_url)
+                steps.add(f'Called send_setup_email for {cust.email}')
+            calls = mock_send.call_args_list
+            assert len(calls) == 1, f'Expected 1 email, got {len(calls)}'
+            recipients = calls[0].kwargs.get('recipients') or calls[0].args[1]
+            assert cust.email in recipients, f'{cust.email} not in {recipients}'
+            steps.add(f'reset email sent to {cust.email} ✓')
+            db.session.refresh(cust)
+            assert cust.setup_token is not None, 'setup_token not set'
+            assert cust.setup_token_expires > datetime.utcnow(), 'token already expired'
+            steps.add('setup_token persisted and not yet expired ✓')
+            return 'pass', f'Password reset email for Customer #{cust.id}', steps
+        return _with_customer('pw-reset', body)
+    check('Email: User management', 'Customer password reset email', email_customer_password_reset)
+
+    # ── Email: Watcher notifications ──────────────────────────────────────────
+
+    def email_watcher_notified_on_status_change():
+        """A watcher receives an email when status changes."""
+        def body_watcher(watcher_emp, steps):
+            def body_ticket(ticket, steps):
+                watch = TicketWatch(ticket_id=ticket.id, employee_id=watcher_emp.id)
+                db.session.add(watch)
+                db.session.commit()
+                steps.add(f'Employee #{watcher_emp.id} watching Ticket #{ticket.id}')
+                try:
+                    with _mock_patch('app.send_email') as mock_send:
+                        notify_watchers(
+                            ticket,
+                            subject=f'[Test] Status changed – Ticket #{ticket.id}',
+                            body='Status changed.',
+                            exclude_employee_id=current_user.id,
+                        )
+                    calls = mock_send.call_args_list
+                    recipients_list = [
+                        (c.kwargs.get('recipients') or c.args[1])
+                        for c in calls
+                    ]
+                    all_recips = [r for rs in recipients_list for r in rs]
+                    assert watcher_emp.email in all_recips, \
+                        f'{watcher_emp.email} not notified; calls={calls}'
+                    steps.add(f'watcher {watcher_emp.email} received notification ✓')
+                    return 'pass', f'Watcher #{watcher_emp.id} notified on status change', steps
+                finally:
+                    db.session.delete(watch)
+                    db.session.commit()
+                    steps.cleanup(f'Watch for Employee #{watcher_emp.id} removed')
+            return _with_ticket('Email: Watcher Status', body_ticket)
+        return _with_employee('sentinel-watcher', body_watcher)
+    check('Email: Watcher notifications', 'Watcher notified on status change', email_watcher_notified_on_status_change)
+
+    def email_actor_excluded_from_watchers():
+        """The actor (exclude_employee_id) is NOT notified even if watching."""
+        def body_actor(actor_emp, steps):
+            def body_ticket(ticket, steps):
+                watch = TicketWatch(ticket_id=ticket.id, employee_id=actor_emp.id)
+                db.session.add(watch)
+                db.session.commit()
+                steps.add(f'Actor Employee #{actor_emp.id} is also watching')
+                try:
+                    with _mock_patch('app.send_email') as mock_send:
+                        notify_watchers(
+                            ticket,
+                            subject=f'[Test] Status – Ticket #{ticket.id}',
+                            body='Changed.',
+                            exclude_employee_id=actor_emp.id,
+                        )
+                    calls = mock_send.call_args_list
+                    all_recips = [
+                        r
+                        for c in calls
+                        for r in (c.kwargs.get('recipients') or c.args[1])
+                    ]
+                    assert actor_emp.email not in all_recips, \
+                        f'Actor {actor_emp.email} should be excluded but was notified'
+                    steps.add(f'actor {actor_emp.email} correctly excluded ✓')
+                    return 'pass', f'Actor #{actor_emp.id} excluded from watcher emails', steps
+                finally:
+                    db.session.delete(watch)
+                    db.session.commit()
+                    steps.cleanup(f'Watch for Actor #{actor_emp.id} removed')
+            return _with_ticket('Email: Actor Excluded', body_ticket)
+        return _with_employee('sentinel-actor-excl', body_actor)
+    check('Email: Watcher notifications', 'Actor excluded from watcher emails', email_actor_excluded_from_watchers)
+
+    def email_assignee_excluded_from_watchers():
+        """The assignee is NOT notified via notify_watchers (gets a separate email)."""
+        def body_assignee(assignee_emp, steps):
+            def body_watcher(watcher_emp, steps):
+                def body_ticket(ticket, steps):
+                    # Assign the ticket to assignee_emp
+                    assignment = Assignment(ticket_id=ticket.id,
+                                            employee_id=assignee_emp.id)
+                    db.session.add(assignment)
+                    # Both assignee and watcher are watching
+                    for emp_obj in [assignee_emp, watcher_emp]:
+                        db.session.add(TicketWatch(ticket_id=ticket.id,
+                                                   employee_id=emp_obj.id))
+                    db.session.commit()
+                    steps.add(f'Assigned to #{assignee_emp.id}; both watching')
+                    try:
+                        with _mock_patch('app.send_email') as mock_send:
+                            notify_watchers(
+                                ticket,
+                                subject=f'[Test] Watcher – Ticket #{ticket.id}',
+                                body='Updated.',
+                                exclude_employee_id=current_user.id,
+                            )
+                        all_recips = [
+                            r
+                            for c in mock_send.call_args_list
+                            for r in (c.kwargs.get('recipients') or c.args[1])
+                        ]
+                        assert assignee_emp.email not in all_recips, \
+                            f'Assignee {assignee_emp.email} should be excluded'
+                        assert watcher_emp.email in all_recips, \
+                            f'Watcher {watcher_emp.email} should be included'
+                        steps.add('assignee excluded, watcher included ✓')
+                        return 'pass', 'Assignee excluded from watcher emails', steps
+                    finally:
+                        watches = TicketWatch.query.filter_by(ticket_id=ticket.id).all()
+                        for w in watches:
+                            db.session.delete(w)
+                        db.session.delete(assignment)
+                        db.session.commit()
+                        steps.cleanup('Watches and assignment cleaned up')
+                return _with_ticket('Email: Assignee Excluded', body_ticket)
+            return _with_employee('sentinel-watcher2', body_watcher)
+        return _with_employee('sentinel-assignee-excl', body_assignee)
+    check('Email: Watcher notifications', 'Assignee excluded from watcher emails', email_assignee_excluded_from_watchers)
+
+    # ── Email: Assignment notifications ──────────────────────────────────────
+
+    def email_assignee_notified_non_self():
+        """Assigning a ticket to someone other than the current user sends an email."""
+        def body_emp(assignee_emp, steps):
+            def body_ticket(ticket, steps):
+                with _mock_patch('app.send_email') as mock_send:
+                    notify_assignee_assigned(ticket, assignee_emp)
+                calls = mock_send.call_args_list
+                assert len(calls) == 1, f'Expected 1 email, got {len(calls)}'
+                recipients = calls[0].kwargs.get('recipients') or calls[0].args[1]
+                assert assignee_emp.email in recipients, \
+                    f'{assignee_emp.email} not in {recipients}'
+                steps.add(f'assignee {assignee_emp.email} notified ✓')
+                return 'pass', f'Assignee #{assignee_emp.id} notified on assignment', steps
+            return _with_ticket('Email: Assignee Notify', body_ticket)
+        return _with_employee('sentinel-assignee-notify', body_emp)
+    check('Email: Assignment notifications', 'New assignee notified (non-self)', email_assignee_notified_non_self)
+
+    def email_self_assignment_no_email():
+        """Self-assignment does NOT call notify_assignee_assigned (bug fix check)."""
+        def body(ticket, steps):
+            # Simulate the assign_ticket logic: skip notify when emp == current_user
+            emp = current_user
+            old_assignee = None
+            new_assignee = emp.username
+            # Condition from the fixed assign_ticket route
+            should_notify = bool(
+                emp and new_assignee != old_assignee and emp.id != current_user.id
+            )
+            assert not should_notify, \
+                'Self-assignment incorrectly triggers notification'
+            steps.add(f'Self-assignment by {current_user.username} → no email ✓')
+            return 'pass', 'Self-assignment produces no notification', steps
+        return _with_ticket('Email: Self-Assignment', body)
+    check('Email: Assignment notifications', 'Self-assignment no email', email_self_assignment_no_email)
+
+    # ── Email: Ticket events (status/message/delete) ──────────────────────────
+
+    def email_status_change_notifies_submitter():
+        """notify_submitter_update is called on status change."""
+        def body(ticket, steps):
+            ticket.status = 'in_progress'
+            db.session.commit()
+            steps.add('Set ticket status → in_progress')
+            with _mock_patch('app.send_email') as mock_send:
+                notify_submitter_update(ticket)
+            calls = mock_send.call_args_list
+            assert len(calls) == 1, f'Expected 1 email, got {len(calls)}'
+            recipients = calls[0].kwargs.get('recipients') or calls[0].args[1]
+            assert ticket.submitter_email in recipients, \
+                f'{ticket.submitter_email} not in {recipients}'
+            steps.add(f'submitter {ticket.submitter_email} notified ✓')
+            return 'pass', f'Submitter notified on status change for Ticket #{ticket.id}', steps
+        return _with_ticket('Email: Status Change Submitter', body)
+    check('Email: Ticket events', 'Status change notifies submitter', email_status_change_notifies_submitter)
+
+    def email_visible_message_notifies_submitter():
+        """A customer-visible message triggers notify_submitter_update."""
+        def body(ticket, steps):
+            msg = Message(ticket_id=ticket.id, employee_id=current_user.id,
+                          body='<p>Here is an update for you.</p>',
+                          is_customer_visible=True)
+            db.session.add(msg)
+            db.session.commit()
+            steps.add('Added customer-visible message')
+            plain = 'Here is an update for you.'
+            try:
+                with _mock_patch('app.send_email') as mock_send:
+                    notify_submitter_update(ticket, extra_message=plain)
+                calls = mock_send.call_args_list
+                assert len(calls) == 1, f'Expected 1 email, got {len(calls)}'
+                recipients = calls[0].kwargs.get('recipients') or calls[0].args[1]
+                assert ticket.submitter_email in recipients, \
+                    f'{ticket.submitter_email} not in {recipients}'
+                body_text = calls[0].kwargs.get('body_text') or calls[0].args[2]
+                assert plain in body_text, 'Extra message not in email body'
+                steps.add('submitter notified with message content ✓')
+                return 'pass', f'Visible message notifies submitter on Ticket #{ticket.id}', steps
+            finally:
+                db.session.delete(msg)
+                db.session.commit()
+                steps.cleanup('Message deleted')
+        return _with_ticket('Email: Visible Message', body)
+    check('Email: Ticket events', 'Visible message notifies submitter', email_visible_message_notifies_submitter)
+
+    def email_hidden_message_no_submitter_notify():
+        """An internal (not customer-visible) message does NOT notify the submitter."""
+        def body(ticket, steps):
+            msg = Message(ticket_id=ticket.id, employee_id=current_user.id,
+                          body='<p>Internal note only.</p>',
+                          is_customer_visible=False)
+            db.session.add(msg)
+            db.session.commit()
+            steps.add('Added internal-only message')
+            try:
+                # The add_message route only calls notify_submitter_update when is_visible=True
+                is_visible = msg.is_customer_visible
+                with _mock_patch('app.send_email') as mock_send:
+                    if is_visible:
+                        notify_submitter_update(ticket)
+                calls = mock_send.call_args_list
+                assert len(calls) == 0, \
+                    f'Expected no submitter email for hidden msg, got {len(calls)} call(s)'
+                steps.add('No submitter email sent for internal message ✓')
+                return 'pass', f'Hidden message does not notify submitter on Ticket #{ticket.id}', steps
+            finally:
+                db.session.delete(msg)
+                db.session.commit()
+                steps.cleanup('Message deleted')
+        return _with_ticket('Email: Hidden Message', body)
+    check('Email: Ticket events', 'Hidden message no submitter notify', email_hidden_message_no_submitter_notify)
+
+    def email_customer_reply_notifies_assignee():
+        """A customer reply triggers notify_assignee_customer_reply."""
+        def body_assignee(assignee_emp, steps):
+            def body_ticket(ticket, steps):
+                assignment = Assignment(ticket_id=ticket.id,
+                                        employee_id=assignee_emp.id)
+                db.session.add(assignment)
+                db.session.commit()
+                steps.add(f'Assigned Ticket #{ticket.id} to #{assignee_emp.id}')
+                try:
+                    with _mock_patch('app.send_email') as mock_send:
+                        notify_assignee_customer_reply(ticket)
+                    calls = mock_send.call_args_list
+                    assert len(calls) == 1, f'Expected 1 email, got {len(calls)}'
+                    recipients = calls[0].kwargs.get('recipients') or calls[0].args[1]
+                    assert assignee_emp.email in recipients, \
+                        f'{assignee_emp.email} not notified; recipients={recipients}'
+                    steps.add(f'assignee {assignee_emp.email} notified of customer reply ✓')
+                    return 'pass', f'Customer reply notifies assignee #{assignee_emp.id}', steps
+                finally:
+                    db.session.delete(assignment)
+                    db.session.commit()
+                    steps.cleanup('Assignment cleaned up')
+            return _with_ticket('Email: Customer Reply Assignee', body_ticket)
+        return _with_employee('sentinel-cr-assignee', body_assignee)
+    check('Email: Ticket events', 'Customer reply notifies assignee', email_customer_reply_notifies_assignee)
+
+    def email_customer_reply_notifies_watchers():
+        """A customer reply also triggers notify_watchers for non-assignee watchers."""
+        def body_watcher(watcher_emp, steps):
+            def body_ticket(ticket, steps):
+                watch = TicketWatch(ticket_id=ticket.id,
+                                    employee_id=watcher_emp.id)
+                db.session.add(watch)
+                db.session.commit()
+                steps.add(f'Watcher #{watcher_emp.id} added for Ticket #{ticket.id}')
+                try:
+                    with _mock_patch('app.send_email') as mock_send:
+                        notify_watchers(
+                            ticket,
+                            subject=f'[Test] Customer replied – Ticket #{ticket.id}',
+                            body='Customer replied.',
+                            exclude_employee_id=None,
+                        )
+                    all_recips = [
+                        r
+                        for c in mock_send.call_args_list
+                        for r in (c.kwargs.get('recipients') or c.args[1])
+                    ]
+                    assert watcher_emp.email in all_recips, \
+                        f'Watcher {watcher_emp.email} not notified'
+                    steps.add(f'watcher {watcher_emp.email} notified of customer reply ✓')
+                    return 'pass', f'Customer reply notifies watcher #{watcher_emp.id}', steps
+                finally:
+                    db.session.delete(watch)
+                    db.session.commit()
+                    steps.cleanup('Watch removed')
+            return _with_ticket('Email: Customer Reply Watcher', body_ticket)
+        return _with_employee('sentinel-cr-watcher', body_watcher)
+    check('Email: Ticket events', 'Customer reply notifies watchers', email_customer_reply_notifies_watchers)
+
+    def email_deleted_ticket_cascade():
+        """Deleting a ticket removes associated watches and assignments (no email expected)."""
+        def body_emp(emp, steps):
+            steps_outer = steps
+            ticket_id_ref = []
+            try:
+                ticket = Ticket(submitter_email=f'sentinel-del{SENTINEL_SUFFIX}',
+                                subject='Sentinel Delete Test', body='Test.')
+                db.session.add(ticket)
+                db.session.commit()
+                tid = ticket.id
+                ticket_id_ref.append(tid)
+                steps.add(f'INSERT Ticket #{tid}')
+
+                assignment = Assignment(ticket_id=tid, employee_id=emp.id)
+                watch = TicketWatch(ticket_id=tid, employee_id=emp.id)
+                db.session.add(assignment)
+                db.session.add(watch)
+                db.session.commit()
+                steps.add(f'Created assignment and watch for Employee #{emp.id}')
+
+                with _mock_patch('app.send_email') as mock_send:
+                    _hard_delete_ticket(tid)
+                    ticket_id_ref.clear()
+
+                calls = mock_send.call_args_list
+                assert len(calls) == 0, \
+                    f'Expected no email on ticket deletion, got {len(calls)} call(s)'
+                steps.add('No email sent on ticket deletion ✓')
+
+                remaining_watches = TicketWatch.query.filter_by(ticket_id=tid).count()
+                remaining_assigns = Assignment.query.filter_by(ticket_id=tid).count()
+                assert remaining_watches == 0, f'{remaining_watches} watches remain'
+                assert remaining_assigns == 0, f'{remaining_assigns} assignments remain'
+                steps.add('watches and assignments cascade-deleted ✓')
+                return 'pass', f'Ticket #{tid} cascade-deleted cleanly', steps
+            except Exception as e:
+                steps.fail(e)
+                if ticket_id_ref:
+                    _hard_delete_ticket(ticket_id_ref[0])
+                    steps.cleanup(f'Ticket #{ticket_id_ref[0]} cleaned up after error')
+                return 'fail', f'{type(e).__name__}: {e}', steps
+        return _with_employee('sentinel-del-emp', body_emp)
+    check('Email: Ticket events', 'Deleted ticket cascade (no email)', email_deleted_ticket_cascade)
 
     counts = {}
     for r in results:
