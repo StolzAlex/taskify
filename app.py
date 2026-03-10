@@ -49,21 +49,6 @@ if not app.debug and app.config['SECRET_KEY'] == 'dev-secret-change-in-productio
 db.init_app(app)
 mail = Mail(app)
 
-# Register a SQLite function that strips HTML tags (including base64 <img> src data)
-# so that full-text message searches operate on visible text only.
-from sqlalchemy import event as _sa_event
-
-from sqlalchemy.engine import Engine as _SAEngine
-
-@_sa_event.listens_for(_SAEngine, 'connect')
-def _register_sqlite_functions(dbapi_conn, _rec):
-    def strip_html(text):
-        if not text:
-            return ''
-        # Remove base64 image data entirely before stripping other tags
-        text = re.sub(r'<img[^>]*\bsrc="data:[^"]*"[^>]*>', ' ', text, flags=re.IGNORECASE)
-        return re.sub(r'<[^>]+>', ' ', text)
-    dbapi_conn.create_function('strip_html', 1, strip_html)
 
 limiter = Limiter(
     key_func=get_remote_address,
@@ -1275,17 +1260,27 @@ def search():
         query = Ticket.query
 
         if q:
-            msg_ids = db.session.query(Message.ticket_id).filter(
-                db.func.strip_html(Message.body).ilike(f'%{q}%'))
             _q_num = q.lstrip('#')
             id_filter = [Ticket.id == int(_q_num)] if _q_num.isdigit() else []
+            # Message body: SQL pre-filter, then Python-strip base64 image data
+            # so accidental matches inside embedded images are excluded.
+            _b64_re = re.compile(r'<img[^>]*\bsrc="data:[^"]*"[^>]*>', re.IGNORECASE)
+            _msg_candidates = (
+                db.session.query(Message.ticket_id, Message.body)
+                .filter(Message.body.ilike(f'%{q}%'))
+                .all()
+            )
+            _msg_tids = {
+                tid for tid, body in _msg_candidates
+                if q.lower() in _b64_re.sub(' ', body or '').lower()
+            }
             query = query.filter(db.or_(
                 *id_filter,
                 Ticket.subject.ilike(f'%{q}%'),
-                db.func.strip_html(Ticket.body).ilike(f'%{q}%'),
+                Ticket.body.ilike(f'%{q}%'),
                 Ticket.internal_title.ilike(f'%{q}%'),
                 Ticket.submitter_email.ilike(f'%{q}%'),
-                Ticket.id.in_(msg_ids),
+                Ticket.id.in_(list(_msg_tids)) if _msg_tids else db.literal(False),
             ))
 
         if status_f:
