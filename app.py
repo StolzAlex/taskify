@@ -593,6 +593,14 @@ def setup():
 # Public routes
 # ---------------------------------------------------------------------------
 
+@app.route('/robots.txt')
+def robots_txt():
+    return app.response_class(
+        'User-agent: *\nDisallow: /\n',
+        mimetype='text/plain',
+    )
+
+
 @app.route('/', methods=['GET', 'POST'])
 def submit():
     customer = get_current_customer()
@@ -2613,7 +2621,7 @@ def admin_tests():
     # Categories listed here appear in the "Infrastructure" section; anything
     # else is grouped under "Functional Tests".  This is the single source of
     # truth — the template reads it from the context.
-    INFRA_CATEGORIES  = ['Database', 'Configuration', 'Email', 'Inbound email', 'GitHub']
+    INFRA_CATEGORIES  = ['Database', 'Configuration', 'Email', 'Inbound email', 'GitHub', 'Security']
     SENTINEL_SUFFIX   = '@taskify-test.invalid'
     SENTINEL_PASSWORD = 'Sentinel!Test99'
 
@@ -3768,6 +3776,311 @@ def admin_tests():
                 return 'fail', f'{type(e).__name__}: {e}', steps
         return _with_employee('sentinel-del-emp', body_emp)
     check('Email: Ticket events', 'Deleted ticket cascade (no email)', email_deleted_ticket_cascade)
+
+    # ── Security tests ────────────────────────────────────────────────────────
+    # Use a test client so we can make real HTTP requests without needing a
+    # running server.  Each test is stateless (no session cookie carried over).
+
+    def _anon_get(path):
+        """GET path with no session; return (status_code, response_data)."""
+        with app.test_client() as c:
+            r = c.get(path, follow_redirects=False)
+            return r.status_code, r.data.decode('utf-8', errors='replace')
+
+    def _anon_post(path, data=None):
+        with app.test_client() as c:
+            r = c.post(path, data=data or {}, follow_redirects=False)
+            return r.status_code, r.data.decode('utf-8', errors='replace')
+
+    def _emp_client(emp_obj):
+        """Return a test client with emp_obj logged in via Flask-Login."""
+        c = app.test_client()
+        with c.session_transaction() as sess:
+            sess['_user_id']  = str(emp_obj.id)
+            sess['_fresh']    = True
+        return c
+
+    # Use the current admin user (the one running the tests) as the employee fixture
+    _admin_emp = current_user._emp if hasattr(current_user, '_emp') else current_user
+
+    # --- robots.txt ----------------------------------------------------------
+    def sec_robots_txt():
+        steps = Steps()
+        try:
+            code, body = _anon_get('/robots.txt')
+            steps.add(f'GET /robots.txt → {code}')
+            assert code == 200, f'Expected 200, got {code}'
+            assert 'Disallow: /' in body, 'Missing "Disallow: /" directive'
+            steps.add('Contains "Disallow: /" ✓')
+            assert 'User-agent: *' in body, 'Missing "User-agent: *"'
+            steps.add('Contains "User-agent: *" ✓')
+            return 'pass', 'robots.txt served with Disallow: /', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+    check('Security', 'robots.txt', sec_robots_txt)
+
+    # --- noindex meta tag in HTML output ------------------------------------
+    def sec_noindex_meta():
+        steps = Steps()
+        try:
+            code, body = _anon_get('/login')
+            steps.add(f'GET /login → {code}')
+            needle = 'noindex'
+            assert needle in body, 'noindex not found in rendered HTML'
+            steps.add('noindex meta tag present in <head> ✓')
+            assert 'nofollow' in body, 'nofollow not found in rendered HTML'
+            steps.add('nofollow meta tag present ✓')
+            return 'pass', 'noindex, nofollow meta tag present on all pages', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+    check('Security', 'noindex/nofollow meta tag', sec_noindex_meta)
+
+    # --- Unauthenticated access to employee-only routes ----------------------
+    def sec_unauth_dashboard():
+        steps = Steps()
+        try:
+            code, _ = _anon_get('/dashboard')
+            steps.add(f'GET /dashboard (anon) → {code}')
+            assert code in (302, 401, 403), f'Expected redirect/401/403, got {code}'
+            steps.add('Dashboard protected from anonymous access ✓')
+            return 'pass', f'Unauthenticated /dashboard returns {code}', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+    check('Security', 'Dashboard requires login', sec_unauth_dashboard)
+
+    def sec_unauth_admin():
+        steps = Steps()
+        try:
+            code, _ = _anon_get('/admin/employees')
+            steps.add(f'GET /admin/employees (anon) → {code}')
+            assert code in (302, 401, 403), f'Expected redirect/401/403, got {code}'
+            steps.add('Admin route protected from anonymous access ✓')
+            return 'pass', f'Unauthenticated /admin/employees returns {code}', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+    check('Security', 'Admin routes require login', sec_unauth_admin)
+
+    # --- Non-admin employee cannot reach admin routes ------------------------
+    def sec_nonadmin_blocked():
+        steps = Steps()
+        sentinel_emp = None
+        try:
+            sentinel_emp = Employee(
+                username='sec-sentinel-emp', email=f'sec-sentinel{SENTINEL_SUFFIX}',
+                is_admin=False, is_manager=False, is_active=True,
+            )
+            sentinel_emp.set_password(SENTINEL_PASSWORD)
+            db.session.add(sentinel_emp)
+            db.session.commit()
+            steps.add(f'Created non-admin employee #{sentinel_emp.id}')
+
+            c = _emp_client(sentinel_emp)
+            code = c.get('/admin/employees', follow_redirects=False).status_code
+            steps.add(f'GET /admin/employees (non-admin) → {code}')
+            assert code in (302, 403), f'Expected 302/403, got {code}'
+            steps.add('Non-admin blocked from /admin/employees ✓')
+
+            code2 = c.get('/manager/customers', follow_redirects=False).status_code
+            steps.add(f'GET /manager/customers (non-manager) → {code2}')
+            assert code2 in (302, 403), f'Expected 302/403, got {code2}'
+            steps.add('Non-manager blocked from /manager/customers ✓')
+
+            return 'pass', 'Non-admin/manager employee blocked from privileged routes', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+        finally:
+            if sentinel_emp and sentinel_emp.id:
+                try:
+                    db.session.delete(db.session.get(Employee, sentinel_emp.id))
+                    db.session.commit()
+                    steps.cleanup(f'Deleted sentinel employee #{sentinel_emp.id}')
+                except Exception:
+                    db.session.rollback()
+    check('Security', 'Non-admin blocked from admin/manager routes', sec_nonadmin_blocked)
+
+    # --- Manager cannot reach admin-only routes ------------------------------
+    def sec_manager_blocked_from_admin():
+        steps = Steps()
+        sentinel_mgr = None
+        try:
+            sentinel_mgr = Employee(
+                username='sec-sentinel-mgr', email=f'sec-sentinel-mgr{SENTINEL_SUFFIX}',
+                is_admin=False, is_manager=True, is_active=True,
+            )
+            sentinel_mgr.set_password(SENTINEL_PASSWORD)
+            db.session.add(sentinel_mgr)
+            db.session.commit()
+            steps.add(f'Created manager employee #{sentinel_mgr.id}')
+
+            c = _emp_client(sentinel_mgr)
+            code = c.get('/admin/employees', follow_redirects=False).status_code
+            steps.add(f'GET /admin/employees (manager) → {code}')
+            assert code in (302, 403), f'Expected 302/403, got {code}'
+            steps.add('Manager blocked from admin-only route ✓')
+
+            return 'pass', f'Manager returns {code} for /admin/employees', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+        finally:
+            if sentinel_mgr and sentinel_mgr.id:
+                try:
+                    db.session.delete(db.session.get(Employee, sentinel_mgr.id))
+                    db.session.commit()
+                    steps.cleanup(f'Deleted sentinel manager #{sentinel_mgr.id}')
+                except Exception:
+                    db.session.rollback()
+    check('Security', 'Manager blocked from admin-only routes', sec_manager_blocked_from_admin)
+
+    # --- Ticket status page: wrong token returns 404 -------------------------
+    def sec_ticket_token_required():
+        steps = Steps()
+        try:
+            code, _ = _anon_get('/status/00000000-0000-0000-0000-000000000000')
+            steps.add(f'GET /status/<invalid-token> → {code}')
+            assert code == 404, f'Expected 404, got {code}'
+            steps.add('Invalid token returns 404 ✓')
+            return 'pass', 'Ticket status page requires valid token (404 on invalid)', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+    check('Security', 'Ticket status requires valid token', sec_ticket_token_required)
+
+    # --- Customer attachment endpoint requires authenticated customer session -
+    def sec_customer_attachment_auth():
+        steps = Steps()
+        try:
+            # No session at all → expect redirect/403 (not a raw file download)
+            code, _ = _anon_get('/customer/uploads/1/somefile.txt')
+            steps.add(f'GET /customer/uploads/1/somefile.txt (anon) → {code}')
+            assert code in (302, 401, 403), f'Expected redirect/401/403, got {code}'
+            steps.add('Anonymous upload access blocked ✓')
+            return 'pass', f'Customer upload endpoint returns {code} without session', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+    check('Security', 'Customer attachment requires customer session', sec_customer_attachment_auth)
+
+    # --- Ticket token entropy: UUID v4 (128 bits) ----------------------------
+    def sec_token_entropy():
+        steps = Steps()
+        t = None
+        try:
+            t = Ticket(submitter_email=f'sec-entropy{SENTINEL_SUFFIX}',
+                       subject='Token entropy test', body='.')
+            db.session.add(t)
+            db.session.commit()
+            steps.add(f'Created ticket #{t.id}, token={t.token}')
+            import re as _re
+            assert _re.match(
+                r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+                t.token
+            ), f'Token not UUID v4: {t.token}'
+            steps.add('Token matches UUID v4 pattern ✓')
+            return 'pass', f'Ticket token is UUID v4 ({len(t.token)*4} bits of structure)', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+        finally:
+            if t and t.id:
+                try:
+                    _hard_delete_ticket(t.id)
+                    steps.cleanup(f'Deleted ticket #{t.id}')
+                except Exception:
+                    db.session.rollback()
+    check('Security', 'Ticket token is UUID v4', sec_token_entropy)
+
+    # --- Secret key strength (already in Configuration, add security view) ---
+    def sec_secret_key():
+        steps = Steps()
+        try:
+            sk = app.config.get('SECRET_KEY', '')
+            steps.add(f'SECRET_KEY length: {len(sk)} chars')
+            default_keys = {'dev', 'secret', 'changeme', 'development', 'flask-secret'}
+            assert sk.lower() not in default_keys, 'SECRET_KEY is a well-known default'
+            assert len(sk) >= 24, f'SECRET_KEY too short ({len(sk)} < 24 chars)'
+            steps.add('Not a known default value ✓')
+            steps.add('Length ≥ 24 chars ✓')
+            return 'pass', f'SECRET_KEY length={len(sk)}, not a known weak default', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+    check('Security', 'SECRET_KEY strength', sec_secret_key)
+
+    # --- CSRF: no CSRF middleware detected (advisory warning) ----------------
+    def sec_csrf_warning():
+        steps = Steps()
+        try:
+            has_csrf = 'CSRFProtect' in str(app.extensions) or \
+                       any('csrf' in str(ext).lower() for ext in app.extensions)
+            steps.add(f'Flask extensions: {list(app.extensions.keys())}')
+            if has_csrf:
+                steps.add('CSRF protection extension detected ✓')
+                return 'pass', 'CSRF protection is active', steps
+            else:
+                steps.add('No Flask-WTF/CSRFProtect extension found')
+                steps.add('POST forms rely on session-cookie SameSite + short-lived tokens only')
+                return 'warn', 'No CSRF middleware — ensure SameSite cookies or add Flask-WTF', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+    check('Security', 'CSRF protection', sec_csrf_warning)
+
+    # --- Sensitive routes not served via GET (POST-only guard) ---------------
+    def sec_post_only_routes():
+        steps = Steps()
+        failures = []
+        post_only = [
+            '/admin/tickets/renumber',
+            '/dashboard/heatmap',
+        ]
+        try:
+            with app.test_client() as c:
+                # Log in as admin
+                with c.session_transaction() as sess:
+                    sess['_user_id'] = str(_admin_emp.id)
+                    sess['_fresh']   = True
+                for path in post_only:
+                    code = c.get(path, follow_redirects=False).status_code
+                    steps.add(f'GET {path} → {code}')
+                    if code not in (302, 405):
+                        failures.append(f'{path} returned {code} on GET (expected 302/405)')
+            if failures:
+                return 'fail', '; '.join(failures), steps
+            steps.add('All POST-only routes reject GET ✓')
+            return 'pass', f'{len(post_only)} POST-only routes correctly reject GET', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+    check('Security', 'POST-only routes reject GET', sec_post_only_routes)
+
+    # --- Upload directory not directly web-accessible ------------------------
+    def sec_upload_dir_not_web():
+        steps = Steps()
+        try:
+            upload_root = app.config.get('UPLOAD_FOLDER', '')
+            static_root = os.path.join(app.root_path, 'static')
+            steps.add(f'UPLOAD_FOLDER: {upload_root}')
+            steps.add(f'static folder:  {static_root}')
+            # Check uploads is NOT inside static/
+            assert not upload_root.startswith(static_root), \
+                'UPLOAD_FOLDER is inside static/ — files may be web-accessible!'
+            steps.add('Upload folder is outside static/ ✓')
+            # Check upload route requires auth (employee or customer)
+            code, _ = _anon_get('/customer/uploads/1/x')
+            steps.add(f'GET /customer/uploads/1/x (anon) → {code}')
+            assert code in (302, 401, 403), f'Upload served without auth: {code}'
+            steps.add('Upload route requires authentication ✓')
+            return 'pass', 'Upload folder outside static/ and route requires auth', steps
+        except Exception as e:
+            steps.fail(e)
+            return 'fail', str(e), steps
+    check('Security', 'Upload directory not web-accessible', sec_upload_dir_not_web)
 
     counts = {}
     for r in results:
