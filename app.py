@@ -404,19 +404,24 @@ def notify_watchers(ticket, subject, body, exclude_employee_id=None, silent=Fals
 
 
 def notify_mentions(ticket, mentioned_usernames, sender_id):
-    """Email each @mentioned active employee, skipping anyone already notified
-    through the normal watcher / assignee notification path."""
+    """Add each @mentioned active employee as a watcher and email them.
+
+    Unlike the general watcher notification, the mention email is sent even if
+    the employee is already a watcher or the assignee — they are being directly
+    addressed. The sender themselves is the only person skipped.
+    """
     if not mentioned_usernames:
         return
-    app_name    = app.config['APP_NAME']
-    detail_url  = url_for('ticket_detail', ticket_id=ticket.id, _external=True)
-    assignee_id = ticket.assignment.employee_id if ticket.assignment else None
-    watcher_ids = {w.employee_id for w in TicketWatch.query.filter_by(ticket_id=ticket.id).all()}
-    excluded    = {eid for eid in [sender_id, assignee_id] if eid} | watcher_ids
+    app_name   = app.config['APP_NAME']
+    detail_url = url_for('ticket_detail', ticket_id=ticket.id, _external=True)
     for username in set(mentioned_usernames):
         emp = Employee.query.filter_by(username=username, is_active=True).first()
-        if emp is None or emp.id in excluded:
+        if emp is None or emp.id == sender_id:
             continue
+        # Add as watcher if not already watching
+        if not TicketWatch.query.filter_by(ticket_id=ticket.id, employee_id=emp.id).first():
+            db.session.add(TicketWatch(ticket_id=ticket.id, employee_id=emp.id))
+            db.session.commit()
         body = (
             f"You were mentioned in a message on Ticket #{ticket.id}.\n\n"
             f"Subject: {ticket.subject}\n\n"
