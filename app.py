@@ -709,7 +709,6 @@ def customer_reply(token):
                                     filename=stored_name, original_filename=original_name,
                                     size=size)
             db.session.add(attachment)
-            log_event(ticket, 'attachment', to_value=original_name)
         except Exception as e:
             db.session.rollback()
             app.logger.warning(f'Customer file upload failed: {e}')
@@ -1627,8 +1626,6 @@ def add_message(ticket_id):
                                     filename=stored_name, original_filename=original_name,
                                     size=size)
             db.session.add(attachment)
-            log_event(ticket, 'attachment', to_value=original_name,
-                      actor_id=current_user.id)
         except Exception as e:
             db.session.rollback()
             app.logger.warning(f'Inline file upload failed: {e}')

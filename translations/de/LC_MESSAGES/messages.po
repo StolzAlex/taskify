@@ -901,9 +901,8 @@ msgid "attached"
 msgstr "angehängt"
 
 #: templates/dashboard.html:463 templates/ticket.html:283
-#, fuzzy
 msgid "replied"
-msgstr "Antworten"
+msgstr "hat geantwortet"
 
 #: templates/customer/dashboard.html:328 templates/dashboard.html:468
 #: templates/ticket.html:295
@@ -931,14 +930,12 @@ msgid "added"
 msgstr "hinzugefügt"
 
 #: templates/dashboard.html:479 templates/ticket.html:312
-#, fuzzy
 msgid "as watcher"
-msgstr "Beobachtet"
+msgstr "als Beobachter"
 
 #: templates/dashboard.html:481 templates/ticket.html:314
-#, fuzzy
 msgid "removed watcher"
-msgstr "Datumsfilter entfernen"
+msgstr "hat Beobachter entfernt"
 
 #: templates/customer/dashboard.html:356 templates/dashboard.html:499
 #: templates/ticket.html:330
