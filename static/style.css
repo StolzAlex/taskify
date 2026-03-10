@@ -366,6 +366,20 @@ body {
   color: var(--bs-secondary-color);
 }
 
+.hc-rated {
+  position: relative;
+}
+.hc-rated::after {
+  content: '★';
+  position: absolute;
+  bottom: -1px;
+  right: 0px;
+  font-size: 7px;
+  line-height: 1;
+  color: #f0a500;
+  pointer-events: none;
+}
+
 .hc-selected {
   outline: 2px solid var(--bs-primary);
   outline-offset: 1px;

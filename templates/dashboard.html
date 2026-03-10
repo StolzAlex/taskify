@@ -59,19 +59,34 @@
       </div>
     </a>
   </div>
-  {% if stats.avg_rating %}
+  {% if stats.team_avg_rating %}
   <div class="col-6 col-md-3">
     <div class="card shadow-sm h-100">
-      <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
-        <span class="fs-3 fw-bold text-warning lh-1">{{ '%.1f'|format(stats.avg_rating) }}</span>
-        <span class="small text-muted">
-          <div>{{ _('Avg. Rating') }}</div>
-          <div>
+      <div class="card-body py-2 px-3">
+        <div class="d-flex align-items-center gap-3 mb-1">
+          <span class="fs-3 fw-bold text-warning lh-1">{{ '%.1f'|format(stats.avg_rating) if stats.avg_rating else '—' }}</span>
+          <span class="small text-muted">
+            <div>{{ _('Avg. Rating') }}</div>
+            <div>
+              {% if stats.avg_rating %}
+              {% for i in range(1, 6) %}
+              <i class="bi {{ 'bi-star-fill text-warning' if i <= stats.avg_rating|round else 'bi-star text-muted' }}" style="font-size:.75rem;"></i>
+              {% endfor %}
+              <span class="text-muted" style="font-size:.7rem;">({{ stats.rating_count }})</span>
+              {% else %}—{% endif %}
+            </div>
+          </span>
+        </div>
+        <div class="border-top pt-1 d-flex align-items-center gap-2">
+          <span class="fw-semibold text-warning" style="font-size:.85rem;">{{ '%.1f'|format(stats.team_avg_rating) }}</span>
+          <span class="small text-muted">
+            {{ _('Team') }}
             {% for i in range(1, 6) %}
-            <i class="bi {{ 'bi-star-fill text-warning' if i <= stats.avg_rating|round else 'bi-star text-muted' }}" style="font-size:.75rem;"></i>
+            <i class="bi {{ 'bi-star-fill text-warning' if i <= stats.team_avg_rating|round else 'bi-star text-muted' }}" style="font-size:.65rem;"></i>
             {% endfor %}
-          </div>
-        </span>
+            <span style="font-size:.7rem;">({{ stats.team_rating_count }})</span>
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -128,9 +143,9 @@
                 <div class="heatmap-cell hc-0 hc-future"></div>
                 {% else %}
                 <a href="{{ url_for('dashboard', view=view, date=d.date) }}"
-                   class="heatmap-cell hc-{{ level }}{% if d.date == date_filter %} hc-selected{% endif %}"
+                   class="heatmap-cell hc-{{ level }}{% if d.date == date_filter %} hc-selected{% endif %}{% if d.rated %} hc-rated{% endif %}"
                    data-bs-toggle="tooltip"
-                   data-bs-title="{{ d.count }} {{ _('ticket') if d.count == 1 else _('tickets') }} · {{ d.date }}"></a>
+                   data-bs-title="{{ d.count }} {{ _('ticket') if d.count == 1 else _('tickets') }}{% if d.rated %} · ★{% endif %} · {{ d.date }}"></a>
                 {% endif %}
                 {% endfor %}
               </div>

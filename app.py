@@ -1347,6 +1347,15 @@ def dashboard():
         'avg_rating':    _stats_base().with_entities(
                              db.func.avg(Ticket.satisfaction_rating)
                          ).filter(Ticket.satisfaction_rating.isnot(None)).scalar(),
+        'rating_count':  _stats_base().filter(
+                             Ticket.satisfaction_rating.isnot(None)
+                         ).count(),
+        'team_avg_rating': Ticket.query.with_entities(
+                             db.func.avg(Ticket.satisfaction_rating)
+                         ).filter(Ticket.satisfaction_rating.isnot(None)).scalar(),
+        'team_rating_count': Ticket.query.filter(
+                             Ticket.satisfaction_rating.isnot(None)
+                         ).count(),
         # Tab badge counts are always global so they don't zero out when active
         'mine':          Ticket.query.join(Assignment).filter(
                              Assignment.employee_id == current_user.id,
@@ -1371,12 +1380,21 @@ def dashboard():
                 .group_by(db.func.date(Ticket.created_at))
                 .all())
         _cnt_map    = {str(r.day): r.cnt for r in _raw}
+        _rated_days = {
+            str(r[0]) for r in
+            Ticket.query.with_entities(db.func.date(Ticket.satisfaction_submitted_at))
+            .filter(
+                Ticket.satisfaction_submitted_at.isnot(None),
+                Ticket.satisfaction_submitted_at >= _hm_start_dt,
+            ).distinct().all()
+        }
         heatmap_weeks, _cur, _prev_month = [], _hm_start, None
         while _cur <= _today:
             days = []
             for i in range(7):
                 _d = _cur + timedelta(days=i)
-                days.append({'date': str(_d), 'count': _cnt_map.get(str(_d), 0), 'future': _d > _today})
+                days.append({'date': str(_d), 'count': _cnt_map.get(str(_d), 0),
+                             'rated': str(_d) in _rated_days, 'future': _d > _today})
             month_label = _cur.strftime('%b') if _cur.month != _prev_month else ''
             if month_label:
                 _prev_month = _cur.month
