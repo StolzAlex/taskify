@@ -416,31 +416,61 @@
 
         {# Watcher list + add watcher #}
         <hr class="my-0 mb-3 mt-3">
+        {% set emp_watchers  = watchers | selectattr('employee') | list %}
+        {% set cust_watchers = watchers | selectattr('customer') | list %}
+        {% set watcher_count = watchers | length %}
         <div class="mb-1">
-          <label class="form-label small fw-semibold text-muted mb-1">
-            <i class="bi bi-eye me-1"></i>{{ _('Watchers') }}
-          </label>
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <label class="form-label small fw-semibold text-muted mb-0">
+              <i class="bi bi-eye me-1"></i>{{ _('Watchers') }}
+              {% if watcher_count %}<span class="badge rounded-pill bg-secondary ms-1">{{ watcher_count }}</span>{% endif %}
+            </label>
+            {% if watcher_count %}
+            <button class="btn btn-link btn-sm p-0 text-muted" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#watcherList"
+                    aria-expanded="{{ 'false' if watcher_count > 3 else 'true' }}">
+              <i class="bi bi-chevron-up small" id="watcherChevron"></i>
+            </button>
+            {% endif %}
+          </div>
+
           {% if watchers %}
-          <ul class="list-unstyled mb-2">
-            {% for w in watchers %}
-            <li class="d-flex align-items-center justify-content-between py-1 border-bottom">
-              <span class="small">
-                {% if w.employee %}
-                  <i class="bi bi-person me-1 text-muted"></i>{{ w.employee.username }}
-                {% elif w.customer %}
-                  <i class="bi bi-person-circle me-1 text-muted"></i>{{ w.customer.name }}
-                {% endif %}
-              </span>
-              <form method="post" action="{{ url_for('remove_watcher', ticket_id=ticket.id, watch_id=w.id) }}" class="d-inline">
-                <button type="submit" class="btn btn-link btn-sm text-danger p-0 ms-2"
-                        title="{{ _('Remove watcher') }}"
-                        onclick="return confirm('{{ _('Remove this watcher?') }}')">
-                  <i class="bi bi-x-lg"></i>
-                </button>
-              </form>
-            </li>
-            {% endfor %}
-          </ul>
+          <div class="collapse {{ 'show' if watcher_count <= 3 else '' }}" id="watcherList">
+            {% if emp_watchers %}
+            <p class="text-muted mb-1" style="font-size:0.7rem;letter-spacing:.04em;">{{ _('STAFF') }}</p>
+            <ul class="list-unstyled mb-2">
+              {% for w in emp_watchers %}
+              <li class="d-flex align-items-center justify-content-between py-1 border-bottom">
+                <span class="small"><i class="bi bi-person me-1 text-primary opacity-75"></i>{{ w.employee.username }}</span>
+                <form method="post" action="{{ url_for('remove_watcher', ticket_id=ticket.id, watch_id=w.id) }}" class="d-inline">
+                  <button type="submit" class="btn btn-link btn-sm text-danger p-0 ms-2"
+                          title="{{ _('Remove watcher') }}"
+                          onclick="return confirm('{{ _('Remove this watcher?') }}')">
+                    <i class="bi bi-x-lg" style="font-size:.7rem"></i>
+                  </button>
+                </form>
+              </li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            {% if cust_watchers %}
+            <p class="text-muted mb-1" style="font-size:0.7rem;letter-spacing:.04em;">{{ _('CUSTOMERS') }}</p>
+            <ul class="list-unstyled mb-2">
+              {% for w in cust_watchers %}
+              <li class="d-flex align-items-center justify-content-between py-1 border-bottom">
+                <span class="small"><i class="bi bi-person-heart me-1 text-success opacity-75"></i>{{ w.customer.name }}</span>
+                <form method="post" action="{{ url_for('remove_watcher', ticket_id=ticket.id, watch_id=w.id) }}" class="d-inline">
+                  <button type="submit" class="btn btn-link btn-sm text-danger p-0 ms-2"
+                          title="{{ _('Remove watcher') }}"
+                          onclick="return confirm('{{ _('Remove this watcher?') }}')">
+                    <i class="bi bi-x-lg" style="font-size:.7rem"></i>
+                  </button>
+                </form>
+              </li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
           {% else %}
           <p class="small text-muted mb-2">{{ _('No watchers yet.') }}</p>
           {% endif %}

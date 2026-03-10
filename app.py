@@ -413,7 +413,10 @@ def notify_watchers(ticket, subject, body, exclude_employee_id=None, silent=Fals
     already receive their own notification via notify_submitter_update.
     """
     assignee_id = ticket.assignment.employee_id if ticket.assignment else None
-    excluded_emp = {eid for eid in [exclude_employee_id, assignee_id] if eid}
+    # Exclude the submitter employee if the ticket was submitted by a staff member
+    submitter_emp = Employee.query.filter(Employee.email.ilike(ticket.submitter_email)).first()
+    excluded_emp = {eid for eid in [exclude_employee_id, assignee_id,
+                                    submitter_emp.id if submitter_emp else None] if eid}
     # Exclude the submitter from customer-watcher emails (they get a direct notification)
     submitter_cust = Customer.query.filter(
         Customer.email.ilike(ticket.submitter_email)).first()
@@ -1553,11 +1556,24 @@ def ticket_detail(ticket_id):
     watchers = TicketWatch.query.filter_by(ticket_id=ticket_id).all()
     watching_emp_ids  = {w.employee_id for w in watchers if w.employee_id}
     watching_cust_ids = {w.customer_id for w in watchers if w.customer_id}
-    addable_employees = [e for e in employees if e.id not in watching_emp_ids]
+    assignee_id = ticket.assignment.employee_id if ticket.assignment else None
+    submitter_emp_id = submitter_employee.id if submitter_employee else None
+    # Exclude already-watching, the assignee, and the submitter employee — all are
+    # already notified directly and excluded from watcher emails in notify_watchers
+    addable_employees = [
+        e for e in employees
+        if e.id not in watching_emp_ids
+        and e.id != assignee_id
+        and e.id != submitter_emp_id
+    ]
     if ticket.group_id:
+        # Exclude already-watching customers and the ticket submitter (already notified
+        # directly and excluded from customer-watcher emails in notify_watchers)
         addable_customers = [
             c for c in ticket.group.customers
-            if c.is_active and c.id not in watching_cust_ids
+            if c.is_active
+            and c.id not in watching_cust_ids
+            and (not submitter_customer or c.id != submitter_customer.id)
         ]
         addable_customers.sort(key=lambda c: c.name)
     else:
