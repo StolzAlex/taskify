@@ -2222,7 +2222,6 @@ def admin_renumber_tickets():
 
     raw = db.engine.raw_connection()
     try:
-        raw.execute('PRAGMA foreign_keys = OFF')
         cur = raw.cursor()
         # Phase 1: move to safe temp IDs to avoid PK conflicts
         for old_id, new_id in mapping.items():
@@ -2240,13 +2239,11 @@ def admin_renumber_tickets():
             cur.execute('UPDATE tickets SET id=? WHERE id=?', (new_id, temp))
             for tbl in child_tables:
                 cur.execute(f'UPDATE {tbl} SET ticket_id=? WHERE ticket_id=?', (new_id, temp))
-        # Reset autoincrement counter
+        # Reset autoincrement counter (table only exists when AUTOINCREMENT is used; ignore if absent)
         cur.execute("UPDATE sqlite_sequence SET seq=? WHERE name='tickets'", (max(mapping.values()),))
-        raw.execute('PRAGMA foreign_keys = ON')
         raw.commit()
     except Exception:
         raw.rollback()
-        raw.execute('PRAGMA foreign_keys = ON')
         raise
     finally:
         raw.close()
