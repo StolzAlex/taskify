@@ -212,9 +212,36 @@ def age_class_filter(dt):
     return 'text-danger fw-bold'
 
 
+_VIEW_AS_ROLES = {
+    'manager':  dict(is_admin=False, is_manager=True),
+    'employee': dict(is_admin=False, is_manager=False),
+}
+
+
+class _ViewAsProxy:
+    """Wraps an Employee and overrides role flags for UI role simulation.
+
+    Only the is_admin / is_manager flags are changed; every other attribute
+    is transparently delegated to the real employee object.
+    """
+    def __init__(self, emp, role):
+        object.__setattr__(self, '_emp', emp)
+        object.__setattr__(self, '_role', role)
+        flags = _VIEW_AS_ROLES.get(role, {})
+        object.__setattr__(self, 'is_admin',   flags.get('is_admin', emp.is_admin))
+        object.__setattr__(self, 'is_manager', flags.get('is_manager', emp.is_manager))
+
+    def __getattr__(self, name):
+        return getattr(object.__getattribute__(self, '_emp'), name)
+
+    def __repr__(self):
+        return f'<_ViewAsProxy role={self._role} user={self._emp!r}>'
+
+
 @app.context_processor
 def inject_globals():
-    return {
+    view_as_role = session.get('view_as_role') if current_user.is_authenticated else None
+    ctx = {
         'now': datetime.utcnow(),
         'status_label': status_label,
         'get_locale': get_locale,
@@ -225,7 +252,14 @@ def inject_globals():
         'github_org': app.config.get('GITHUB_ORG', ''),
         'github_ref_label': github_ref_label,
         'app_name': app.config.get('APP_NAME', 'Taskify'),
+        'view_as_role': view_as_role,
     }
+    # Override current_user in templates with a role proxy so UI reflects the
+    # simulated role.  Actual route guards still use the real current_user so
+    # the admin can always navigate back.
+    if view_as_role and view_as_role in _VIEW_AS_ROLES and current_user.is_authenticated:
+        ctx['current_user'] = _ViewAsProxy(current_user._get_current_object(), view_as_role)
+    return ctx
 
 
 
@@ -2246,6 +2280,27 @@ def admin_employees_delete_bulk():
     db.session.commit()
     flash(_('%(n)d employee(s) deleted.', n=deleted), 'success')
     return redirect(url_for('admin_employees'))
+
+
+# ---------------------------------------------------------------------------
+# Role simulation (admin only)
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/view-as', methods=['POST'])
+@login_required
+@admin_required
+def admin_view_as():
+    role = request.form.get('role', '')
+    next_url = request.form.get('next') or url_for('dashboard')
+    if role in _VIEW_AS_ROLES:
+        session['view_as_role'] = role
+        label = _('Manager') if role == 'manager' else _('Employee')
+        flash(_('Now viewing as: %(role)s. Use "Return to Admin" to switch back.',
+                role=label), 'warning')
+    else:
+        session.pop('view_as_role', None)
+        flash(_('Returned to admin view.'), 'success')
+    return redirect(next_url)
 
 
 # ---------------------------------------------------------------------------

@@ -47,12 +47,13 @@
             </a>
           </li>
 
-          {% if current_user.is_admin %}
+          {% if current_user.is_admin or view_as_role %}
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            <a class="nav-link dropdown-toggle {% if view_as_role %}text-warning{% endif %}" href="#" role="button" data-bs-toggle="dropdown">
               <i class="bi bi-shield-lock me-1"></i>{{ _('Admin') }}
             </a>
             <ul class="dropdown-menu dropdown-menu-end">
+              {% if not view_as_role %}
               <li>
                 <a class="dropdown-item" href="{{ url_for('admin_employees') }}">
                   <i class="bi bi-people me-2"></i>{{ _('Employees') }}
@@ -74,6 +75,37 @@
                   <i class="bi bi-clipboard2-pulse me-2"></i>{{ _('System Tests') }}
                 </a>
               </li>
+              <li><hr class="dropdown-divider"></li>
+              <li><h6 class="dropdown-header">{{ _('View as…') }}</h6></li>
+              <li>
+                <form method="post" action="{{ url_for('admin_view_as') }}">
+                  <input type="hidden" name="role" value="manager">
+                  <input type="hidden" name="next" value="{{ request.path }}">
+                  <button type="submit" class="dropdown-item">
+                    <i class="bi bi-person-badge me-2"></i>{{ _('Manager') }}
+                  </button>
+                </form>
+              </li>
+              <li>
+                <form method="post" action="{{ url_for('admin_view_as') }}">
+                  <input type="hidden" name="role" value="employee">
+                  <input type="hidden" name="next" value="{{ request.path }}">
+                  <button type="submit" class="dropdown-item">
+                    <i class="bi bi-person me-2"></i>{{ _('Employee') }}
+                  </button>
+                </form>
+              </li>
+              {% else %}
+              <li>
+                <form method="post" action="{{ url_for('admin_view_as') }}">
+                  <input type="hidden" name="role" value="">
+                  <input type="hidden" name="next" value="{{ request.path }}">
+                  <button type="submit" class="dropdown-item text-success fw-semibold">
+                    <i class="bi bi-shield-lock me-2"></i>{{ _('Return to Admin') }}
+                  </button>
+                </form>
+              </li>
+              {% endif %}
             </ul>
           </li>
           {% endif %}
@@ -171,6 +203,22 @@
 
 <main class="flex-grow-1 py-4">
   <div class="container-xl">
+    {% if view_as_role %}
+    <div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-3">
+      <span>
+        <i class="bi bi-eye me-2"></i>
+        <strong>{{ _('Preview mode') }}:</strong>
+        {{ _('Manager') if view_as_role == 'manager' else _('Employee') }}
+      </span>
+      <form method="post" action="{{ url_for('admin_view_as') }}" class="mb-0">
+        <input type="hidden" name="role" value="">
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <button type="submit" class="btn btn-sm btn-warning fw-semibold">
+          <i class="bi bi-shield-lock me-1"></i>{{ _('Return to Admin') }}
+        </button>
+      </form>
+    </div>
+    {% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
