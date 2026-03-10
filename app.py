@@ -2220,33 +2220,28 @@ def admin_renumber_tickets():
     max_id = max(mapping.keys())
     offset = max_id + 10000
 
-    raw = db.engine.raw_connection()
-    try:
-        cur = raw.cursor()
+    # Release the ORM session's connection back to the pool before acquiring a
+    # write connection. SQLite (journal_mode=delete) allows only one writer, so
+    # holding the session connection open while opening a second one deadlocks.
+    db.session.close()
+
+    with db.engine.begin() as conn:
         # Phase 1: move to safe temp IDs to avoid PK conflicts
         for old_id, new_id in mapping.items():
             if old_id == new_id:
                 continue
             temp = old_id + offset
-            cur.execute('UPDATE tickets SET id=? WHERE id=?', (temp, old_id))
+            conn.execute(db.text(f'UPDATE tickets SET id={temp} WHERE id={old_id}'))
             for tbl in child_tables:
-                cur.execute(f'UPDATE {tbl} SET ticket_id=? WHERE ticket_id=?', (temp, old_id))
+                conn.execute(db.text(f'UPDATE {tbl} SET ticket_id={temp} WHERE ticket_id={old_id}'))
         # Phase 2: move from temp IDs to final IDs
         for old_id, new_id in mapping.items():
             if old_id == new_id:
                 continue
             temp = old_id + offset
-            cur.execute('UPDATE tickets SET id=? WHERE id=?', (new_id, temp))
+            conn.execute(db.text(f'UPDATE tickets SET id={new_id} WHERE id={temp}'))
             for tbl in child_tables:
-                cur.execute(f'UPDATE {tbl} SET ticket_id=? WHERE ticket_id=?', (new_id, temp))
-        # Reset autoincrement counter (table only exists when AUTOINCREMENT is used; ignore if absent)
-        cur.execute("UPDATE sqlite_sequence SET seq=? WHERE name='tickets'", (max(mapping.values()),))
-        raw.commit()
-    except Exception:
-        raw.rollback()
-        raise
-    finally:
-        raw.close()
+                conn.execute(db.text(f'UPDATE {tbl} SET ticket_id={new_id} WHERE ticket_id={temp}'))
 
     # Rename upload directories (safe to do in ascending old_id order: new_id ≤ old_id always)
     upload_root = app.config['UPLOAD_FOLDER']
