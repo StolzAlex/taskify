@@ -282,6 +282,28 @@
                 <strong>{{ submitter_customer.name if submitter_customer else (submitter_employee.username if submitter_employee else ticket.submitter_email) }}</strong>
                 {{ _('replied') }}
               </span>
+            {% elif ev.event_type == 'ticket_created' %}
+              <i class="bi bi-plus-circle text-success mt-1 flex-shrink-0"></i>
+              <span class="flex-grow-1">
+                {% if submitter_customer %}
+                  <strong>{{ submitter_customer.name }}</strong>
+                {% elif submitter_employee %}
+                  <strong>{{ submitter_employee.username }}</strong>
+                {% else %}
+                  <strong>{{ ev.to_value or ticket.submitter_email }}</strong>
+                {% endif %}
+                {{ _('submitted this ticket') }}
+              </span>
+            {% elif ev.event_type in ('message_added', 'email_received') %}
+              <i class="bi bi-chat-left-text text-primary mt-1 flex-shrink-0"></i>
+              <span class="flex-grow-1">
+                <strong>{{ ev.actor.username if ev.actor else _('Support Team') }}</strong>
+                {% if ev.to_value == 'internal' %}
+                  {{ _('added an internal message') }}
+                {% else %}
+                  {{ _('added a message') }}
+                {% endif %}
+              </span>
             {% elif ev.event_type == 'watcher' %}
               <i class="bi bi-eye text-secondary mt-1 flex-shrink-0"></i>
               <span class="flex-grow-1">
