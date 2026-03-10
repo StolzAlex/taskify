@@ -386,22 +386,6 @@ def notify_mentions(ticket, mentioned_usernames, sender_id):
         )
 
 
-def send_customer_welcome_email(customer, plain_password):
-    login_url = url_for('customer_login', _external=True)
-    body = (
-        f"Welcome to {app.config['APP_NAME']}!\n\n"
-        f"Your customer account has been created.\n\n"
-        f"Email: {customer.email}\n"
-        f"Password: {plain_password}\n\n"
-        f"Login at: {login_url}\n\n"
-        f"Please change your password after first login."
-    )
-    send_email(
-        subject=f"{app.config['APP_NAME']} \u2013 Your Customer Account",
-        recipients=[customer.email],
-        body_text=body,
-    )
-
 
 def _make_setup_token(user):
     """Generate a 72-hour password-setup token, persist it, and return it."""
@@ -1057,12 +1041,12 @@ def dashboard():
             date_filter = ''
 
     query = Ticket.query
-    # Hide closed tickets by default unless explicitly requested
+    # Hide closed and resolved tickets by default unless explicitly requested
     hide_closed = not status_filter and not unassigned_filter and not resolved_week_filter and not date_filter
     if status_filter:
         query = query.filter(Ticket.status == status_filter)
     elif hide_closed:
-        query = query.filter(Ticket.status != 'closed')
+        query = query.filter(Ticket.status.notin_(['closed', 'resolved']))
     if q:
         msg_ids = db.session.query(Message.ticket_id).filter(Message.body.ilike(f'%{q}%'))
         query = query.filter(db.or_(
@@ -1126,13 +1110,16 @@ def dashboard():
         .distinct().all()
     } if ticket_ids else set()
 
-    # Build customer lookup for submitter column
+    # Build name lookups for the submitter column
     submitter_emails = [t.submitter_email.lower() for t in tickets]
     if submitter_emails:
         customer_map = {c.email.lower(): c for c in Customer.query.filter(
             db.func.lower(Customer.email).in_(submitter_emails)).all()}
+        employee_map = {e.email.lower(): e for e in Employee.query.filter(
+            db.func.lower(Employee.email).in_(submitter_emails)).all()}
     else:
         customer_map = {}
+        employee_map = {}
 
     # Only groups that have at least one ticket assigned
     groups = Group.query.filter(Group.tickets.any()).order_by(Group.name).all()
@@ -1154,6 +1141,20 @@ def dashboard():
         recent_events = (TicketEvent.query
                          .order_by(TicketEvent.created_at.desc())
                          .limit(20).all())
+
+    # Extend name lookups to cover event ticket submitters
+    event_ticket_ids = list({ev.ticket_id for ev in recent_events})
+    if event_ticket_ids:
+        extra_emails = {
+            row[0].lower() for row in
+            db.session.query(Ticket.submitter_email)
+            .filter(Ticket.id.in_(event_ticket_ids)).all()
+        } - set(customer_map.keys()) - set(employee_map.keys())
+        if extra_emails:
+            customer_map.update({c.email.lower(): c for c in Customer.query.filter(
+                db.func.lower(Customer.email).in_(list(extra_emails))).all()})
+            employee_map.update({e.email.lower(): e for e in Employee.query.filter(
+                db.func.lower(Employee.email).in_(list(extra_emails))).all()})
 
     week_ago = datetime.utcnow() - timedelta(days=7)
     active_statuses = ['open', 'in_progress']
@@ -1235,7 +1236,8 @@ def dashboard():
                            hide_closed=hide_closed,
                            heatmap_weeks=heatmap_weeks,
                            show_heatmap=show_heatmap,
-                           date_filter=date_filter)
+                           date_filter=date_filter,
+                           employee_map=employee_map)
 
 
 @app.route('/search')
@@ -1377,6 +1379,8 @@ def ticket_detail(ticket_id):
         ticket_id=ticket_id, employee_id=current_user.id).first() is not None
     submitter_customer = Customer.query.filter(
         Customer.email.ilike(ticket.submitter_email)).first()
+    submitter_employee = None if submitter_customer else Employee.query.filter(
+        Employee.email.ilike(ticket.submitter_email)).first()
     if submitter_customer and submitter_customer.groups:
         groups = sorted(submitter_customer.groups, key=lambda g: g.name)
     else:
@@ -1385,6 +1389,7 @@ def ticket_detail(ticket_id):
                            status_choices=Ticket.STATUS_CHOICES, events=events,
                            is_watching=is_watching,
                            submitter_customer=submitter_customer,
+                           submitter_employee=submitter_employee,
                            groups=groups)
 
 
@@ -1979,7 +1984,6 @@ def edit_employee(emp_id):
             abort(403)
     username = request.form.get('username', '').strip()
     email    = request.form.get('email', '').strip().lower()
-    password = request.form.get('password', '').strip()
     if not username or not email:
         flash(_('Name and email are required.'), 'danger')
         return redirect(url_for('admin_employees'))
@@ -1992,12 +1996,6 @@ def edit_employee(emp_id):
         return redirect(url_for('admin_employees'))
     emp.username = username
     emp.email    = email
-    if password:
-        pw_error = _validate_password(password)
-        if pw_error:
-            flash(pw_error, 'danger')
-            return redirect(url_for('admin_employees'))
-        emp.set_password(password)
     if current_user.is_admin and emp.id != current_user.id:
         new_is_admin   = 'is_admin'   in request.form
         new_is_manager = 'is_manager' in request.form and not new_is_admin
@@ -2022,7 +2020,6 @@ def edit_customer(cust_id):
     customer = db.session.get(Customer, cust_id) or abort(404)
     name     = request.form.get('name', '').strip()
     email    = request.form.get('email', '').strip().lower()
-    password = request.form.get('password', '').strip()
     if not name or not email:
         flash(_('Name and email are required.'), 'danger')
         return redirect(url_for('manager_customers'))
@@ -2035,14 +2032,32 @@ def edit_customer(cust_id):
         request.form.getlist('group_ids', type=int),
         request.form.get('new_group', '').strip(),
     )
-    if password:
-        pw_error = _validate_password(password)
-        if pw_error:
-            flash(pw_error, 'danger')
-            return redirect(url_for('manager_customers'))
-        customer.set_password(password)
     db.session.commit()
     flash(_('Customer "%(name)s" updated.', name=customer.name), 'success')
+    return redirect(url_for('manager_customers'))
+
+
+@app.route('/admin/employees/<int:emp_id>/send-reset', methods=['POST'])
+@login_required
+@admin_required
+def send_reset_employee(emp_id):
+    emp = db.session.get(Employee, emp_id) or abort(404)
+    token = _make_setup_token(emp)
+    setup_url = url_for('setup_password', token=token, _external=True)
+    send_setup_email(emp.email, emp.username, setup_url)
+    flash(_('A password reset link has been sent to %(email)s.', email=emp.email), 'success')
+    return redirect(url_for('admin_employees'))
+
+
+@app.route('/manager/customers/<int:cust_id>/send-reset', methods=['POST'])
+@login_required
+@manager_required
+def send_reset_customer(cust_id):
+    customer = db.session.get(Customer, cust_id) or abort(404)
+    token = _make_setup_token(customer)
+    setup_url = url_for('setup_password', token=token, _external=True)
+    send_setup_email(customer.email, customer.name, setup_url)
+    flash(_('A password reset link has been sent to %(email)s.', email=customer.email), 'success')
     return redirect(url_for('manager_customers'))
 
 

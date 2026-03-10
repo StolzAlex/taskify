@@ -108,6 +108,7 @@
               <td class="text-nowrap">
                 <button type="button" class="btn btn-sm btn-outline-secondary edit-customer-btn"
                         data-action="{{ url_for('edit_customer', cust_id=cust.id) }}"
+                        data-reset-url="{{ url_for('send_reset_customer', cust_id=cust.id) }}"
                         data-name="{{ cust.name|e }}"
                         data-email="{{ cust.email|e }}"
                         data-group-ids="{{ cust.groups|map(attribute='id')|list|tojson }}"
@@ -267,19 +268,17 @@
             <input type="text" class="form-control form-control-sm" name="new_group"
                    id="editNewGroup" placeholder="{{ _('Add new project\u2026') }}">
           </div>
-          <div class="mb-1">
-            <label class="form-label small fw-semibold">{{ _('New Password') }}</label>
-            <input type="password" name="password" id="editPwInput" class="form-control form-control-sm"
-                   placeholder="{{ _('Leave blank to keep current') }}" autocomplete="new-password">
-            <div class="invalid-feedback" id="editPwError"></div>
-            <div class="form-text">{{ _('Min. 12 characters, including uppercase, lowercase, digit and special character.') }}</div>
-          </div>
-        </div>
-        <div class="modal-footer py-2">
-          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
-          <button type="submit" class="btn btn-primary btn-sm">{{ _('Save') }}</button>
         </div>
       </form>
+      <form id="resetPwForm" method="post"></form>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="submit" form="resetPwForm" class="btn btn-outline-secondary btn-sm"
+                onclick="return confirm('{{ _('Send a password reset link to this customer?') }}')">
+          <i class="bi bi-envelope me-1"></i>{{ _('Send Reset Link') }}
+        </button>
+        <button type="submit" form="editUserForm" class="btn btn-primary btn-sm">{{ _('Save') }}</button>
+      </div>
     </div>
   </div>
 </div>
@@ -318,28 +317,17 @@ document.getElementById('bulkDeleteCustomerModal') && document.getElementById('b
   });
 });
 
-(function () {
-  // Edit modal form
-  var editForm  = document.getElementById('editUserForm');
-  var editInput = document.getElementById('editPwInput');
-  var editErr   = document.getElementById('editPwError');
-  attachPasswordValidation(editForm, editInput, editErr, false);
-})();
-
 document.querySelectorAll('.edit-customer-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var groupIds = JSON.parse(this.dataset.groupIds || '[]');
     var modalEl  = document.getElementById('editUserModal');
     document.getElementById('editUserForm').action = this.dataset.action;
+    document.getElementById('resetPwForm').action = this.dataset.resetUrl;
     document.getElementById('editCustomerModalTitle').innerHTML =
       '<i class="bi bi-pencil me-1"></i>' + this.dataset.name;
     document.getElementById('editName').value  = this.dataset.name;
     document.getElementById('editEmail').value = this.dataset.email;
     document.getElementById('editNewGroup').value = '';
-    var pw = document.getElementById('editPwInput');
-    pw.value = '';
-    pw.classList.remove('is-invalid', 'is-valid');
-    document.getElementById('editPwError').textContent = '';
     var sel = document.getElementById('editGroupIds');
     if (sel) {
       for (var i = 0; i < sel.options.length; i++) {

@@ -52,6 +52,9 @@
             {% for grp in submitter_customer.groups %}
             <span class="badge bg-secondary ms-1">{{ grp.name }}</span>
             {% endfor %}
+          {% elif submitter_employee %}
+            <strong class="text-dark">{{ submitter_employee.username }}</strong>
+            <span class="ms-1">&lt;{{ ticket.submitter_email }}&gt;</span>
           {% else %}
             <i class="bi bi-envelope me-1"></i>{{ ticket.submitter_email }}
           {% endif %}
@@ -87,8 +90,7 @@
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="small fw-semibold">
-              <i class="bi bi-person me-1"></i>{{ _('Customer') }}
-              <span class="text-muted fw-normal ms-1">{{ ticket.submitter_email }}</span>
+              <i class="bi bi-person me-1"></i>{{ submitter_customer.name if submitter_customer else (submitter_employee.username if submitter_employee else ticket.submitter_email) }}
             </span>
             <span class="text-muted small">{{ msg.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
           </div>
@@ -204,7 +206,15 @@
             {% if ev.event_type == 'status' %}
               <i class="bi bi-arrow-repeat text-warning mt-1 flex-shrink-0"></i>
               <span class="flex-grow-1">
-                <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                {% if ev.actor %}
+                  <strong>{{ ev.actor.username }}</strong>
+                {% elif submitter_customer %}
+                  <strong>{{ submitter_customer.name }}</strong>
+                {% elif submitter_employee %}
+                  <strong>{{ submitter_employee.username }}</strong>
+                {% else %}
+                  <strong>{{ ticket.submitter_email }}</strong>
+                {% endif %}
                 {{ _('changed status') }}
                 <span class="badge bg-secondary">{{ status_label(ev.from_value) }}</span>
                 → <span class="badge bg-{{ {'open':'secondary','in_progress':'primary','resolved':'success','closed':'dark'}.get(ev.to_value,'secondary') }}">{{ status_label(ev.to_value) }}</span>
@@ -255,7 +265,10 @@
               </span>
             {% elif ev.event_type == 'customer_reply' %}
               <i class="bi bi-person-exclamation text-warning mt-1 flex-shrink-0"></i>
-              <span class="flex-grow-1 text-muted">{{ _('Customer replied') }}</span>
+              <span class="flex-grow-1 text-muted">
+                <strong>{{ submitter_customer.name if submitter_customer else (submitter_employee.username if submitter_employee else ticket.submitter_email) }}</strong>
+                {{ _('replied') }}
+              </span>
             {% elif ev.event_type == 'mantis_history' %}
               <i class="bi bi-bug text-secondary mt-1 flex-shrink-0"></i>
               <span class="flex-grow-1 text-muted">

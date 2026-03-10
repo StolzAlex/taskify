@@ -129,7 +129,7 @@
                   {# Own row: admins and managers can edit themselves #}
                   {% if current_user.is_admin or current_user.is_manager %}
                   <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
-                          onclick="openEditUser('{{ url_for('edit_employee', emp_id=emp.id) }}', '{{ emp.username }}', '{{ emp.email }}', {{ emp.is_admin|tojson }}, {{ emp.is_manager|tojson }}, true)"
+                          onclick="openEditUser('{{ url_for('edit_employee', emp_id=emp.id) }}', '{{ url_for('send_reset_employee', emp_id=emp.id) }}', '{{ emp.username }}', '{{ emp.email }}', {{ emp.is_admin|tojson }}, {{ emp.is_manager|tojson }}, true)"
                           aria-label="{{ _('Edit %(name)s', name=emp.username) }}"
                           title="{{ _('Edit') }}">
                     <i class="bi bi-pencil"></i>
@@ -147,7 +147,7 @@
                   {% endif %}
                   {% if can_edit %}
                   <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
-                          onclick="openEditUser('{{ url_for('edit_employee', emp_id=emp.id) }}', '{{ emp.username }}', '{{ emp.email }}', {{ emp.is_admin|tojson }}, {{ emp.is_manager|tojson }}, false)"
+                          onclick="openEditUser('{{ url_for('edit_employee', emp_id=emp.id) }}', '{{ url_for('send_reset_employee', emp_id=emp.id) }}', '{{ emp.username }}', '{{ emp.email }}', {{ emp.is_admin|tojson }}, {{ emp.is_manager|tojson }}, false)"
                           aria-label="{{ _('Edit %(name)s', name=emp.username) }}"
                           title="{{ _('Edit') }}">
                     <i class="bi bi-pencil"></i>
@@ -250,13 +250,6 @@
             <label class="form-label small fw-semibold">{{ _('Email') }}</label>
             <input type="email" name="email" id="editEmail" class="form-control form-control-sm" required>
           </div>
-          <div class="mb-1">
-            <label class="form-label small fw-semibold">{{ _('New Password') }}</label>
-            <input type="password" name="password" id="editPwInput" class="form-control form-control-sm"
-                   placeholder="{{ _('Leave blank to keep current') }}" autocomplete="new-password">
-            <div class="invalid-feedback" id="editPwError"></div>
-            <div class="form-text">{{ _('Min. 12 characters, including uppercase, lowercase, digit and special character.') }}</div>
-          </div>
           {% if current_user.is_admin %}
           <div class="mb-1 mt-3" id="editRoleSection">
             <label class="form-label small fw-semibold">{{ _('Role') }}</label>
@@ -277,11 +270,16 @@
           </div>
           {% endif %}
         </div>
-        <div class="modal-footer py-2">
-          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
-          <button type="submit" class="btn btn-primary btn-sm">{{ _('Save') }}</button>
-        </div>
       </form>
+      <form id="resetPwForm" method="post"></form>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="submit" form="resetPwForm" class="btn btn-outline-secondary btn-sm"
+                onclick="return confirm('{{ _('Send a password reset link to this employee?') }}')">
+          <i class="bi bi-envelope me-1"></i>{{ _('Send Reset Link') }}
+        </button>
+        <button type="submit" form="editUserForm" class="btn btn-primary btn-sm">{{ _('Save') }}</button>
+      </div>
     </div>
   </div>
 </div>
@@ -319,25 +317,14 @@ document.getElementById('bulkDeleteEmployeeModal').addEventListener('show.bs.mod
   });
 });
 
-(function () {
-  // Edit modal form
-  var editForm  = document.getElementById('editUserForm');
-  var editInput = document.getElementById('editPwInput');
-  var editErr   = document.getElementById('editPwError');
-  attachPasswordValidation(editForm, editInput, editErr, false);
-})();
-
-function openEditUser(action, username, email, isAdmin, isManager, isSelf) {
+function openEditUser(action, resetAction, username, email, isAdmin, isManager, isSelf) {
   var modalEl = document.getElementById('editUserModal');
   document.getElementById('editUserForm').action = action;
+  document.getElementById('resetPwForm').action = resetAction;
   document.getElementById('editUserModalTitle').innerHTML =
     '<i class="bi bi-pencil me-1"></i>' + username;
   document.getElementById('editUsername').value = username;
   document.getElementById('editEmail').value = email;
-  var pw = document.getElementById('editPwInput');
-  pw.value = '';
-  pw.classList.remove('is-invalid', 'is-valid');
-  document.getElementById('editPwError').textContent = '';
   var roleSection = document.getElementById('editRoleSection');
   if (roleSection) {
     roleSection.style.display = isSelf ? 'none' : '';
