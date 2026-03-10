@@ -2202,6 +2202,70 @@ def delete_ticket(ticket_id):
 # Admin routes
 # ---------------------------------------------------------------------------
 
+@app.route('/admin/tickets/renumber', methods=['POST'])
+@login_required
+@admin_required
+def admin_renumber_tickets():
+    tickets = Ticket.query.order_by(Ticket.id).all()
+    if not tickets:
+        flash(_('No tickets to renumber.'), 'info')
+        return redirect(url_for('admin_employees'))
+
+    mapping = {t.id: i + 1 for i, t in enumerate(tickets)}
+    if all(old == new for old, new in mapping.items()):
+        flash(_('Tickets are already numbered consecutively — nothing to do.'), 'info')
+        return redirect(url_for('admin_employees'))
+
+    child_tables = ['messages', 'assignments', 'ticket_events', 'ticket_watches', 'attachments']
+    max_id = max(mapping.keys())
+    offset = max_id + 10000
+
+    raw = db.engine.raw_connection()
+    try:
+        raw.execute('PRAGMA foreign_keys = OFF')
+        cur = raw.cursor()
+        # Phase 1: move to safe temp IDs to avoid PK conflicts
+        for old_id, new_id in mapping.items():
+            if old_id == new_id:
+                continue
+            temp = old_id + offset
+            cur.execute('UPDATE tickets SET id=? WHERE id=?', (temp, old_id))
+            for tbl in child_tables:
+                cur.execute(f'UPDATE {tbl} SET ticket_id=? WHERE ticket_id=?', (temp, old_id))
+        # Phase 2: move from temp IDs to final IDs
+        for old_id, new_id in mapping.items():
+            if old_id == new_id:
+                continue
+            temp = old_id + offset
+            cur.execute('UPDATE tickets SET id=? WHERE id=?', (new_id, temp))
+            for tbl in child_tables:
+                cur.execute(f'UPDATE {tbl} SET ticket_id=? WHERE ticket_id=?', (new_id, temp))
+        # Reset autoincrement counter
+        cur.execute("UPDATE sqlite_sequence SET seq=? WHERE name='tickets'", (max(mapping.values()),))
+        raw.execute('PRAGMA foreign_keys = ON')
+        raw.commit()
+    except Exception:
+        raw.rollback()
+        raw.execute('PRAGMA foreign_keys = ON')
+        raise
+    finally:
+        raw.close()
+
+    # Rename upload directories (safe to do in ascending old_id order: new_id ≤ old_id always)
+    upload_root = app.config['UPLOAD_FOLDER']
+    for old_id, new_id in sorted(mapping.items()):
+        if old_id == new_id:
+            continue
+        old_dir = os.path.join(upload_root, str(old_id))
+        new_dir = os.path.join(upload_root, str(new_id))
+        if os.path.isdir(old_dir):
+            os.rename(old_dir, new_dir)
+
+    changed = sum(1 for old, new in mapping.items() if old != new)
+    flash(_('%(n)d ticket(s) renumbered successfully.', n=changed), 'success')
+    return redirect(url_for('admin_employees'))
+
+
 @app.route('/admin/employees', methods=['GET', 'POST'])
 @login_required
 @admin_required

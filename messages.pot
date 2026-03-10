@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-10 16:11+0100\n"
+"POT-Creation-Date: 2026-03-10 16:16+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -115,7 +115,7 @@ msgstr ""
 msgid "Setup already complete."
 msgstr ""
 
-#: app.py:577 app.py:619 app.py:1093 app.py:2215
+#: app.py:577 app.py:619 app.py:1093 app.py:2279
 msgid "All fields are required."
 msgstr ""
 
@@ -178,11 +178,11 @@ msgstr ""
 msgid "No employee account linked to this GitHub account."
 msgstr ""
 
-#: app.py:1095 app.py:2219 app.py:2328 app.py:2360
+#: app.py:1095 app.py:2283 app.py:2392 app.py:2424
 msgid "Email already in use."
 msgstr ""
 
-#: app.py:1108 app.py:2229
+#: app.py:1108 app.py:2293
 #, python-format
 msgid "A setup link has been sent to %(email)s."
 msgstr ""
@@ -335,7 +335,7 @@ msgstr ""
 msgid "Please select a repository."
 msgstr ""
 
-#: app.py:2094 app.py:2278 app.py:2285
+#: app.py:2094 app.py:2342 app.py:2349
 msgid "GitHub API request failed."
 msgstr ""
 
@@ -357,182 +357,195 @@ msgstr ""
 msgid "Ticket #%(id)s \"%(subject)s\" deleted."
 msgstr ""
 
-#: app.py:2217 app.py:2325
+#: app.py:2211
+msgid "No tickets to renumber."
+msgstr ""
+
+#: app.py:2216
+msgid "Tickets are already numbered consecutively — nothing to do."
+msgstr ""
+
+#: app.py:2265
+#, python-format
+msgid "%(n)d ticket(s) renumbered successfully."
+msgstr ""
+
+#: app.py:2281 app.py:2389
 msgid "Username already taken."
 msgstr ""
 
-#: app.py:2241
+#: app.py:2305
 msgid "You cannot deactivate your own account."
 msgstr ""
 
-#: app.py:2246
+#: app.py:2310
 #, python-format
 msgid "Employee \"%(name)s\" activated."
 msgstr ""
 
-#: app.py:2248
+#: app.py:2312
 #, python-format
 msgid "Employee \"%(name)s\" deactivated."
 msgstr ""
 
-#: app.py:2263
+#: app.py:2327
 #, python-format
 msgid "GitHub link removed for \"%(name)s\"."
 msgstr ""
 
-#: app.py:2282
+#: app.py:2346
 #, python-format
 msgid "GitHub user \"%(name)s\" not found."
 msgstr ""
 
-#: app.py:2296
+#: app.py:2360
 #, python-format
 msgid "This GitHub account is already linked to \"%(name)s\"."
 msgstr ""
 
-#: app.py:2302
+#: app.py:2366
 #, python-format
 msgid "GitHub account \"%(gh)s\" linked to \"%(emp)s\"."
 msgstr ""
 
-#: app.py:2321 app.py:2357
+#: app.py:2385 app.py:2421
 msgid "Name and email are required."
 msgstr ""
 
-#: app.py:2340
+#: app.py:2404
 msgid "Cannot remove admin role: no other active admin exists."
 msgstr ""
 
-#: app.py:2345
+#: app.py:2409
 #, python-format
 msgid "Employee \"%(name)s\" updated."
 msgstr ""
 
-#: app.py:2369
+#: app.py:2433
 #, python-format
 msgid "Customer \"%(name)s\" updated."
 msgstr ""
 
-#: app.py:2381 app.py:2393
+#: app.py:2445 app.py:2457
 #, python-format
 msgid "A password reset link has been sent to %(email)s."
 msgstr ""
 
-#: app.py:2403
+#: app.py:2467
 msgid "You cannot delete your own account."
 msgstr ""
 
-#: app.py:2406
+#: app.py:2470
 msgid "Deactivate the employee before deleting them."
 msgstr ""
 
-#: app.py:2417
+#: app.py:2481
 #, python-format
 msgid "Employee \"%(name)s\" deleted."
 msgstr ""
 
-#: app.py:2428
+#: app.py:2492
 msgid "No employees selected."
 msgstr ""
 
-#: app.py:2438
+#: app.py:2502
 #, python-format
 msgid "%(n)d employee(s) deleted."
 msgstr ""
 
-#: app.py:2455 templates/admin/employees.html:88 templates/base.html:85
+#: app.py:2519 templates/admin/employees.html:88 templates/base.html:85
 #: templates/base.html:221
 msgid "Manager"
 msgstr ""
 
-#: app.py:2455 templates/base.html:94 templates/base.html:221
+#: app.py:2519 templates/base.html:94 templates/base.html:221
 msgid "Employee"
 msgstr ""
 
-#: app.py:2456
+#: app.py:2520
 #, python-format
 msgid "Now viewing as: %(role)s. Use \"Return to Admin\" to switch back."
 msgstr ""
 
-#: app.py:2462
+#: app.py:2526
 msgid "Please select a valid customer."
 msgstr ""
 
-#: app.py:2466
+#: app.py:2530
 #, python-format
 msgid "Now viewing as customer: %(name)s. Use \"Return to Admin\" to switch back."
 msgstr ""
 
-#: app.py:2472
+#: app.py:2536
 msgid "Returned to admin view."
 msgstr ""
 
-#: app.py:2500
+#: app.py:2564
 msgid "Please enter a recipient address."
 msgstr ""
 
-#: app.py:3730
+#: app.py:3794
 msgid "Forbidden"
 msgstr ""
 
-#: app.py:3735
+#: app.py:3799
 msgid "Page not found"
 msgstr ""
 
-#: app.py:3740
+#: app.py:3804
 msgid "Too many requests. Please wait a moment."
 msgstr ""
 
-#: app.py:3747
+#: app.py:3811
 msgid "An unexpected error occurred."
 msgstr ""
 
-#: app.py:3772
+#: app.py:3836
 msgid "Employee Manual"
 msgstr ""
 
-#: app.py:3773
+#: app.py:3837
 msgid "Manager Manual"
 msgstr ""
 
-#: app.py:3774
+#: app.py:3838
 msgid "Admin Manual"
 msgstr ""
 
-#: app.py:3775 app.py:4606
+#: app.py:3839 app.py:4670
 msgid "Customer Manual"
 msgstr ""
 
-#: app.py:4563
+#: app.py:4627
 #, python-format
 msgid "%(n)d ticket(s) deleted"
 msgstr ""
 
-#: app.py:4564
+#: app.py:4628
 #, python-format
 msgid "%(n)d customer(s) deleted"
 msgstr ""
 
-#: app.py:4565
+#: app.py:4629
 #, python-format
 msgid "%(n)d employee(s) deleted"
 msgstr ""
 
-#: app.py:4566
+#: app.py:4630
 #, python-format
 msgid "Revert complete: %(details)s."
 msgstr ""
 
-#: app.py:4566
+#: app.py:4630
 msgid "nothing to do"
 msgstr ""
 
-#: app.py:4571
+#: app.py:4635
 #, python-format
 msgid "Revert failed: %(error)s"
 msgstr ""
 
-#: app.py:4593 templates/base.html:46 templates/base.html:147
+#: app.py:4657 templates/base.html:46 templates/base.html:147
 msgid "Help"
 msgstr ""
 
@@ -617,7 +630,7 @@ msgstr ""
 msgid "choose…"
 msgstr ""
 
-#: templates/admin/employees.html:223 templates/admin/employees.html:276
+#: templates/admin/employees.html:244 templates/admin/employees.html:297
 #: templates/base.html:357 templates/manager/customers.html:253
 #: templates/manager/customers.html:300 templates/ticket.html:182
 msgid "Cancel"
@@ -939,7 +952,7 @@ msgid "Contents"
 msgstr ""
 
 #: templates/admin/employees.html:22 templates/admin/employees.html:64
-#: templates/admin/employees.html:250 templates/customer/login.html:14
+#: templates/admin/employees.html:271 templates/customer/login.html:14
 #: templates/login.html:14 templates/manager/customers.html:22
 #: templates/manager/customers.html:67 templates/manager/customers.html:280
 #: templates/setup.html:20
@@ -1030,7 +1043,7 @@ msgid "Create the initial admin account."
 msgstr ""
 
 #: templates/admin/employees.html:17 templates/admin/employees.html:63
-#: templates/admin/employees.html:246 templates/manager/customers.html:17
+#: templates/admin/employees.html:267 templates/manager/customers.html:17
 #: templates/manager/customers.html:66 templates/manager/customers.html:196
 #: templates/manager/customers.html:276 templates/setup.html:15
 msgid "Name"
@@ -1142,12 +1155,12 @@ msgstr ""
 msgid "Delete this message?"
 msgstr ""
 
-#: templates/admin/employees.html:175 templates/admin/employees.html:227
+#: templates/admin/employees.html:175 templates/admin/employees.html:248
 #: templates/manager/customers.html:257 templates/ticket.html:160
 msgid "Delete"
 msgstr ""
 
-#: templates/admin/employees.html:281 templates/manager/customers.html:305
+#: templates/admin/employees.html:302 templates/manager/customers.html:305
 #: templates/ticket.html:178 templates/ticket.html:559
 #: templates/ticket.html:583
 msgid "Save"
@@ -1481,21 +1494,21 @@ msgstr ""
 msgid "Create Employee"
 msgstr ""
 
-#: templates/admin/employees.html:29 templates/admin/employees.html:258
+#: templates/admin/employees.html:29 templates/admin/employees.html:279
 msgid "Admin privileges"
 msgstr ""
 
-#: templates/admin/employees.html:31 templates/admin/employees.html:260
+#: templates/admin/employees.html:31 templates/admin/employees.html:281
 msgid ""
 "Full access: employee management, system configuration, deleting tickets,"
 " and everything managers and staff can do."
 msgstr ""
 
-#: templates/admin/employees.html:37 templates/admin/employees.html:265
+#: templates/admin/employees.html:37 templates/admin/employees.html:286
 msgid "Manager privileges"
 msgstr ""
 
-#: templates/admin/employees.html:39 templates/admin/employees.html:267
+#: templates/admin/employees.html:39 templates/admin/employees.html:288
 msgid ""
 "Can manage customers (including creating projects inline), and edit staff"
 " employees. Cannot access system settings."
@@ -1509,7 +1522,7 @@ msgstr ""
 msgid "All Employees"
 msgstr ""
 
-#: templates/admin/employees.html:65 templates/admin/employees.html:255
+#: templates/admin/employees.html:65 templates/admin/employees.html:276
 msgid "Role"
 msgstr ""
 
@@ -1602,23 +1615,43 @@ msgstr ""
 msgid "Delete selected"
 msgstr ""
 
-#: templates/admin/employees.html:214
-msgid "Delete selected employees?"
+#: templates/admin/employees.html:212
+msgid "Maintenance"
+msgstr ""
+
+#: templates/admin/employees.html:215 templates/admin/employees.html:221
+msgid "Renumber Tickets"
+msgstr ""
+
+#: templates/admin/employees.html:216
+msgid ""
+"Reassigns ticket IDs consecutively (1, 2, 3, …) removing any gaps. Cannot"
+" be undone."
 msgstr ""
 
 #: templates/admin/employees.html:219
-msgid "The following employees will be permanently deleted:"
+msgid ""
+"Renumber all tickets consecutively? Existing ticket IDs will change. This"
+" cannot be undone."
+msgstr ""
+
+#: templates/admin/employees.html:235
+msgid "Delete selected employees?"
 msgstr ""
 
 #: templates/admin/employees.html:240
+msgid "The following employees will be permanently deleted:"
+msgstr ""
+
+#: templates/admin/employees.html:261
 msgid "Edit Employee"
 msgstr ""
 
-#: templates/admin/employees.html:278
+#: templates/admin/employees.html:299
 msgid "Send a password reset link to this employee?"
 msgstr ""
 
-#: templates/admin/employees.html:279 templates/manager/customers.html:303
+#: templates/admin/employees.html:300 templates/manager/customers.html:303
 msgid "Send Reset Link"
 msgstr ""
 
