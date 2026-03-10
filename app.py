@@ -635,7 +635,13 @@ def submit():
                         locale=session.get('lang', 'en'), group_id=group_id)
         db.session.add(ticket)
         db.session.commit()
-        log_event(ticket, 'ticket_created', to_value=email)
+        if current_user.is_authenticated:
+            submitter_display = current_user.username
+        elif customer:
+            submitter_display = customer.name
+        else:
+            submitter_display = email
+        log_event(ticket, 'ticket_created', to_value=submitter_display)
         db.session.commit()
         notify_submitter_confirmation(ticket)
         flash(
@@ -976,7 +982,7 @@ def customer_dashboard():
     recent_events = (TicketEvent.query
                      .filter(
                          TicketEvent.ticket_id.in_(all_own_ids),
-                         TicketEvent.event_type.in_(['status', 'customer_reply', 'attachment', 'assignment', 'group', 'ticket_created', 'message_added'])
+                         TicketEvent.event_type.in_(['status', 'customer_reply', 'attachment', 'assignment', 'group', 'ticket_created', 'message_added', 'email_received'])
                      )
                      .order_by(TicketEvent.created_at.desc())
                      .limit(15).all()) if all_own_ids else []

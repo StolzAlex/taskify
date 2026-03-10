@@ -467,11 +467,18 @@
                   <strong>{{ _sub.name if _sub else (_emp.username if _emp else ev.ticket.submitter_email) }}</strong>
                   {{ _('submitted this ticket') }}
                 {% elif ev.event_type in ('message_added', 'email_received') %}
-                  <strong>{{ ev.actor.username if ev.actor else _('Support Team') }}</strong>
-                  {% if ev.to_value == 'internal' %}
-                    {{ _('added an internal message') }}
-                  {% else %}
+                  {% if ev.event_type == 'email_received' %}
+                    {% set _sub = customer_map.get(ev.ticket.submitter_email.lower()) %}
+                    {% set _emp = employee_map.get(ev.ticket.submitter_email.lower()) %}
+                    <strong>{{ _sub.name if _sub else (_emp.username if _emp else ev.ticket.submitter_email) }}</strong>
                     {{ _('added a message') }}
+                  {% else %}
+                    <strong>{{ ev.actor.username if ev.actor else _('Support Team') }}</strong>
+                    {% if ev.to_value == 'internal' %}
+                      {{ _('added an internal message') }}
+                    {% else %}
+                      {{ _('added a message') }}
+                    {% endif %}
                   {% endif %}
                 {% elif ev.event_type == 'watcher' %}
                   <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>

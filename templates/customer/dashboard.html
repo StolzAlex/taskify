@@ -299,7 +299,7 @@
               <i class="bi bi-folder text-primary mt-1 flex-shrink-0"></i>
             {% elif ev.event_type == 'ticket_created' %}
               <i class="bi bi-plus-circle text-success mt-1 flex-shrink-0"></i>
-            {% elif ev.event_type == 'message_added' %}
+            {% elif ev.event_type in ('message_added', 'email_received') %}
               <i class="bi bi-chat-left-text text-primary mt-1 flex-shrink-0"></i>
             {% endif %}
             <div class="flex-grow-1 overflow-hidden">
@@ -324,14 +324,19 @@
                     {{ _('Removed from project') }}
                   {% endif %}
                 {% elif ev.event_type == 'ticket_created' %}
-                  {% set actor = ev.actor.username if ev.actor else (ev.to_value or _('Support Team')) %}
+                  {% set actor = ev.actor.username if ev.actor else ev.to_value %}
                   <strong>{{ actor }}</strong> {{ _('submitted this ticket') }}
-                {% elif ev.event_type == 'message_added' %}
-                  {% set actor = ev.actor.username if ev.actor else _('Support Team') %}
-                  {% if ev.to_value == 'internal' %}
-                    <strong>{{ actor }}</strong> {{ _('added an internal message') }}
+                {% elif ev.event_type in ('message_added', 'email_received') %}
+                  {% if ev.event_type == 'email_received' %}
+                    <strong>{{ customer.name if ev.ticket.submitter_email == customer.email else ev.ticket.submitter_email }}</strong>
+                    {{ _('added a message') }}
                   {% else %}
-                    <strong>{{ actor }}</strong> {{ _('added a message') }}
+                    {% set actor = ev.actor.username if ev.actor else _('Support Team') %}
+                    {% if ev.to_value == 'internal' %}
+                      <strong>{{ actor }}</strong> {{ _('added an internal message') }}
+                    {% else %}
+                      <strong>{{ actor }}</strong> {{ _('added a message') }}
+                    {% endif %}
                   {% endif %}
                 {% endif %}
               </div>
