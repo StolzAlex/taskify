@@ -677,10 +677,15 @@ def ticket_status(token):
         Customer.email.ilike(ticket.submitter_email)).first()
     submitter_employee = None if submitter_customer else Employee.query.filter(
         Employee.email.ilike(ticket.submitter_email)).first()
+    is_submitter = (
+        (customer and customer.email.lower() == ticket.submitter_email.lower()) or
+        (not customer and not current_user.is_authenticated)
+    )
     return render_template('ticket_status.html', ticket=ticket, messages=thread,
                            current_customer=customer,
                            submitter_customer=submitter_customer,
-                           submitter_employee=submitter_employee)
+                           submitter_employee=submitter_employee,
+                           is_submitter=is_submitter)
 
 
 @app.route('/status/<token>/reply', methods=['POST'])
