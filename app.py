@@ -1159,6 +1159,22 @@ def admin_customers_delete_bulk():
     return redirect(url_for('manager_customers'))
 
 
+@app.route('/manager/groups/create', methods=['POST'])
+@login_required
+@manager_required
+def create_group():
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash(_('Project name is required.'), 'danger')
+    elif Group.query.filter(Group.name.ilike(name)).first():
+        flash(_('A project named "%(name)s" already exists.', name=name), 'warning')
+    else:
+        db.session.add(Group(name=name))
+        db.session.commit()
+        flash(_('Project "%(name)s" created.', name=name), 'success')
+    return redirect(url_for('manager_customers'))
+
+
 @app.route('/manager/groups/delete-unused', methods=['POST'])
 @login_required
 @manager_required

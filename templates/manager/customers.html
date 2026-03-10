@@ -34,11 +34,10 @@
               <option value="{{ grp.id }}">{{ grp.name }}</option>
               {% endfor %}
             </select>
-            <div class="form-text mb-1">{{ _('Hold Ctrl/Cmd to select multiple.') }}</div>
+            <div class="form-text">{{ _('Hold Ctrl/Cmd to select multiple.') }}</div>
+            {% else %}
+            <p class="text-muted small mb-0">{{ _('No projects yet. Create one in the Projects section below.') }}</p>
             {% endif %}
-            <input type="text" class="form-control form-control-sm" name="new_group"
-                   placeholder="{{ _('Add new project\u2026') }}"
-                   value="{{ request.form.new_group or '' }}">
           </div>
           <button type="submit" class="btn btn-primary btn-sm w-100">
             <i class="bi bi-person-plus me-1"></i>{{ _('Create') }}
@@ -164,23 +163,32 @@
 </div>
 
 <!-- Projects management -->
-{% if all_groups %}
 <div class="row g-4 mt-0">
   <div class="col-12">
     <div class="card shadow-sm">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h6 class="mb-0"><i class="bi bi-folder me-1"></i>{{ _('Projects') }}</h6>
+      <div class="card-header d-flex justify-content-between align-items-center gap-2">
+        <h6 class="mb-0 flex-shrink-0"><i class="bi bi-folder me-1"></i>{{ _('Projects') }}</h6>
+        <form method="post" action="{{ url_for('create_group') }}" class="d-flex gap-2 flex-grow-1 justify-content-end">
+          <input type="text" name="name" class="form-control form-control-sm" style="max-width:220px;"
+                 placeholder="{{ _('New project name\u2026') }}" required>
+          <button type="submit" class="btn btn-sm btn-outline-primary flex-shrink-0">
+            <i class="bi bi-plus-lg me-1"></i>{{ _('Add') }}
+          </button>
+        </form>
+        {% if all_groups %}
         {% set unused_count = namespace(n=0) %}
         {% for grp in all_groups %}{% if group_ticket_counts[grp.id] == 0 %}{% set unused_count.n = unused_count.n + 1 %}{% endif %}{% endfor %}
         {% if unused_count.n %}
-        <form method="post" action="{{ url_for('delete_unused_groups') }}"
+        <form method="post" action="{{ url_for('delete_unused_groups') }}" class="flex-shrink-0"
               onsubmit="return confirm('{{ _('Delete all %(n)d unused project(s)? This cannot be undone.', n=unused_count.n) }}')">
           <button type="submit" class="btn btn-sm btn-outline-danger">
             <i class="bi bi-trash me-1"></i>{{ _('Remove All Unused') }} ({{ unused_count.n }})
           </button>
         </form>
         {% endif %}
+        {% endif %}
       </div>
+      {% if all_groups %}
       <div class="table-responsive">
         <table class="table table-sm table-hover align-middle mb-0">
           <thead class="table-light">
@@ -217,10 +225,15 @@
           </tbody>
         </table>
       </div>
+      {% else %}
+      <div class="card-body text-center text-muted py-4">
+        <i class="bi bi-folder fs-2 d-block mb-2 opacity-50"></i>
+        {{ _('No projects yet.') }}
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
-{% endif %}
 
 <!-- Bulk delete customers confirm modal -->
 <div class="modal fade" id="bulkDeleteCustomerModal" tabindex="-1">
@@ -275,10 +288,10 @@
               <option value="{{ grp.id }}">{{ grp.name }}</option>
               {% endfor %}
             </select>
-            <div class="form-text mb-1">{{ _('Hold Ctrl/Cmd to select multiple.') }}</div>
+            <div class="form-text">{{ _('Hold Ctrl/Cmd to select multiple.') }}</div>
+            {% else %}
+            <p class="text-muted small mb-0">{{ _('No projects yet. Create one in the Projects section below.') }}</p>
             {% endif %}
-            <input type="text" class="form-control form-control-sm" name="new_group"
-                   id="editNewGroup" placeholder="{{ _('Add new project\u2026') }}">
           </div>
         </div>
       </form>
@@ -339,7 +352,6 @@ document.querySelectorAll('.edit-customer-btn').forEach(function(btn) {
       '<i class="bi bi-pencil me-1"></i>' + this.dataset.name;
     document.getElementById('editName').value  = this.dataset.name;
     document.getElementById('editEmail').value = this.dataset.email;
-    document.getElementById('editNewGroup').value = '';
     var sel = document.getElementById('editGroupIds');
     if (sel) {
       for (var i = 0; i < sel.options.length; i++) {
