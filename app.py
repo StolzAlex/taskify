@@ -770,6 +770,7 @@ def rate_ticket(token):
     ticket.satisfaction_rating       = rating
     ticket.satisfaction_comment      = request.form.get('comment', '').strip() or None
     ticket.satisfaction_submitted_at = datetime.utcnow()
+    log_event(ticket, 'rating', to_value=str(rating))
     db.session.commit()
     flash(_('Thank you for your feedback!'), 'success')
     return redirect(url_for('ticket_status', token=token))
@@ -987,7 +988,7 @@ def customer_dashboard():
     recent_events = (TicketEvent.query
                      .filter(
                          TicketEvent.ticket_id.in_(all_own_ids),
-                         TicketEvent.event_type.in_(['status', 'customer_reply', 'attachment', 'assignment', 'group', 'ticket_created', 'message_added', 'email_received'])
+                         TicketEvent.event_type.in_(['status', 'customer_reply', 'attachment', 'assignment', 'group', 'ticket_created', 'message_added', 'email_received', 'rating'])
                      )
                      .order_by(TicketEvent.created_at.desc())
                      .limit(15).all()) if all_own_ids else []
@@ -1343,6 +1344,9 @@ def dashboard():
                              Ticket.status.in_(['resolved', 'closed']),
                              Ticket.updated_at >= week_ago
                          ).count(),
+        'avg_rating':    _stats_base().with_entities(
+                             db.func.avg(Ticket.satisfaction_rating)
+                         ).filter(Ticket.satisfaction_rating.isnot(None)).scalar(),
         # Tab badge counts are always global so they don't zero out when active
         'mine':          Ticket.query.join(Assignment).filter(
                              Assignment.employee_id == current_user.id,
