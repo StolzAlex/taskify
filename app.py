@@ -350,20 +350,53 @@ def notify_assignee_assigned(ticket, employee):
     )
 
 
-def notify_watchers(ticket, subject, body, exclude_employee_id=None, silent=False):
+def notify_watchers(ticket, subject, body, exclude_employee_id=None, silent=False,
+                    customer_extra_message=None, notify_customers=True):
+    """Notify all watchers of a ticket update.
+
+    Employee watchers receive the internal ``subject``/``body`` email.
+    Customer watchers receive a customer-friendly localized email (like
+    notify_submitter_update) unless ``notify_customers=False`` (used for
+    internal-only messages that customers should not see).
+    The ticket submitter is skipped for customer watcher emails because they
+    already receive their own notification via notify_submitter_update.
+    """
     assignee_id = ticket.assignment.employee_id if ticket.assignment else None
-    excluded = {eid for eid in [exclude_employee_id, assignee_id] if eid}
+    excluded_emp = {eid for eid in [exclude_employee_id, assignee_id] if eid}
+    # Exclude the submitter from customer-watcher emails (they get a direct notification)
+    submitter_cust = Customer.query.filter(
+        Customer.email.ilike(ticket.submitter_email)).first()
+    excluded_cust = {submitter_cust.id} if submitter_cust else set()
+
     watches = TicketWatch.query.filter_by(ticket_id=ticket.id).all()
     notified = []
     for w in watches:
         if w.employee_id is not None:
-            if w.employee_id not in excluded and w.employee.is_active:
+            if w.employee_id not in excluded_emp and w.employee.is_active:
                 send_email(subject=subject, recipients=[w.employee.email], body_text=body,
                            silent=True)
                 notified.append(w.employee.username)
-        elif w.customer_id is not None and w.customer.is_active:
-            send_email(subject=subject, recipients=[w.customer.email], body_text=body,
-                       silent=True)
+        elif notify_customers and w.customer_id is not None \
+                and w.customer_id not in excluded_cust and w.customer.is_active:
+            portal_url = url_for('customer_dashboard', _external=True)
+            locale = getattr(ticket, 'locale', None) or 'en'
+            with force_locale(locale):
+                cust_subj = _('Ticket #%(id)s updated \u2013 %(subject)s',
+                              id=ticket.id, subject=ticket.subject)
+                cust_body = (
+                    f"{_('A ticket you are watching has been updated.')}\n\n"
+                    f"{_('Subject')}: {ticket.subject}\n"
+                    f"{_('Status')}: {status_label(ticket.status)}\n\n"
+                )
+                if customer_extra_message:
+                    cust_body += f"{_('Message from support:')}\n{customer_extra_message}\n\n"
+                cust_body += f"{_('View your tickets at:')}\n{portal_url}"
+            send_email(
+                subject=f"[{app.config['APP_NAME']}] {cust_subj}",
+                recipients=[w.customer.email],
+                body_text=cust_body,
+                silent=True,
+            )
             notified.append(w.customer.name)
     if notified and not silent:
         flash(_('Watcher notification sent to: %(names)s.',
@@ -1490,6 +1523,8 @@ def add_message(ticket_id):
               f"Betreff: {ticket.subject}\n\n"
               f"Ticket ansehen: {url_for('ticket_detail', ticket_id=ticket.id, _external=True)}"),
         exclude_employee_id=current_user.id,
+        notify_customers=is_visible,
+        customer_extra_message=plain if is_visible else None,
     )
     notify_mentions(ticket, mentioned, sender_id=current_user.id)
     flash(_('Message added.'), 'success')
