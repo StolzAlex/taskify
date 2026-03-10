@@ -350,18 +350,24 @@ def notify_assignee_assigned(ticket, employee):
     )
 
 
-def notify_watchers(ticket, subject, body, exclude_employee_id=None):
+def notify_watchers(ticket, subject, body, exclude_employee_id=None, silent=False):
     assignee_id = ticket.assignment.employee_id if ticket.assignment else None
     excluded = {eid for eid in [exclude_employee_id, assignee_id] if eid}
     watches = TicketWatch.query.filter_by(ticket_id=ticket.id).all()
+    notified = []
     for w in watches:
         if w.employee_id is not None:
             if w.employee_id not in excluded and w.employee.is_active:
                 send_email(subject=subject, recipients=[w.employee.email], body_text=body,
                            silent=True)
+                notified.append(w.employee.username)
         elif w.customer_id is not None and w.customer.is_active:
             send_email(subject=subject, recipients=[w.customer.email], body_text=body,
                        silent=True)
+            notified.append(w.customer.name)
+    if notified and not silent:
+        flash(_('Watcher notification sent to: %(names)s.',
+                names=', '.join(notified)), 'info')
 
 
 def notify_mentions(ticket, mentioned_usernames, sender_id):
@@ -618,6 +624,7 @@ def customer_reply(token):
         body=(f"Der Kunde hat auf Ticket #{ticket.id} geantwortet.\n\n"
               f"Betreff: {ticket.subject}\n\n"
               f"Ticket ansehen: {url_for('ticket_detail', ticket_id=ticket.id, _external=True)}"),
+        silent=True,
     )
     flash(_('Your reply has been sent.'), 'success')
     return redirect(url_for('ticket_status', token=token))
