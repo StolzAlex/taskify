@@ -22,7 +22,9 @@ body {
 }
 
 .ticket-body pre.ql-syntax,
-.message-body pre.ql-syntax {
+.message-body pre.ql-syntax,
+.ticket-body .ql-code-block-container,
+.message-body .ql-code-block-container {
   background: var(--bs-tertiary-bg);
   border: 1px solid var(--bs-border-color);
   border-radius: .375rem;
@@ -31,11 +33,20 @@ body {
   overflow-x: auto;
   white-space: pre;
   margin-bottom: 1rem;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 .ticket-body pre.ql-syntax:last-child,
-.message-body pre.ql-syntax:last-child {
+.message-body pre.ql-syntax:last-child,
+.ticket-body .ql-code-block-container:last-child,
+.message-body .ql-code-block-container:last-child {
   margin-bottom: 0;
+}
+
+.ticket-body .ql-code-block,
+.message-body .ql-code-block {
+  white-space: pre;
+  min-height: 1em;
 }
 
 .ticket-body code,
