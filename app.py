@@ -996,6 +996,17 @@ def customer_dashboard():
         for t in tickets
     }
 
+    # Build submitter name map for project-tab tickets (email → display name)
+    if view == 'groups' and tickets:
+        _submitter_emails = {t.submitter_email.lower() for t in tickets}
+        _cust_map = {c.email.lower(): c.name for c in Customer.query.filter(
+            db.func.lower(Customer.email).in_(list(_submitter_emails))).all()}
+        _emp_map  = {e.email.lower(): e.username for e in Employee.query.filter(
+            db.func.lower(Employee.email).in_(list(_submitter_emails))).all()}
+        submitter_map = {e: _cust_map.get(e) or _emp_map.get(e) for e in _submitter_emails}
+    else:
+        submitter_map = {}
+
     all_own_ids = [t.id for t in all_own_tickets]
     recent_events = (TicketEvent.query
                      .filter(
@@ -1021,7 +1032,8 @@ def customer_dashboard():
                            awaiting_reply_ids=awaiting_reply_ids,
                            customer_group_ids=customer_group_ids,
                            customer_groups=customer.groups,
-                           project_id=project_id)
+                           project_id=project_id,
+                           submitter_map=submitter_map)
 
 
 @app.route('/customer/uploads/<int:ticket_id>/<filename>')

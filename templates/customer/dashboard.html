@@ -192,8 +192,11 @@
                   {% endif %}
                 </div>
                 {% if view == 'groups' and ticket.submitter_email != customer.email %}
+                {% set _name = submitter_map.get(ticket.submitter_email.lower()) %}
                 <div class="small text-muted mt-1">
-                  <i class="bi bi-person me-1"></i>{{ ticket.submitter_email }}
+                  <i class="bi bi-person me-1"></i>
+                  {% if _name %}<strong>{{ _name }}</strong> &lt;{{ ticket.submitter_email }}&gt;
+                  {% else %}{{ ticket.submitter_email }}{% endif %}
                 </div>
                 {% endif %}
               </td>
