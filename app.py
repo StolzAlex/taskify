@@ -962,6 +962,20 @@ def _resolve_groups(group_ids, new_name):
     return selected
 
 
+def _email_taken_by_other(email, exclude_employee_id=None, exclude_customer_id=None):
+    """Return True if ``email`` is already used by any employee or customer
+    other than the optionally excluded record (used when editing)."""
+    emp_q = Employee.query.filter(Employee.email.ilike(email))
+    if exclude_employee_id:
+        emp_q = emp_q.filter(Employee.id != exclude_employee_id)
+    if emp_q.first():
+        return True
+    cust_q = Customer.query.filter(Customer.email.ilike(email))
+    if exclude_customer_id:
+        cust_q = cust_q.filter(Customer.id != exclude_customer_id)
+    return cust_q.first() is not None
+
+
 @app.route('/manager/customers', methods=['GET', 'POST'])
 @login_required
 @manager_required
@@ -971,7 +985,7 @@ def manager_customers():
         email = request.form.get('email', '').strip()
         if not name or not email:
             flash(_('All fields are required.'), 'danger')
-        elif Customer.query.filter(Customer.email.ilike(email)).first():
+        elif _email_taken_by_other(email):
             flash(_('Email already in use.'), 'danger')
         else:
             customer = Customer(name=name, email=email, created_by_id=current_user.id)
@@ -2010,7 +2024,7 @@ def admin_employees():
             flash(_('All fields are required.'), 'danger')
         elif Employee.query.filter_by(username=username).first():
             flash(_('Username already taken.'), 'danger')
-        elif Employee.query.filter_by(email=email).first():
+        elif _email_taken_by_other(email):
             flash(_('Email already in use.'), 'danger')
         else:
             emp = Employee(username=username, email=email,
@@ -2119,7 +2133,7 @@ def edit_employee(emp_id):
     if Employee.query.filter(Employee.username == username, Employee.id != emp.id).first():
         flash(_('Username already taken.'), 'danger')
         return redirect(url_for('admin_employees'))
-    if Employee.query.filter(Employee.email == email, Employee.id != emp.id).first():
+    if _email_taken_by_other(email, exclude_employee_id=emp.id):
         flash(_('Email already in use.'), 'danger')
         return redirect(url_for('admin_employees'))
     emp.username = username
@@ -2151,7 +2165,7 @@ def edit_customer(cust_id):
     if not name or not email:
         flash(_('Name and email are required.'), 'danger')
         return redirect(url_for('manager_customers'))
-    if Customer.query.filter(Customer.email == email, Customer.id != customer.id).first():
+    if _email_taken_by_other(email, exclude_customer_id=customer.id):
         flash(_('Email already in use.'), 'danger')
         return redirect(url_for('manager_customers'))
     customer.name      = name
