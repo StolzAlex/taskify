@@ -49,9 +49,22 @@
           {% if submitter_customer %}
             <strong class="text-dark">{{ submitter_customer.name }}</strong>
             <span class="ms-1">&lt;{{ ticket.submitter_email }}&gt;</span>
-            {% for grp in submitter_customer.groups %}
+            {% set grps = submitter_customer.groups %}
+            {% for grp in grps[:3] %}
             <span class="badge bg-secondary ms-1">{{ grp.name }}</span>
             {% endfor %}
+            {% if grps|length > 3 %}
+            <span class="badge bg-secondary ms-1 text-muted" style="cursor:pointer"
+                  id="grpToggle" onclick="
+                    document.getElementById('grpExtra').classList.toggle('d-none');
+                    this.classList.add('d-none');
+                  ">+{{ grps|length - 3 }} more</span>
+            <span id="grpExtra" class="d-none">
+              {% for grp in grps[3:] %}
+              <span class="badge bg-secondary ms-1">{{ grp.name }}</span>
+              {% endfor %}
+            </span>
+            {% endif %}
           {% elif submitter_employee %}
             <strong class="text-dark">{{ submitter_employee.username }}</strong>
             <span class="ms-1">&lt;{{ ticket.submitter_email }}&gt;</span>
