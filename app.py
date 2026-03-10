@@ -760,6 +760,13 @@ def rate_ticket(token):
     ticket = Ticket.query.filter_by(token=token).first_or_404()
     if ticket.status not in ('resolved', 'closed'):
         abort(400)
+    customer = get_current_customer()
+    is_submitter = (
+        (customer and customer.email.lower() == ticket.submitter_email.lower()) or
+        (not customer and not current_user.is_authenticated)
+    )
+    if not is_submitter:
+        abort(403)
     if ticket.satisfaction_rating is not None:
         flash(_('You have already rated this ticket.'), 'info')
         return redirect(url_for('ticket_status', token=token))
