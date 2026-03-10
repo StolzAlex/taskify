@@ -4385,7 +4385,7 @@ def admin_mantis_revert():
             mantis_tickets = Ticket.query.filter(
                 Ticket.internal_title.like('%[mantis:%')
             ).all()
-            for ticket in mantis_tickets[:500]:
+            for ticket in mantis_tickets[:1000]:
                 upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket.id))
                 for att in ticket.attachments.all():
                     disk_path = os.path.join(upload_dir, att.filename)
