@@ -1049,8 +1049,11 @@ def dashboard():
     elif hide_closed:
         query = query.filter(Ticket.status.notin_(['closed', 'resolved']))
     if q:
+        _q_num = q.lstrip('#')
+        _id_filter = [Ticket.id == int(_q_num)] if _q_num.isdigit() else []
         msg_ids = db.session.query(Message.ticket_id).filter(Message.body.ilike(f'%{q}%'))
         query = query.filter(db.or_(
+            *_id_filter,
             Ticket.subject.ilike(f'%{q}%'),
             Ticket.body.ilike(f'%{q}%'),
             Ticket.internal_title.ilike(f'%{q}%'),
