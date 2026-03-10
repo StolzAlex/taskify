@@ -186,10 +186,15 @@ class TicketWatch(db.Model):
     __tablename__ = 'ticket_watches'
     id          = db.Column(db.Integer, primary_key=True)
     ticket_id   = db.Column(db.Integer, db.ForeignKey('tickets.id'), nullable=False)
-    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
     created_at  = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    __table_args__ = (db.UniqueConstraint('ticket_id', 'employee_id'),)
+    __table_args__ = (
+        db.UniqueConstraint('ticket_id', 'employee_id'),
+        db.UniqueConstraint('ticket_id', 'customer_id'),
+    )
     employee = db.relationship('Employee', backref='watches')
+    customer = db.relationship('Customer', backref='watches')
 
 
 class Attachment(db.Model):

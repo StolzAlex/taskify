@@ -391,6 +391,64 @@
         </form>
         {% endif %}
 
+        {# Watcher list + add watcher #}
+        <hr class="my-0 mb-3 mt-3">
+        <div class="mb-1">
+          <label class="form-label small fw-semibold text-muted mb-1">
+            <i class="bi bi-eye me-1"></i>{{ _('Watchers') }}
+          </label>
+          {% if watchers %}
+          <ul class="list-unstyled mb-2">
+            {% for w in watchers %}
+            <li class="d-flex align-items-center justify-content-between py-1 border-bottom">
+              <span class="small">
+                {% if w.employee %}
+                  <i class="bi bi-person me-1 text-muted"></i>{{ w.employee.username }}
+                {% elif w.customer %}
+                  <i class="bi bi-person-circle me-1 text-muted"></i>{{ w.customer.name }}
+                {% endif %}
+              </span>
+              <form method="post" action="{{ url_for('remove_watcher', ticket_id=ticket.id, watch_id=w.id) }}" class="d-inline">
+                <button type="submit" class="btn btn-link btn-sm text-danger p-0 ms-2"
+                        title="{{ _('Remove watcher') }}"
+                        onclick="return confirm('{{ _('Remove this watcher?') }}')">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </form>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="small text-muted mb-2">{{ _('No watchers yet.') }}</p>
+          {% endif %}
+        </div>
+
+        {% if addable_employees or addable_customers %}
+        <form method="post" action="{{ url_for('add_watcher', ticket_id=ticket.id) }}" class="mb-0">
+          <select name="employee_id" id="addWatcherSelect" class="form-select form-select-sm mb-2">
+            <option value="">— {{ _('Add watcher…') }} —</option>
+            {% if addable_employees %}
+            <optgroup label="{{ _('Employees') }}">
+              {% for emp in addable_employees %}
+              <option value="{{ emp.id }}">{{ emp.username }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
+            {% if addable_customers %}
+            <optgroup label="{{ _('Customers') }}" data-type="customer">
+              {% for cust in addable_customers %}
+              <option value="" data-customer-id="{{ cust.id }}">{{ cust.name }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
+          </select>
+          <input type="hidden" name="customer_id" id="addWatcherCustomerId">
+          <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+            <i class="bi bi-person-plus me-1"></i>{{ _('Add Watcher') }}
+          </button>
+        </form>
+        {% endif %}
+
       </div>
     </div>
 
@@ -848,5 +906,22 @@
       ghDropdown.style.display = 'none';
     }
   });
+
+// Add-watcher select: route customer options to customer_id hidden field
+(function() {
+  var sel = document.getElementById('addWatcherSelect');
+  var custInput = document.getElementById('addWatcherCustomerId');
+  if (!sel) return;
+  sel.addEventListener('change', function() {
+    var opt = sel.options[sel.selectedIndex];
+    var custId = opt.dataset.customerId || '';
+    if (custId) {
+      custInput.value = custId;
+      opt.value = '';          // clear employee_id so server sees only customer_id
+    } else {
+      custInput.value = '';
+    }
+  });
+})();
 </script>
 {% endblock %}

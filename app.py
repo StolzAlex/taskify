@@ -355,9 +355,13 @@ def notify_watchers(ticket, subject, body, exclude_employee_id=None):
     excluded = {eid for eid in [exclude_employee_id, assignee_id] if eid}
     watches = TicketWatch.query.filter_by(ticket_id=ticket.id).all()
     for w in watches:
-        if w.employee_id not in excluded and w.employee.is_active:
-            send_email(subject=subject, recipients=[w.employee.email], body_text=body,
-                       silent=True)   # one flash per watcher would be too noisy
+        if w.employee_id is not None:
+            if w.employee_id not in excluded and w.employee.is_active:
+                send_email(subject=subject, recipients=[w.employee.email], body_text=body,
+                           silent=True)
+        elif w.customer_id is not None and w.customer.is_active:
+            send_email(subject=subject, recipients=[w.customer.email], body_text=body,
+                       silent=True)
 
 
 def notify_mentions(ticket, mentioned_usernames, sender_id):
@@ -1406,12 +1410,22 @@ def ticket_detail(ticket_id):
         groups = sorted(submitter_customer.groups, key=lambda g: g.name)
     else:
         groups = Group.query.order_by(Group.name).all()
+    watchers = TicketWatch.query.filter_by(ticket_id=ticket_id).all()
+    watching_emp_ids  = {w.employee_id for w in watchers if w.employee_id}
+    watching_cust_ids = {w.customer_id for w in watchers if w.customer_id}
+    addable_employees = [e for e in employees if e.id not in watching_emp_ids]
+    addable_customers = Customer.query.filter_by(is_active=True)\
+        .order_by(Customer.name).all()
+    addable_customers = [c for c in addable_customers if c.id not in watching_cust_ids]
     return render_template('ticket.html', ticket=ticket, employees=employees,
                            status_choices=Ticket.STATUS_CHOICES, events=events,
                            is_watching=is_watching,
                            submitter_customer=submitter_customer,
                            submitter_employee=submitter_employee,
-                           groups=groups)
+                           groups=groups,
+                           watchers=watchers,
+                           addable_employees=addable_employees,
+                           addable_customers=addable_customers)
 
 
 @app.route('/tickets/<int:ticket_id>/message', methods=['POST'])
@@ -1617,6 +1631,47 @@ def toggle_watch(ticket_id):
         db.session.add(TicketWatch(ticket_id=ticket_id, employee_id=current_user.id))
         db.session.commit()
         flash(_('You are now watching this ticket.'), 'success')
+    return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+
+
+@app.route('/tickets/<int:ticket_id>/watchers/add', methods=['POST'])
+@login_required
+def add_watcher(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+    emp_id  = request.form.get('employee_id', type=int)
+    cust_id = request.form.get('customer_id', type=int)
+    if emp_id:
+        emp = db.session.get(Employee, emp_id)
+        if not emp or not emp.is_active:
+            flash(_('Invalid employee.'), 'danger')
+        elif TicketWatch.query.filter_by(ticket_id=ticket_id, employee_id=emp_id).first():
+            flash(_('%(name)s is already watching this ticket.', name=emp.username), 'info')
+        else:
+            db.session.add(TicketWatch(ticket_id=ticket_id, employee_id=emp_id))
+            db.session.commit()
+            flash(_('%(name)s added as watcher.', name=emp.username), 'success')
+    elif cust_id:
+        cust = db.session.get(Customer, cust_id)
+        if not cust or not cust.is_active:
+            flash(_('Invalid customer.'), 'danger')
+        elif TicketWatch.query.filter_by(ticket_id=ticket_id, customer_id=cust_id).first():
+            flash(_('%(name)s is already watching this ticket.', name=cust.name), 'info')
+        else:
+            db.session.add(TicketWatch(ticket_id=ticket_id, customer_id=cust_id))
+            db.session.commit()
+            flash(_('%(name)s added as watcher.', name=cust.name), 'success')
+    return redirect(url_for('ticket_detail', ticket_id=ticket_id))
+
+
+@app.route('/tickets/<int:ticket_id>/watchers/<int:watch_id>/remove', methods=['POST'])
+@login_required
+def remove_watcher(ticket_id, watch_id):
+    watch = db.session.get(TicketWatch, watch_id) or abort(404)
+    if watch.ticket_id != ticket_id:
+        abort(404)
+    db.session.delete(watch)
+    db.session.commit()
+    flash(_('Watcher removed.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
 
 
@@ -4716,8 +4771,9 @@ def _startup_checks():
         ('tickets',   'satisfaction_comment',      'TEXT'),
         ('tickets',   'satisfaction_submitted_at', 'DATETIME'),
         ('tickets',   'group_id',                  'INTEGER REFERENCES groups(id)'),
-        ('employees', 'mantis_imported',           'BOOLEAN NOT NULL DEFAULT 0'),
-        ('customers', 'mantis_imported',           'BOOLEAN NOT NULL DEFAULT 0'),
+        ('employees',      'mantis_imported',  'BOOLEAN NOT NULL DEFAULT 0'),
+        ('customers',      'mantis_imported',  'BOOLEAN NOT NULL DEFAULT 0'),
+        ('ticket_watches', 'customer_id',      'INTEGER REFERENCES customers(id)'),
     ]:
         try:
             db.session.execute(_text(f'ALTER TABLE {table} ADD COLUMN {col} {defn}'))
