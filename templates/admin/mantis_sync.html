@@ -796,6 +796,7 @@ function renderStats(stats, dryRun) {
     ['Anhänge importiert',          stats.attachments],
     ['Anhänge nicht gefunden',      stats.attachments_skipped],
     ['Historieneinträge',           stats.history],
+    ['Beobachter importiert',       stats.watches],
   ].filter(function (r) { return r[1] > 0; });
 
   if (!rows.length) return;

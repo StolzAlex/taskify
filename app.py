@@ -4335,6 +4335,17 @@ def _do_mantis_sync(flask_app, task: dict, host_url: str) -> None:
                             if existing_grp:
                                 group_map[proj.id] = existing_grp
 
+                    # Pre-fetch all monitor (watchlist) entries for selected bugs
+                    monitor_map: dict = {}  # bug_id → [email, …]
+                    monitor_rows = mcon.execute(_sa_text(
+                        f"SELECT m.bug_id, u.email "
+                        f"FROM {p}bug_monitor_table m "
+                        f"JOIN {p}user_table u ON u.id = m.user_id "
+                        f"WHERE m.bug_id IN ({id_list})"
+                    )).fetchall()
+                    for mr in monitor_rows:
+                        monitor_map.setdefault(mr.bug_id, []).append(mr.email)
+
                     task['total_bugs'] = len(bug_rows)
                     log(f'Importiere {len(bug_rows)} Ticket(e)…')
 
@@ -4476,6 +4487,26 @@ def _do_mantis_sync(flask_app, task: dict, host_url: str) -> None:
                             db.session.add(ev)
                             stats['history'] += 1
 
+                        # Watchers (bug_monitor_table)
+                        for w_email in monitor_map.get(row.id, []):
+                            if not w_email:
+                                continue
+                            w_emp = Employee.query.filter(Employee.email.ilike(w_email)).first()
+                            if w_emp:
+                                if not TicketWatch.query.filter_by(
+                                        ticket_id=ticket.id, employee_id=w_emp.id).first():
+                                    db.session.add(TicketWatch(
+                                        ticket_id=ticket.id, employee_id=w_emp.id))
+                                    stats['watches'] += 1
+                            else:
+                                w_cust = Customer.query.filter(
+                                    Customer.email.ilike(w_email)).first()
+                                if w_cust and not TicketWatch.query.filter_by(
+                                        ticket_id=ticket.id, customer_id=w_cust.id).first():
+                                    db.session.add(TicketWatch(
+                                        ticket_id=ticket.id, customer_id=w_cust.id))
+                                    stats['watches'] += 1
+
             if dry_run:
                 db.session.rollback()
                 log('Testlauf abgeschlossen – keine Änderungen gespeichert.', 'warning')
@@ -4523,7 +4554,8 @@ def admin_mantis_execute():
         'stats': dict(groups=0, customers=0, customers_skipped=0,
                       employees=0, employees_skipped=0,
                       tickets=0, tickets_skipped=0,
-                      notes=0, attachments=0, attachments_skipped=0, history=0),
+                      notes=0, attachments=0, attachments_skipped=0,
+                      history=0, watches=0),
         'dry_run': dry_run,
         'total_bugs': len(sel_bug_ids),
         'bugs_done': 0,
