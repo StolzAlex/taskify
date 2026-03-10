@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-10 15:17+0100\n"
+"POT-Creation-Date: 2026-03-10 16:09+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -115,7 +115,7 @@ msgstr ""
 msgid "Setup already complete."
 msgstr ""
 
-#: app.py:577 app.py:619 app.py:1069 app.py:2162
+#: app.py:577 app.py:619 app.py:1093 app.py:2199
 msgid "All fields are required."
 msgstr ""
 
@@ -134,386 +134,391 @@ msgstr ""
 msgid "Please log in to view your ticket."
 msgstr ""
 
-#: app.py:694
+#: app.py:699
 msgid "Reply cannot be empty."
 msgstr ""
 
-#: app.py:721 app.py:1660
+#: app.py:726 app.py:1697
 msgid "File upload failed."
 msgstr ""
 
-#: app.py:734
+#: app.py:739
 msgid "Your reply has been sent."
 msgstr ""
 
-#: app.py:754
+#: app.py:759
 msgid "Ticket marked as resolved."
 msgstr ""
 
-#: app.py:764
+#: app.py:776
 msgid "You have already rated this ticket."
 msgstr ""
 
-#: app.py:768
+#: app.py:780
 msgid "Please select a rating."
 msgstr ""
 
-#: app.py:775 templates/ticket_status.html:191
+#: app.py:787 templates/ticket_status.html:198
 msgid "Thank you for your feedback!"
 msgstr ""
 
-#: app.py:804
+#: app.py:816
 msgid "Invalid credentials or account disabled."
 msgstr ""
 
-#: app.py:822
+#: app.py:834
 msgid "GitHub OAuth is not configured."
 msgstr ""
 
-#: app.py:833 app.py:843
+#: app.py:845 app.py:855
 msgid "GitHub authentication failed."
 msgstr ""
 
-#: app.py:855
+#: app.py:867
 msgid "No employee account linked to this GitHub account."
 msgstr ""
 
-#: app.py:1071 app.py:2166 app.py:2275 app.py:2307
+#: app.py:1095 app.py:2203 app.py:2312 app.py:2344
 msgid "Email already in use."
 msgstr ""
 
-#: app.py:1084 app.py:2176
+#: app.py:1108 app.py:2213
 #, python-format
 msgid "A setup link has been sent to %(email)s."
 msgstr ""
 
-#: app.py:1103
+#: app.py:1127
 #, python-format
 msgid "Customer \"%(name)s\" activated."
 msgstr ""
 
-#: app.py:1105
+#: app.py:1129
 #, python-format
 msgid "Customer \"%(name)s\" deactivated."
 msgstr ""
 
-#: app.py:1117
+#: app.py:1141
 #, python-format
 msgid "Customer \"%(name)s\" deleted."
 msgstr ""
 
-#: app.py:1127
+#: app.py:1151
 msgid "No customers selected."
 msgstr ""
 
-#: app.py:1134
+#: app.py:1158
 #, python-format
 msgid "%(n)d customer(s) deleted."
 msgstr ""
 
-#: app.py:1146
+#: app.py:1171
+#, python-format
+msgid "%(n)d unused project(s) deleted."
+msgstr ""
+
+#: app.py:1183
 #, python-format
 msgid "Cannot delete project \"%(name)s\" because it has tickets assigned to it."
 msgstr ""
 
-#: app.py:1151
+#: app.py:1188
 #, python-format
 msgid "Project \"%(name)s\" deleted."
 msgstr ""
 
-#: app.py:1558
+#: app.py:1595
 msgid "GitHub PR was merged — ticket status updated to Resolved."
 msgstr ""
 
-#: app.py:1561
+#: app.py:1598
 msgid "GitHub issue was closed — ticket status updated to Resolved."
 msgstr ""
 
-#: app.py:1564
+#: app.py:1601
 msgid "GitHub issue was reopened — ticket status updated to Open."
 msgstr ""
 
-#: app.py:1633 app.py:1718
+#: app.py:1670 app.py:1755
 msgid "Message body cannot be empty."
 msgstr ""
 
-#: app.py:1682
+#: app.py:1719
 msgid "Message added."
 msgstr ""
 
-#: app.py:1705
+#: app.py:1742
 msgid "Message deleted."
 msgstr ""
 
-#: app.py:1726
+#: app.py:1763
 msgid "Message updated."
 msgstr ""
 
-#: app.py:1736
+#: app.py:1773
 msgid "Invalid status."
 msgstr ""
 
-#: app.py:1754
+#: app.py:1791
 #, python-format
 msgid "Status changed to %(status)s."
 msgstr ""
 
-#: app.py:1767 app.py:1845
+#: app.py:1804 app.py:1882
 msgid "Invalid employee."
 msgstr ""
 
-#: app.py:1786
+#: app.py:1823
 msgid "Assignment updated."
 msgstr ""
 
-#: app.py:1802
+#: app.py:1839
 msgid "Project not found."
 msgstr ""
 
-#: app.py:1805
+#: app.py:1842
 msgid "This project is not available for the ticket submitter."
 msgstr ""
 
-#: app.py:1816
+#: app.py:1853
 msgid "Project updated."
 msgstr ""
 
-#: app.py:1828
+#: app.py:1865
 msgid "You are no longer watching this ticket."
 msgstr ""
 
-#: app.py:1832
+#: app.py:1869
 msgid "You are now watching this ticket."
 msgstr ""
 
-#: app.py:1847 app.py:1858
+#: app.py:1884 app.py:1895
 #, python-format
 msgid "%(name)s is already watching this ticket."
 msgstr ""
 
-#: app.py:1852 app.py:1863
+#: app.py:1889 app.py:1900
 #, python-format
 msgid "%(name)s added as watcher."
 msgstr ""
 
-#: app.py:1856
+#: app.py:1893
 msgid "Invalid customer."
 msgstr ""
 
-#: app.py:1878
+#: app.py:1915
 msgid "Watcher removed."
 msgstr ""
 
-#: app.py:1888
+#: app.py:1925
 msgid "Invalid GitHub PR URL."
 msgstr ""
 
-#: app.py:1895
+#: app.py:1932
 msgid "GitHub link updated."
 msgstr ""
 
-#: app.py:2016
+#: app.py:2053
 msgid "Please select a repository."
 msgstr ""
 
-#: app.py:2041 app.py:2225 app.py:2232
+#: app.py:2078 app.py:2262 app.py:2269
 msgid "GitHub API request failed."
 msgstr ""
 
-#: app.py:2056
+#: app.py:2093
 msgid "GitHub issue created and linked."
 msgstr ""
 
-#: app.py:2070
+#: app.py:2107
 msgid "No file selected."
 msgstr ""
 
-#: app.py:2090
+#: app.py:2127
 #, python-format
 msgid "File \"%(name)s\" uploaded."
 msgstr ""
 
-#: app.py:2144
+#: app.py:2181
 #, python-format
 msgid "Ticket #%(id)s \"%(subject)s\" deleted."
 msgstr ""
 
-#: app.py:2164 app.py:2272
+#: app.py:2201 app.py:2309
 msgid "Username already taken."
 msgstr ""
 
-#: app.py:2188
+#: app.py:2225
 msgid "You cannot deactivate your own account."
 msgstr ""
 
-#: app.py:2193
+#: app.py:2230
 #, python-format
 msgid "Employee \"%(name)s\" activated."
 msgstr ""
 
-#: app.py:2195
+#: app.py:2232
 #, python-format
 msgid "Employee \"%(name)s\" deactivated."
 msgstr ""
 
-#: app.py:2210
+#: app.py:2247
 #, python-format
 msgid "GitHub link removed for \"%(name)s\"."
 msgstr ""
 
-#: app.py:2229
+#: app.py:2266
 #, python-format
 msgid "GitHub user \"%(name)s\" not found."
 msgstr ""
 
-#: app.py:2243
+#: app.py:2280
 #, python-format
 msgid "This GitHub account is already linked to \"%(name)s\"."
 msgstr ""
 
-#: app.py:2249
+#: app.py:2286
 #, python-format
 msgid "GitHub account \"%(gh)s\" linked to \"%(emp)s\"."
 msgstr ""
 
-#: app.py:2268 app.py:2304
+#: app.py:2305 app.py:2341
 msgid "Name and email are required."
 msgstr ""
 
-#: app.py:2287
+#: app.py:2324
 msgid "Cannot remove admin role: no other active admin exists."
 msgstr ""
 
-#: app.py:2292
+#: app.py:2329
 #, python-format
 msgid "Employee \"%(name)s\" updated."
 msgstr ""
 
-#: app.py:2316
+#: app.py:2353
 #, python-format
 msgid "Customer \"%(name)s\" updated."
 msgstr ""
 
-#: app.py:2328 app.py:2340
+#: app.py:2365 app.py:2377
 #, python-format
 msgid "A password reset link has been sent to %(email)s."
 msgstr ""
 
-#: app.py:2350
+#: app.py:2387
 msgid "You cannot delete your own account."
 msgstr ""
 
-#: app.py:2353
+#: app.py:2390
 msgid "Deactivate the employee before deleting them."
 msgstr ""
 
-#: app.py:2364
+#: app.py:2401
 #, python-format
 msgid "Employee \"%(name)s\" deleted."
 msgstr ""
 
-#: app.py:2375
+#: app.py:2412
 msgid "No employees selected."
 msgstr ""
 
-#: app.py:2385
+#: app.py:2422
 #, python-format
 msgid "%(n)d employee(s) deleted."
 msgstr ""
 
-#: app.py:2402 templates/admin/employees.html:88 templates/base.html:85
+#: app.py:2439 templates/admin/employees.html:88 templates/base.html:85
 #: templates/base.html:221
 msgid "Manager"
 msgstr ""
 
-#: app.py:2402 templates/base.html:94 templates/base.html:221
+#: app.py:2439 templates/base.html:94 templates/base.html:221
 msgid "Employee"
 msgstr ""
 
-#: app.py:2403
+#: app.py:2440
 #, python-format
 msgid "Now viewing as: %(role)s. Use \"Return to Admin\" to switch back."
 msgstr ""
 
-#: app.py:2409
+#: app.py:2446
 msgid "Please select a valid customer."
 msgstr ""
 
-#: app.py:2413
+#: app.py:2450
 #, python-format
 msgid "Now viewing as customer: %(name)s. Use \"Return to Admin\" to switch back."
 msgstr ""
 
-#: app.py:2419
+#: app.py:2456
 msgid "Returned to admin view."
 msgstr ""
 
-#: app.py:2447
+#: app.py:2484
 msgid "Please enter a recipient address."
 msgstr ""
 
-#: app.py:3677
+#: app.py:3714
 msgid "Forbidden"
 msgstr ""
 
-#: app.py:3682
+#: app.py:3719
 msgid "Page not found"
 msgstr ""
 
-#: app.py:3687
+#: app.py:3724
 msgid "Too many requests. Please wait a moment."
 msgstr ""
 
-#: app.py:3694
+#: app.py:3731
 msgid "An unexpected error occurred."
 msgstr ""
 
-#: app.py:3719
+#: app.py:3756
 msgid "Employee Manual"
 msgstr ""
 
-#: app.py:3720
+#: app.py:3757
 msgid "Manager Manual"
 msgstr ""
 
-#: app.py:3721
+#: app.py:3758
 msgid "Admin Manual"
 msgstr ""
 
-#: app.py:3722 app.py:4553
+#: app.py:3759 app.py:4590
 msgid "Customer Manual"
 msgstr ""
 
-#: app.py:4510
+#: app.py:4547
 #, python-format
 msgid "%(n)d ticket(s) deleted"
 msgstr ""
 
-#: app.py:4511
+#: app.py:4548
 #, python-format
 msgid "%(n)d customer(s) deleted"
 msgstr ""
 
-#: app.py:4512
+#: app.py:4549
 #, python-format
 msgid "%(n)d employee(s) deleted"
 msgstr ""
 
-#: app.py:4513
+#: app.py:4550
 #, python-format
 msgid "Revert complete: %(details)s."
 msgstr ""
 
-#: app.py:4513
+#: app.py:4550
 msgid "nothing to do"
 msgstr ""
 
-#: app.py:4518
+#: app.py:4555
 #, python-format
 msgid "Revert failed: %(error)s"
 msgstr ""
 
-#: app.py:4540 templates/base.html:46 templates/base.html:147
+#: app.py:4577 templates/base.html:46 templates/base.html:147
 msgid "Help"
 msgstr ""
 
@@ -522,7 +527,7 @@ msgid "Dashboard"
 msgstr ""
 
 #: templates/base.html:39 templates/manager/customers.html:2
-#: templates/manager/customers.html:6 templates/manager/customers.html:178
+#: templates/manager/customers.html:6 templates/manager/customers.html:190
 #: templates/ticket.html:522
 msgid "Customers"
 msgstr ""
@@ -599,8 +604,8 @@ msgid "choose…"
 msgstr ""
 
 #: templates/admin/employees.html:223 templates/admin/employees.html:276
-#: templates/base.html:357 templates/manager/customers.html:228
-#: templates/manager/customers.html:275 templates/ticket.html:182
+#: templates/base.html:357 templates/manager/customers.html:240
+#: templates/manager/customers.html:287 templates/ticket.html:182
 msgid "Cancel"
 msgstr ""
 
@@ -608,7 +613,7 @@ msgstr ""
 msgid "View as"
 msgstr ""
 
-#: templates/dashboard.html:6 templates/manager/customers.html:177
+#: templates/dashboard.html:6 templates/manager/customers.html:189
 msgid "Tickets"
 msgstr ""
 
@@ -632,285 +637,281 @@ msgstr ""
 msgid "Tickets marked Resolved or Closed in the last 7 days."
 msgstr ""
 
-#: templates/dashboard.html:69
-msgid "Avg. Rating"
-msgstr ""
-
-#: templates/dashboard.html:83
-msgid "Team"
-msgstr ""
-
-#: templates/dashboard.html:103
+#: templates/dashboard.html:71
 msgid "Ticket Activity – Past 12 Months"
 msgstr ""
 
-#: templates/dashboard.html:109
+#: templates/dashboard.html:77 templates/dashboard.html:78
+msgid "Team"
+msgstr ""
+
+#: templates/dashboard.html:84
 msgid "Hide this chart. You can re-enable it from the dashboard."
 msgstr ""
 
-#: templates/dashboard.html:110
+#: templates/dashboard.html:85
 msgid "Hide activity heatmap"
 msgstr ""
 
-#: templates/dashboard.html:123
+#: templates/dashboard.html:98
 msgid "Mon"
 msgstr ""
 
-#: templates/dashboard.html:124
+#: templates/dashboard.html:99
 msgid "Wed"
 msgstr ""
 
-#: templates/dashboard.html:125
+#: templates/dashboard.html:100
 msgid "Fri"
 msgstr ""
 
-#: templates/dashboard.html:148
+#: templates/dashboard.html:123
 msgid "ticket"
 msgstr ""
 
-#: templates/dashboard.html:148
+#: templates/dashboard.html:123
 msgid "tickets"
 msgstr ""
 
-#: templates/dashboard.html:159
+#: templates/dashboard.html:134
 msgid "Less"
 msgstr ""
 
-#: templates/dashboard.html:165
+#: templates/dashboard.html:140
 msgid "More"
 msgstr ""
 
-#: templates/dashboard.html:175
+#: templates/dashboard.html:150
 msgid "Show activity heatmap"
 msgstr ""
 
-#: templates/customer/dashboard.html:70 templates/dashboard.html:195
+#: templates/customer/dashboard.html:70 templates/dashboard.html:170
 msgid "All"
 msgstr ""
 
-#: templates/dashboard.html:201
+#: templates/dashboard.html:176
 msgid "Mine"
 msgstr ""
 
-#: templates/dashboard.html:203
+#: templates/dashboard.html:178
 msgid "Tickets assigned to you."
 msgstr ""
 
-#: templates/dashboard.html:212
+#: templates/dashboard.html:187
 msgid "Watched"
 msgstr ""
 
-#: templates/dashboard.html:214
+#: templates/dashboard.html:189
 msgid "Tickets you are watching for updates, but are not assigned to."
 msgstr ""
 
-#: templates/customer/dashboard.html:108 templates/dashboard.html:231
+#: templates/customer/dashboard.html:108 templates/dashboard.html:206
 msgid "Search tickets…"
 msgstr ""
 
-#: templates/customer/dashboard.html:130 templates/dashboard.html:241
+#: templates/customer/dashboard.html:130 templates/dashboard.html:216
 msgid "All Statuses"
 msgstr ""
 
-#: templates/customer/dashboard.html:119 templates/dashboard.html:249
+#: templates/customer/dashboard.html:119 templates/dashboard.html:224
 msgid "All Projects"
 msgstr ""
 
-#: templates/dashboard.html:258
+#: templates/dashboard.html:233
 msgid "All Assignees"
 msgstr ""
 
-#: templates/dashboard.html:270
+#: templates/dashboard.html:245
 msgid "Remove date filter"
 msgstr ""
 
-#: templates/customer/dashboard.html:139 templates/dashboard.html:276
+#: templates/customer/dashboard.html:139 templates/dashboard.html:251
 #: templates/search.html:82
 msgid "Clear"
 msgstr ""
 
-#: templates/customer/dashboard.html:147 templates/dashboard.html:284
+#: templates/customer/dashboard.html:147 templates/dashboard.html:259
 msgid "Resolved & closed hidden — click to show"
 msgstr ""
 
-#: templates/customer/dashboard.html:147 templates/dashboard.html:284
+#: templates/customer/dashboard.html:147 templates/dashboard.html:259
 msgid "All statuses shown — click to hide resolved & closed"
 msgstr ""
 
-#: templates/customer/dashboard.html:160 templates/dashboard.html:297
+#: templates/customer/dashboard.html:160 templates/dashboard.html:272
 #: templates/search.html:111 templates/submit.html:26
 msgid "Subject"
 msgstr ""
 
-#: templates/dashboard.html:298 templates/search.html:112
+#: templates/dashboard.html:273 templates/search.html:112
 msgid "Submitter"
 msgstr ""
 
 #: templates/admin/employees.html:67 templates/customer/dashboard.html:161
-#: templates/dashboard.html:299 templates/manager/customers.html:70
+#: templates/dashboard.html:274 templates/manager/customers.html:70
 #: templates/search.html:27 templates/search.html:113 templates/ticket.html:390
 msgid "Status"
 msgstr ""
 
-#: templates/dashboard.html:300 templates/search.html:39
+#: templates/dashboard.html:275 templates/search.html:39
 #: templates/search.html:114 templates/ticket.html:412
 msgid "Assignee"
 msgstr ""
 
-#: templates/customer/dashboard.html:163 templates/dashboard.html:301
+#: templates/customer/dashboard.html:163 templates/dashboard.html:276
 msgid "Age"
 msgstr ""
 
-#: templates/customer/dashboard.html:186 templates/dashboard.html:322
+#: templates/customer/dashboard.html:186 templates/dashboard.html:297
 msgid "Has attachments"
 msgstr ""
 
-#: templates/dashboard.html:326
+#: templates/dashboard.html:301
 msgid "The customer has replied and is waiting for a staff response."
 msgstr ""
 
-#: templates/dashboard.html:327
+#: templates/dashboard.html:302
 msgid "Reply pending"
 msgstr ""
 
-#: templates/dashboard.html:331
+#: templates/dashboard.html:306
 msgid "Watching"
 msgstr ""
 
-#: templates/customer/dashboard.html:205 templates/dashboard.html:365
+#: templates/customer/dashboard.html:208 templates/dashboard.html:340
 #: templates/search.html:116 templates/ticket.html:675
 msgid "Updated"
 msgstr ""
 
-#: templates/admin/employees.html:68 templates/customer/dashboard.html:205
-#: templates/dashboard.html:365 templates/manager/customers.html:71
+#: templates/admin/employees.html:68 templates/customer/dashboard.html:208
+#: templates/dashboard.html:340 templates/manager/customers.html:71
 #: templates/search.html:115 templates/ticket.html:674
 msgid "Created"
 msgstr ""
 
-#: templates/dashboard.html:378
+#: templates/dashboard.html:353
 msgid "No tickets are currently assigned to you."
 msgstr ""
 
-#: templates/dashboard.html:380
+#: templates/dashboard.html:355
 msgid "You are not watching any tickets yet."
 msgstr ""
 
-#: templates/customer/dashboard.html:225 templates/customer/dashboard.html:230
-#: templates/dashboard.html:382
+#: templates/customer/dashboard.html:228 templates/customer/dashboard.html:233
+#: templates/dashboard.html:357
 msgid "No tickets match your filters."
 msgstr ""
 
-#: templates/dashboard.html:384
+#: templates/dashboard.html:359
 msgid "No open tickets."
 msgstr ""
 
-#: templates/customer/dashboard.html:244 templates/dashboard.html:393
+#: templates/customer/dashboard.html:247 templates/dashboard.html:368
 msgid "No tickets"
 msgstr ""
 
-#: templates/customer/dashboard.html:246 templates/dashboard.html:395
+#: templates/customer/dashboard.html:249 templates/dashboard.html:370
 #, python-format
 msgid "%(total)s tickets"
 msgstr ""
 
-#: templates/customer/dashboard.html:250 templates/dashboard.html:399
+#: templates/customer/dashboard.html:253 templates/dashboard.html:374
 #: templates/search.html:171
 #, python-format
 msgid "%(first)s–%(last)s of %(total)s tickets"
 msgstr ""
 
-#: templates/customer/dashboard.html:283 templates/dashboard.html:432
+#: templates/customer/dashboard.html:286 templates/dashboard.html:407
 msgid "Recent Activity"
 msgstr ""
 
-#: templates/dashboard.html:473 templates/ticket.html:231
+#: templates/dashboard.html:448 templates/ticket.html:231
 msgid "changed status"
 msgstr ""
 
-#: templates/dashboard.html:476 templates/dashboard.html:483
-#: templates/dashboard.html:491 templates/dashboard.html:495
-#: templates/dashboard.html:498 templates/dashboard.html:525
+#: templates/dashboard.html:451 templates/dashboard.html:458
+#: templates/dashboard.html:466 templates/dashboard.html:470
+#: templates/dashboard.html:473 templates/dashboard.html:500
 #: templates/ticket.html:238 templates/ticket.html:249
 #: templates/ticket.html:259 templates/ticket.html:265
 #: templates/ticket.html:271 templates/ticket.html:310
 msgid "System"
 msgstr ""
 
-#: templates/dashboard.html:478 templates/ticket.html:240
+#: templates/dashboard.html:453 templates/ticket.html:240
 msgid "assigned to"
 msgstr ""
 
-#: templates/dashboard.html:480 templates/ticket.html:242
+#: templates/dashboard.html:455 templates/ticket.html:242
 msgid "removed assignment"
 msgstr ""
 
-#: templates/dashboard.html:485 templates/ticket.html:273
+#: templates/dashboard.html:460 templates/ticket.html:273
 msgid "set project to"
 msgstr ""
 
-#: templates/dashboard.html:487
+#: templates/dashboard.html:462
 msgid "removed project"
 msgstr ""
 
-#: templates/dashboard.html:492 templates/ticket.html:251
+#: templates/dashboard.html:467 templates/ticket.html:251
 msgid "linked"
 msgstr ""
 
-#: templates/dashboard.html:493 templates/ticket.html:253
+#: templates/dashboard.html:468 templates/ticket.html:253
 msgid "removed GitHub link"
 msgstr ""
 
-#: templates/dashboard.html:496 templates/ticket.html:260
+#: templates/dashboard.html:471 templates/ticket.html:260
 msgid "created GitHub issue"
 msgstr ""
 
-#: templates/dashboard.html:499 templates/ticket.html:266
+#: templates/dashboard.html:474 templates/ticket.html:266
 msgid "attached"
 msgstr ""
 
-#: templates/dashboard.html:504 templates/ticket.html:283
+#: templates/dashboard.html:479 templates/ticket.html:283
 msgid "replied"
 msgstr ""
 
-#: templates/customer/dashboard.html:333 templates/dashboard.html:509
+#: templates/customer/dashboard.html:336 templates/dashboard.html:484
 #: templates/ticket.html:295
 msgid "submitted this ticket"
 msgstr ""
 
-#: templates/customer/dashboard.html:338 templates/customer/dashboard.html:344
-#: templates/dashboard.html:515 templates/dashboard.html:521
+#: templates/customer/dashboard.html:341 templates/customer/dashboard.html:347
+#: templates/dashboard.html:490 templates/dashboard.html:496
 #: templates/ticket.html:304
 msgid "added a message"
 msgstr ""
 
-#: templates/customer/dashboard.html:340 templates/dashboard.html:517
-#: templates/ticket.html:300 templates/ticket_status.html:75
+#: templates/customer/dashboard.html:343 templates/dashboard.html:492
+#: templates/ticket.html:300 templates/ticket_status.html:82
 msgid "Support Team"
 msgstr ""
 
-#: templates/customer/dashboard.html:342 templates/dashboard.html:519
+#: templates/customer/dashboard.html:345 templates/dashboard.html:494
 #: templates/ticket.html:302
 msgid "added an internal message"
 msgstr ""
 
-#: templates/dashboard.html:527 templates/ticket.html:312
+#: templates/dashboard.html:502 templates/ticket.html:312
 msgid "added"
 msgstr ""
 
-#: templates/dashboard.html:527 templates/ticket.html:312
+#: templates/dashboard.html:502 templates/ticket.html:312
 msgid "as watcher"
 msgstr ""
 
-#: templates/dashboard.html:529 templates/ticket.html:314
+#: templates/dashboard.html:504 templates/ticket.html:314
 msgid "removed watcher"
 msgstr ""
 
-#: templates/dashboard.html:535 templates/ticket.html:321
+#: templates/dashboard.html:510 templates/ticket.html:321
 msgid "rated this ticket"
 msgstr ""
 
-#: templates/customer/dashboard.html:372 templates/dashboard.html:555
+#: templates/customer/dashboard.html:375 templates/dashboard.html:530
 #: templates/ticket.html:339
 msgid "No activity yet."
 msgstr ""
@@ -926,7 +927,7 @@ msgstr ""
 #: templates/admin/employees.html:22 templates/admin/employees.html:64
 #: templates/admin/employees.html:250 templates/customer/login.html:14
 #: templates/login.html:14 templates/manager/customers.html:22
-#: templates/manager/customers.html:68 templates/manager/customers.html:255
+#: templates/manager/customers.html:68 templates/manager/customers.html:267
 #: templates/setup.html:20
 msgid "Email"
 msgstr ""
@@ -1016,8 +1017,8 @@ msgstr ""
 
 #: templates/admin/employees.html:17 templates/admin/employees.html:63
 #: templates/admin/employees.html:246 templates/manager/customers.html:17
-#: templates/manager/customers.html:67 templates/manager/customers.html:176
-#: templates/manager/customers.html:251 templates/setup.html:15
+#: templates/manager/customers.html:67 templates/manager/customers.html:188
+#: templates/manager/customers.html:263 templates/setup.html:15
 msgid "Name"
 msgstr ""
 
@@ -1128,11 +1129,11 @@ msgid "Delete this message?"
 msgstr ""
 
 #: templates/admin/employees.html:175 templates/admin/employees.html:227
-#: templates/manager/customers.html:232 templates/ticket.html:160
+#: templates/manager/customers.html:244 templates/ticket.html:160
 msgid "Delete"
 msgstr ""
 
-#: templates/admin/employees.html:281 templates/manager/customers.html:280
+#: templates/admin/employees.html:281 templates/manager/customers.html:292
 #: templates/ticket.html:178 templates/ticket.html:559
 #: templates/ticket.html:583
 msgid "Save"
@@ -1154,7 +1155,7 @@ msgstr ""
 msgid "Add Message"
 msgstr ""
 
-#: templates/ticket.html:357 templates/ticket_status.html:120
+#: templates/ticket.html:357 templates/ticket_status.html:127
 msgid "Attach file"
 msgstr ""
 
@@ -1391,74 +1392,74 @@ msgstr ""
 msgid "Submit"
 msgstr ""
 
-#: templates/ticket_status.html:30
+#: templates/ticket_status.html:37
 msgid "Submitted"
 msgstr ""
 
-#: templates/ticket_status.html:39
+#: templates/ticket_status.html:46
 msgid "Conversation"
 msgstr ""
 
-#: templates/ticket_status.html:46
+#: templates/ticket_status.html:53
 msgid "You"
 msgstr ""
 
-#: templates/ticket_status.html:103
+#: templates/ticket_status.html:110
 msgid "No updates yet. We'll email you when there's activity."
 msgstr ""
 
-#: templates/ticket_status.html:111
+#: templates/ticket_status.html:118
 msgid "Reply"
 msgstr ""
 
-#: templates/ticket_status.html:121
+#: templates/ticket_status.html:128
 msgid "optional"
 msgstr ""
 
-#: templates/ticket_status.html:127
+#: templates/ticket_status.html:134
 msgid "Send Reply"
 msgstr ""
 
-#: templates/ticket_status.html:136
+#: templates/ticket_status.html:143
 msgid "Mark this ticket as resolved?"
 msgstr ""
 
-#: templates/ticket_status.html:138
+#: templates/ticket_status.html:145
 msgid "Mark as Resolved"
 msgstr ""
 
-#: templates/ticket_status.html:145
+#: templates/ticket_status.html:152
 #, python-format
 msgid "This ticket is %(status)s — replies are disabled."
 msgstr ""
 
-#: templates/ticket_status.html:153
+#: templates/ticket_status.html:160
 msgid "How did we do?"
 msgstr ""
 
-#: templates/ticket_status.html:157
+#: templates/ticket_status.html:164
 msgid ""
 "Your ticket has been resolved. We'd love to hear how satisfied you are "
 "with our support."
 msgstr ""
 
-#: templates/ticket_status.html:170
+#: templates/ticket_status.html:177
 msgid "Optional comment…"
 msgstr ""
 
-#: templates/ticket_status.html:173
+#: templates/ticket_status.html:180
 msgid "Submit Rating"
 msgstr ""
 
-#: templates/ticket_status.html:181
+#: templates/ticket_status.html:188
 msgid "Your rating"
 msgstr ""
 
-#: templates/ticket_status.html:200
+#: templates/ticket_status.html:207
 msgid "Bookmark this page to check your ticket status anytime."
 msgstr ""
 
-#: templates/ticket_status.html:214
+#: templates/ticket_status.html:221
 msgid "Write your reply…"
 msgstr ""
 
@@ -1603,7 +1604,7 @@ msgstr ""
 msgid "Send a password reset link to this employee?"
 msgstr ""
 
-#: templates/admin/employees.html:279 templates/manager/customers.html:278
+#: templates/admin/employees.html:279 templates/manager/customers.html:290
 msgid "Send Reset Link"
 msgstr ""
 
@@ -1701,63 +1702,63 @@ msgstr ""
 msgid "Reply from support"
 msgstr ""
 
-#: templates/customer/dashboard.html:218
+#: templates/customer/dashboard.html:221
 msgid "No tickets are awaiting your reply."
 msgstr ""
 
-#: templates/customer/dashboard.html:220
+#: templates/customer/dashboard.html:223
 msgid "No resolved or closed tickets."
 msgstr ""
 
-#: templates/customer/dashboard.html:223
+#: templates/customer/dashboard.html:226
 msgid "You are not assigned to any projects."
 msgstr ""
 
-#: templates/customer/dashboard.html:227
+#: templates/customer/dashboard.html:230
 msgid "No open tickets in your projects."
 msgstr ""
 
-#: templates/customer/dashboard.html:232
+#: templates/customer/dashboard.html:235
 msgid "You haven't submitted any tickets yet."
 msgstr ""
 
-#: templates/customer/dashboard.html:234
+#: templates/customer/dashboard.html:237
 msgid "Submit your first ticket"
 msgstr ""
 
-#: templates/customer/dashboard.html:310
+#: templates/customer/dashboard.html:313
 msgid "Status changed"
 msgstr ""
 
-#: templates/customer/dashboard.html:313
+#: templates/customer/dashboard.html:316
 msgid "You replied"
 msgstr ""
 
-#: templates/customer/dashboard.html:315
+#: templates/customer/dashboard.html:318
 msgid "File attached"
 msgstr ""
 
-#: templates/customer/dashboard.html:318
+#: templates/customer/dashboard.html:321
 msgid "Assigned to"
 msgstr ""
 
-#: templates/customer/dashboard.html:320
+#: templates/customer/dashboard.html:323
 msgid "Assignment removed"
 msgstr ""
 
-#: templates/customer/dashboard.html:324
+#: templates/customer/dashboard.html:327
 msgid "Added to project"
 msgstr ""
 
-#: templates/customer/dashboard.html:326
+#: templates/customer/dashboard.html:329
 msgid "Removed from project"
 msgstr ""
 
-#: templates/customer/dashboard.html:330
+#: templates/customer/dashboard.html:333
 msgid "You submitted this ticket"
 msgstr ""
 
-#: templates/customer/dashboard.html:348
+#: templates/customer/dashboard.html:351
 msgid "You rated this ticket"
 msgstr ""
 
@@ -1774,7 +1775,7 @@ msgid "Create Customer"
 msgstr ""
 
 #: templates/manager/customers.html:27 templates/manager/customers.html:69
-#: templates/manager/customers.html:171 templates/manager/customers.html:259
+#: templates/manager/customers.html:172 templates/manager/customers.html:271
 msgid "Projects"
 msgstr ""
 
@@ -1784,11 +1785,11 @@ msgid ""
 "tickets on the dashboard."
 msgstr ""
 
-#: templates/manager/customers.html:37 templates/manager/customers.html:266
+#: templates/manager/customers.html:37 templates/manager/customers.html:278
 msgid "Hold Ctrl/Cmd to select multiple."
 msgstr ""
 
-#: templates/manager/customers.html:40 templates/manager/customers.html:269
+#: templates/manager/customers.html:40 templates/manager/customers.html:281
 msgid "Add new project…"
 msgstr ""
 
@@ -1809,28 +1810,37 @@ msgstr ""
 msgid "No customers yet."
 msgstr ""
 
-#: templates/manager/customers.html:192
+#: templates/manager/customers.html:177
+#, python-format
+msgid "Delete all %(n)d unused project(s)? This cannot be undone."
+msgstr ""
+
+#: templates/manager/customers.html:179
+msgid "Remove All Unused"
+msgstr ""
+
+#: templates/manager/customers.html:204
 #, python-format
 msgid "Delete project \"%(name)s\"? This cannot be undone."
 msgstr ""
 
-#: templates/manager/customers.html:198
+#: templates/manager/customers.html:210
 msgid "Has tickets"
 msgstr ""
 
-#: templates/manager/customers.html:219
+#: templates/manager/customers.html:231
 msgid "Delete selected customers?"
 msgstr ""
 
-#: templates/manager/customers.html:224
+#: templates/manager/customers.html:236
 msgid "The following customers will be permanently deleted:"
 msgstr ""
 
-#: templates/manager/customers.html:245
+#: templates/manager/customers.html:257
 msgid "Edit Customer"
 msgstr ""
 
-#: templates/manager/customers.html:277
+#: templates/manager/customers.html:289
 msgid "Send a password reset link to this customer?"
 msgstr ""
 

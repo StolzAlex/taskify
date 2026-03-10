@@ -59,32 +59,6 @@
       </div>
     </a>
   </div>
-  {% if stats.team_avg_rating %}
-  <div class="col-6 col-md-3">
-    <div class="card shadow-sm h-100">
-      <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
-        <span class="fs-3 fw-bold text-warning lh-1">{{ '%.1f'|format(stats.avg_rating) if stats.avg_rating else '—' }}</span>
-        <span class="small text-muted lh-sm">
-          <div>{{ _('Avg. Rating') }}
-            {% if stats.avg_rating %}
-            {% for i in range(1, 6) %}
-            <i class="bi {{ 'bi-star-fill text-warning' if i <= stats.avg_rating|round else 'bi-star text-muted' }}" style="font-size:.7rem;"></i>
-            {% endfor %}
-            ({{ stats.rating_count }})
-            {% endif %}
-          </div>
-          <div class="text-muted" style="font-size:.75rem;">
-            {{ _('Team') }}: {{ '%.1f'|format(stats.team_avg_rating) }}
-            {% for i in range(1, 6) %}
-            <i class="bi {{ 'bi-star-fill text-warning' if i <= stats.team_avg_rating|round else 'bi-star text-muted' }}" style="font-size:.65rem;"></i>
-            {% endfor %}
-            ({{ stats.team_rating_count }})
-          </div>
-        </span>
-      </div>
-    </div>
-  </div>
-  {% endif %}
 </div>
 
 <!-- Activity heatmap -->
@@ -97,6 +71,13 @@
       <h6 class="mb-0"><i class="bi bi-calendar3 me-1"></i>{{ _('Ticket Activity – Past 12 Months') }}</h6>
       <i class="bi bi-chevron-up small text-muted"></i>
     </div>
+    {% if stats.team_avg_rating %}
+    <span class="small text-muted flex-shrink-0">
+      <i class="bi bi-star-fill text-warning me-1" style="font-size:.75rem;"></i>
+      {% if stats.avg_rating %}{{ '%.1f'|format(stats.avg_rating) }} ({{ stats.rating_count }}){% if stats.avg_rating != stats.team_avg_rating %} &middot; {{ _('Team') }}: {{ '%.1f'|format(stats.team_avg_rating) }} ({{ stats.team_rating_count }}){% endif %}
+      {% else %}{{ _('Team') }}: {{ '%.1f'|format(stats.team_avg_rating) }} ({{ stats.team_rating_count }}){% endif %}
+    </span>
+    {% endif %}
     <form method="post" action="{{ url_for('toggle_heatmap') }}" class="flex-shrink-0">
       <button type="submit" class="btn btn-link btn-sm p-0 text-muted"
               data-bs-toggle="tooltip"

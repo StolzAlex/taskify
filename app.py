@@ -1159,6 +1159,19 @@ def admin_customers_delete_bulk():
     return redirect(url_for('manager_customers'))
 
 
+@app.route('/manager/groups/delete-unused', methods=['POST'])
+@login_required
+@manager_required
+def delete_unused_groups():
+    unused = Group.query.filter(~Group.tickets.any()).all()
+    count = len(unused)
+    for grp in unused:
+        db.session.delete(grp)
+    db.session.commit()
+    flash(_('%(n)d unused project(s) deleted.', n=count), 'success')
+    return redirect(url_for('manager_customers'))
+
+
 @app.route('/manager/groups/<int:group_id>/delete', methods=['POST'])
 @login_required
 @manager_required
