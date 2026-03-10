@@ -175,7 +175,7 @@
         </form>
       </div>
     </div>
-    {% else %}
+    {% elif ticket.satisfaction_rating is not none %}
     <div class="card shadow-sm mt-3">
       <div class="card-body py-3 text-center">
         <p class="text-muted small mb-1">{{ _('Your rating') }}</p>
