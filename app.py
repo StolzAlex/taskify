@@ -863,6 +863,11 @@ def customer_dashboard():
     if view not in ('all', 'awaiting', 'closed', 'groups'):
         view = 'all'
     status_filter = request.args.get('status', '')
+    if 'show_closed' in request.args:
+        show_closed = request.args.get('show_closed', '') == '1'
+        session['customer_show_closed'] = show_closed
+    else:
+        show_closed = session.get('customer_show_closed', False)
     q             = request.args.get('q', '').strip()
     project_id    = request.args.get('project_id', type=int)
 
@@ -914,7 +919,7 @@ def customer_dashboard():
     elif view == 'closed':
         query = query.filter(Ticket.status.in_(['resolved', 'closed']))
 
-    hide_closed = view not in ('closed',) and not status_filter
+    hide_closed = view not in ('closed',) and not status_filter and not show_closed
     if status_filter:
         query = query.filter(Ticket.status == status_filter)
     elif hide_closed:
@@ -983,6 +988,7 @@ def customer_dashboard():
                            status_choices=Ticket.STATUS_CHOICES,
                            q=q,
                            hide_closed=hide_closed,
+                           show_closed=show_closed,
                            awaiting_reply_ids=awaiting_reply_ids,
                            customer_group_ids=customer_group_ids,
                            customer_groups=customer.groups,
@@ -1157,6 +1163,14 @@ def dashboard():
     unassigned_filter    = request.args.get('unassigned', '') == '1'
     resolved_week_filter = request.args.get('resolved_week', '') == '1'
     group_filter         = request.args.get('group', '')
+    assignee_filter      = request.args.get('assignee', type=int)
+    if 'show_closed' in request.args:
+        show_closed = request.args.get('show_closed', '') == '1'
+        if show_closed != current_user.get_pref('show_closed', False):
+            current_user.set_pref('show_closed', show_closed)
+            db.session.commit()
+    else:
+        show_closed = current_user.get_pref('show_closed', False)
     q                    = request.args.get('q', '').strip()
     date_filter          = request.args.get('date', '').strip()
     # Validate date format; discard silently if malformed
@@ -1168,7 +1182,7 @@ def dashboard():
 
     query = Ticket.query
     # Hide closed and resolved tickets by default unless explicitly requested
-    hide_closed = not status_filter and not unassigned_filter and not resolved_week_filter and not date_filter
+    hide_closed = not status_filter and not show_closed and not unassigned_filter and not resolved_week_filter and not date_filter
     if status_filter:
         query = query.filter(Ticket.status == status_filter)
     elif hide_closed:
@@ -1200,6 +1214,10 @@ def dashboard():
         grp = Group.query.filter_by(name=group_filter).first()
         if grp:
             query = query.filter(Ticket.group_id == grp.id)
+    if assignee_filter:
+        query = query.filter(Ticket.id.in_(
+            db.session.query(Assignment.ticket_id).filter(Assignment.employee_id == assignee_filter)
+        ))
     if date_filter:
         query = query.filter(db.func.date(Ticket.created_at) == date_filter)
     watched_ids = {w.ticket_id for w in TicketWatch.query.filter_by(employee_id=current_user.id).all()}
@@ -1252,6 +1270,7 @@ def dashboard():
 
     # Only groups that have at least one ticket assigned
     groups = Group.query.filter(Group.tickets.any()).order_by(Group.name).all()
+    assignable_employees = Employee.query.filter_by(is_active=True).order_by(Employee.username).all()
 
     if view == 'mine':
         my_ticket_ids = db.session.query(Assignment.ticket_id).filter(
@@ -1354,6 +1373,9 @@ def dashboard():
                            resolved_week_filter=resolved_week_filter,
                            group_filter=group_filter,
                            groups=groups,
+                           assignee_filter=assignee_filter,
+                           assignable_employees=assignable_employees,
+                           show_closed=show_closed,
                            customer_map=customer_map,
                            view=view, is_privileged=is_privileged,
                            status_choices=Ticket.STATUS_CHOICES,
