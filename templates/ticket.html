@@ -282,6 +282,16 @@
                 <strong>{{ submitter_customer.name if submitter_customer else (submitter_employee.username if submitter_employee else ticket.submitter_email) }}</strong>
                 {{ _('replied') }}
               </span>
+            {% elif ev.event_type == 'watcher' %}
+              <i class="bi bi-eye text-secondary mt-1 flex-shrink-0"></i>
+              <span class="flex-grow-1">
+                <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                {% if ev.to_value %}
+                  {{ _('added') }} <strong>{{ ev.to_value }}</strong> {{ _('as watcher') }}
+                {% else %}
+                  {{ _('removed watcher') }} <strong>{{ ev.from_value }}</strong>
+                {% endif %}
+              </span>
             {% elif ev.event_type == 'mantis_history' %}
               <i class="bi bi-bug text-secondary mt-1 flex-shrink-0"></i>
               <span class="flex-grow-1 text-muted">

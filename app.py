@@ -1795,6 +1795,7 @@ def add_watcher(ticket_id):
             flash(_('%(name)s is already watching this ticket.', name=emp.username), 'info')
         else:
             db.session.add(TicketWatch(ticket_id=ticket_id, employee_id=emp_id))
+            log_event(ticket, 'watcher', to_value=emp.username, actor_id=current_user.id)
             db.session.commit()
             flash(_('%(name)s added as watcher.', name=emp.username), 'success')
     elif cust_id:
@@ -1805,6 +1806,7 @@ def add_watcher(ticket_id):
             flash(_('%(name)s is already watching this ticket.', name=cust.name), 'info')
         else:
             db.session.add(TicketWatch(ticket_id=ticket_id, customer_id=cust_id))
+            log_event(ticket, 'watcher', to_value=cust.name, actor_id=current_user.id)
             db.session.commit()
             flash(_('%(name)s added as watcher.', name=cust.name), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
@@ -1813,10 +1815,13 @@ def add_watcher(ticket_id):
 @app.route('/tickets/<int:ticket_id>/watchers/<int:watch_id>/remove', methods=['POST'])
 @login_required
 def remove_watcher(ticket_id, watch_id):
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
     watch = db.session.get(TicketWatch, watch_id) or abort(404)
     if watch.ticket_id != ticket_id:
         abort(404)
+    name = watch.employee.username if watch.employee else (watch.customer.name if watch.customer else '?')
     db.session.delete(watch)
+    log_event(ticket, 'watcher', from_value=name, actor_id=current_user.id)
     db.session.commit()
     flash(_('Watcher removed.'), 'success')
     return redirect(url_for('ticket_detail', ticket_id=ticket_id))
@@ -4963,6 +4968,32 @@ def _startup_checks():
             log.info('[startup] Added column %s.%s', table, col)
         except Exception:
             db.session.rollback()
+
+    # 7. Recreate ticket_watches if employee_id is still NOT NULL (original schema)
+    try:
+        cols = db.session.execute(_text('PRAGMA table_info(ticket_watches)')).fetchall()
+        emp_col = next((c for c in cols if c[1] == 'employee_id'), None)
+        if emp_col and emp_col[3] == 1:   # notnull flag
+            db.session.execute(_text('''
+                CREATE TABLE ticket_watches_new (
+                    id          INTEGER PRIMARY KEY,
+                    ticket_id   INTEGER NOT NULL REFERENCES tickets(id),
+                    employee_id INTEGER REFERENCES employees(id),
+                    customer_id INTEGER REFERENCES customers(id),
+                    created_at  DATETIME NOT NULL
+                )
+            '''))
+            db.session.execute(_text('''
+                INSERT INTO ticket_watches_new (id, ticket_id, employee_id, created_at)
+                SELECT id, ticket_id, employee_id, created_at FROM ticket_watches
+            '''))
+            db.session.execute(_text('DROP TABLE ticket_watches'))
+            db.session.execute(_text('ALTER TABLE ticket_watches_new RENAME TO ticket_watches'))
+            db.session.commit()
+            log.info('[startup] Rebuilt ticket_watches with nullable employee_id/customer_id')
+    except Exception as e:
+        db.session.rollback()
+        log.error('[startup] Failed to rebuild ticket_watches: %s', e)
 
     return ok
 
