@@ -1421,9 +1421,14 @@ def ticket_detail(ticket_id):
     watching_emp_ids  = {w.employee_id for w in watchers if w.employee_id}
     watching_cust_ids = {w.customer_id for w in watchers if w.customer_id}
     addable_employees = [e for e in employees if e.id not in watching_emp_ids]
-    addable_customers = Customer.query.filter_by(is_active=True)\
-        .order_by(Customer.name).all()
-    addable_customers = [c for c in addable_customers if c.id not in watching_cust_ids]
+    if ticket.group_id:
+        addable_customers = [
+            c for c in ticket.group.customers
+            if c.is_active and c.id not in watching_cust_ids
+        ]
+        addable_customers.sort(key=lambda c: c.name)
+    else:
+        addable_customers = []
     return render_template('ticket.html', ticket=ticket, employees=employees,
                            status_choices=Ticket.STATUS_CHOICES, events=events,
                            is_watching=is_watching,
