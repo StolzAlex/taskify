@@ -62,31 +62,25 @@
   {% if stats.team_avg_rating %}
   <div class="col-6 col-md-3">
     <div class="card shadow-sm h-100">
-      <div class="card-body py-2 px-3">
-        <div class="d-flex align-items-center gap-3 mb-1">
-          <span class="fs-3 fw-bold text-warning lh-1">{{ '%.1f'|format(stats.avg_rating) if stats.avg_rating else '—' }}</span>
-          <span class="small text-muted">
-            <div>{{ _('Avg. Rating') }}</div>
-            <div>
-              {% if stats.avg_rating %}
-              {% for i in range(1, 6) %}
-              <i class="bi {{ 'bi-star-fill text-warning' if i <= stats.avg_rating|round else 'bi-star text-muted' }}" style="font-size:.75rem;"></i>
-              {% endfor %}
-              <span class="text-muted" style="font-size:.7rem;">({{ stats.rating_count }})</span>
-              {% else %}—{% endif %}
-            </div>
-          </span>
-        </div>
-        <div class="border-top pt-1 d-flex align-items-center gap-2">
-          <span class="fw-semibold text-warning" style="font-size:.85rem;">{{ '%.1f'|format(stats.team_avg_rating) }}</span>
-          <span class="small text-muted">
-            {{ _('Team') }}
+      <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
+        <span class="fs-3 fw-bold text-warning lh-1">{{ '%.1f'|format(stats.avg_rating) if stats.avg_rating else '—' }}</span>
+        <span class="small text-muted lh-sm">
+          <div>{{ _('Avg. Rating') }}
+            {% if stats.avg_rating %}
+            {% for i in range(1, 6) %}
+            <i class="bi {{ 'bi-star-fill text-warning' if i <= stats.avg_rating|round else 'bi-star text-muted' }}" style="font-size:.7rem;"></i>
+            {% endfor %}
+            ({{ stats.rating_count }})
+            {% endif %}
+          </div>
+          <div class="text-muted" style="font-size:.75rem;">
+            {{ _('Team') }}: {{ '%.1f'|format(stats.team_avg_rating) }}
             {% for i in range(1, 6) %}
             <i class="bi {{ 'bi-star-fill text-warning' if i <= stats.team_avg_rating|round else 'bi-star text-muted' }}" style="font-size:.65rem;"></i>
             {% endfor %}
-            <span style="font-size:.7rem;">({{ stats.team_rating_count }})</span>
-          </span>
-        </div>
+            ({{ stats.team_rating_count }})
+          </div>
+        </span>
       </div>
     </div>
   </div>
