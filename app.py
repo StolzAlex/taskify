@@ -673,8 +673,14 @@ def ticket_status(token):
     thread = ticket.messages.filter(
         db.or_(Message.is_customer_visible == True, Message.is_customer_reply == True)
     ).all()
+    submitter_customer = Customer.query.filter(
+        Customer.email.ilike(ticket.submitter_email)).first()
+    submitter_employee = None if submitter_customer else Employee.query.filter(
+        Employee.email.ilike(ticket.submitter_email)).first()
     return render_template('ticket_status.html', ticket=ticket, messages=thread,
-                           current_customer=customer)
+                           current_customer=customer,
+                           submitter_customer=submitter_customer,
+                           submitter_employee=submitter_employee)
 
 
 @app.route('/status/<token>/reply', methods=['POST'])

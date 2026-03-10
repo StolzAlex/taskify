@@ -25,7 +25,7 @@
       </div>
       <div class="card-body">
         <p class="text-muted small mb-2">
-          <i class="bi bi-envelope me-1"></i>{{ ticket.submitter_email }}
+          <i class="bi bi-person me-1"></i>{{ submitter_customer.name if submitter_customer else (submitter_employee.username if submitter_employee else ticket.submitter_email) }}
           &nbsp;&middot;&nbsp;
           <i class="bi bi-clock me-1"></i>{{ _('Submitted') }} {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}
         </p>
