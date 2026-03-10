@@ -428,7 +428,7 @@
             {% if watcher_count %}
             <button class="btn btn-link btn-sm p-0 text-muted" type="button"
                     data-bs-toggle="collapse" data-bs-target="#watcherList"
-                    aria-expanded="{{ 'false' if watcher_count > 3 else 'true' }}">
+                    id="watcherToggle">
               <i class="bi bi-chevron-up small" id="watcherChevron"></i>
             </button>
             {% endif %}
@@ -975,6 +975,19 @@
       custInput.value = '';
     }
   });
+})();
+
+// Watcher collapse chevron
+(function () {
+  var wl = document.getElementById('watcherList');
+  var ch = document.getElementById('watcherChevron');
+  if (!wl || !ch) return;
+  function setChevron(expanded) {
+    ch.style.transform = expanded ? 'rotate(0deg)' : 'rotate(180deg)';
+  }
+  setChevron(wl.classList.contains('show'));
+  wl.addEventListener('show.bs.collapse', function () { setChevron(true); });
+  wl.addEventListener('hide.bs.collapse', function () { setChevron(false); });
 })();
 </script>
 {% endblock %}

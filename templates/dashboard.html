@@ -409,6 +409,8 @@
               <i class="bi bi-paperclip text-muted mt-1 flex-shrink-0"></i>
             {% elif ev.event_type == 'customer_reply' %}
               <i class="bi bi-person-exclamation text-warning mt-1 flex-shrink-0"></i>
+            {% elif ev.event_type == 'watcher' %}
+              <i class="bi bi-eye text-secondary mt-1 flex-shrink-0"></i>
             {% else %}
               <i class="bi bi-dot mt-1 flex-shrink-0"></i>
             {% endif %}
@@ -455,6 +457,13 @@
                   {% set _emp = employee_map.get(ev.ticket.submitter_email.lower()) %}
                   <strong>{{ _sub.name if _sub else (_emp.username if _emp else ev.ticket.submitter_email) }}</strong>
                   {{ _('replied') }}
+                {% elif ev.event_type == 'watcher' %}
+                  <strong>{{ ev.actor.username if ev.actor else _('System') }}</strong>
+                  {% if ev.to_value %}
+                    {{ _('added') }} <strong>{{ ev.to_value }}</strong> {{ _('as watcher') }}
+                  {% else %}
+                    {{ _('removed watcher') }} <strong>{{ ev.from_value }}</strong>
+                  {% endif %}
                 {% endif %}
               </div>
               <div class="text-muted d-flex justify-content-between mt-1">
