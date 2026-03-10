@@ -268,7 +268,7 @@
     <div class="card shadow-sm border-danger">
       <div class="card-header bg-danger bg-opacity-10 text-danger d-flex align-items-center gap-2">
         <i class="bi bi-arrow-counterclockwise"></i>
-        <h6 class="mb-0">Importierten Daten zurücksetzen</h6>
+        <h6 class="mb-0">Importierte Daten zurücksetzen</h6>
       </div>
       <div class="card-body">
         <p class="text-muted small mb-3">
@@ -289,7 +289,7 @@
             {% if revert_counts.customers %}
             <div class="form-check">
               <input class="form-check-input" type="checkbox" name="revert_customers" value="1"
-                     id="chkRevCustomers" checked onchange="updateRevertBtn()">
+                     id="chkRevCustomers" onchange="updateRevertBtn()">
               <label class="form-check-label" for="chkRevCustomers">
                 <span class="fw-semibold">{{ revert_counts.customers }}</span> Kunde(n)
               </label>
@@ -298,7 +298,7 @@
             {% if revert_counts.employees %}
             <div class="form-check">
               <input class="form-check-input" type="checkbox" name="revert_employees" value="1"
-                     id="chkRevEmployees" checked onchange="updateRevertBtn()">
+                     id="chkRevEmployees" onchange="updateRevertBtn()">
               <label class="form-check-label" for="chkRevEmployees">
                 <span class="fw-semibold">{{ revert_counts.employees }}</span> Mitarbeiter
               </label>

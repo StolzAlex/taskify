@@ -95,6 +95,13 @@
                   </button>
                 </form>
               </li>
+              {% if view_as_customers %}
+              <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#viewAsCustomerModal">
+                  <i class="bi bi-person-heart me-2"></i>{{ _('Customer…') }}
+                </a>
+              </li>
+              {% endif %}
               {% else %}
               <li>
                 <form method="post" action="{{ url_for('admin_view_as') }}">
@@ -203,16 +210,20 @@
 
 <main class="flex-grow-1 py-4">
   <div class="container-xl">
-    {% if view_as_role %}
+    {% if view_as_role or view_as_customer_id %}
     <div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-3">
       <span>
         <i class="bi bi-eye me-2"></i>
         <strong>{{ _('Preview mode') }}:</strong>
-        {{ _('Manager') if view_as_role == 'manager' else _('Employee') }}
+        {% if view_as_customer_id %}
+          {{ _('Customer') }}: {{ current_customer.name if current_customer else view_as_customer_id }}
+        {% else %}
+          {{ _('Manager') if view_as_role == 'manager' else _('Employee') }}
+        {% endif %}
       </span>
       <form method="post" action="{{ url_for('admin_view_as') }}" class="mb-0">
         <input type="hidden" name="role" value="">
-        <input type="hidden" name="next" value="{{ request.path }}">
+        <input type="hidden" name="next" value="{{ url_for('dashboard') }}">
         <button type="submit" class="btn btn-sm btn-warning fw-semibold">
           <i class="bi bi-shield-lock me-1"></i>{{ _('Return to Admin') }}
         </button>
@@ -319,5 +330,39 @@
   });
 </script>
 {% block scripts %}{% endblock %}
+
+{% if view_as_customers %}
+<!-- View-as-Customer modal (admin only) -->
+<div class="modal fade" id="viewAsCustomerModal" tabindex="-1" aria-labelledby="viewAsCustomerLabel" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="viewAsCustomerLabel">
+          <i class="bi bi-person-heart me-1"></i>{{ _('View as Customer') }}
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('admin_view_as') }}">
+        <div class="modal-body">
+          <input type="hidden" name="role" value="customer">
+          <label class="form-label small fw-semibold">{{ _('Select customer') }}</label>
+          <select name="customer_id" class="form-select form-select-sm" required>
+            <option value="">— {{ _('choose…') }} —</option>
+            {% for c in view_as_customers %}
+            <option value="{{ c.id }}">{{ c.name }} ({{ c.email }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+          <button type="submit" class="btn btn-warning btn-sm">
+            <i class="bi bi-eye me-1"></i>{{ _('View as') }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
 </body>
 </html>

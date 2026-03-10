@@ -206,7 +206,7 @@
           </div>
 
           <select name="status" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
-            <option value="">{{ _('Active') if hide_closed else _('All Statuses') }}</option>
+            <option value="">{{ _('Active Statuses') if hide_closed else _('All Statuses') }}</option>
             {% for s in status_choices %}
             <option value="{{ s }}" {{ 'selected' if status_filter == s }}>{{ status_label(s) }}</option>
             {% endfor %}

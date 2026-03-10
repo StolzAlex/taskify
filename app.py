@@ -135,6 +135,11 @@ def _validate_password(password):
 
 
 def get_current_customer():
+    # Admin impersonating a customer takes priority over a real customer session
+    if current_user.is_authenticated and current_user.is_admin:
+        cid = session.get('view_as_customer_id')
+        if cid:
+            return db.session.get(Customer, cid)
     cid = session.get('customer_id')
     return db.session.get(Customer, cid) if cid else None
 
@@ -142,6 +147,10 @@ def get_current_customer():
 def customer_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        # Admins impersonating a customer may access customer routes
+        if current_user.is_authenticated and current_user.is_admin \
+                and session.get('view_as_customer_id'):
+            return f(*args, **kwargs)
         if not session.get('customer_id'):
             flash(_('Please log in to your customer account.'), 'warning')
             return redirect(url_for('login', next=request.url))
@@ -241,6 +250,12 @@ class _ViewAsProxy:
 @app.context_processor
 def inject_globals():
     view_as_role = session.get('view_as_role') if current_user.is_authenticated else None
+    view_as_customer_id = session.get('view_as_customer_id') if current_user.is_authenticated else None
+    # Load active customers for the admin "View as Customer" picker
+    view_as_customers = []
+    if current_user.is_authenticated and (current_user.is_admin or
+            (hasattr(current_user, '_emp') and current_user._emp.is_admin)):
+        view_as_customers = Customer.query.filter_by(is_active=True).order_by(Customer.name).all()
     ctx = {
         'now': datetime.utcnow(),
         'status_label': status_label,
@@ -253,6 +268,8 @@ def inject_globals():
         'github_ref_label': github_ref_label,
         'app_name': app.config.get('APP_NAME', 'Taskify'),
         'view_as_role': view_as_role,
+        'view_as_customer_id': view_as_customer_id,
+        'view_as_customers': view_as_customers,
     }
     # Override current_user in templates with a role proxy so UI reflects the
     # simulated role.  Actual route guards still use the real current_user so
@@ -847,6 +864,7 @@ def customer_dashboard():
         view = 'all'
     status_filter = request.args.get('status', '')
     q             = request.args.get('q', '').strip()
+    project_id    = request.args.get('project_id', type=int)
 
     customer_group_ids = [g.id for g in customer.groups]
 
@@ -879,22 +897,28 @@ def customer_dashboard():
 
     # Choose list base: own tickets or group tickets
     if view == 'groups' and customer_group_ids:
-        list_base = Ticket.query.filter(Ticket.group_id.in_(customer_group_ids))
+        if project_id and project_id in customer_group_ids:
+            list_base = Ticket.query.filter(Ticket.group_id == project_id)
+        else:
+            project_id = None  # ignore invalid project_id
+            list_base = Ticket.query.filter(Ticket.group_id.in_(customer_group_ids))
     elif view == 'groups':
         list_base = Ticket.query.filter(db.false())
     else:
         list_base = own_base
 
-    query       = list_base
-    hide_closed = False
+    query = list_base
 
     if view == 'awaiting':
         query = query.filter(Ticket.id.in_(awaiting_reply_ids))
     elif view == 'closed':
         query = query.filter(Ticket.status.in_(['resolved', 'closed']))
 
+    hide_closed = view not in ('closed',) and not status_filter
     if status_filter:
         query = query.filter(Ticket.status == status_filter)
+    elif hide_closed:
+        query = query.filter(Ticket.status.notin_(['resolved', 'closed']))
 
     if q:
         _q_num = q.lstrip('#')
@@ -961,7 +985,8 @@ def customer_dashboard():
                            hide_closed=hide_closed,
                            awaiting_reply_ids=awaiting_reply_ids,
                            customer_group_ids=customer_group_ids,
-                           customer_groups=customer.groups)
+                           customer_groups=customer.groups,
+                           project_id=project_id)
 
 
 @app.route('/customer/uploads/<int:ticket_id>/<filename>')
@@ -2294,12 +2319,26 @@ def admin_view_as():
     next_url = request.form.get('next') or url_for('dashboard')
     if role in _VIEW_AS_ROLES:
         session['view_as_role'] = role
+        session.pop('view_as_customer_id', None)
         label = _('Manager') if role == 'manager' else _('Employee')
         flash(_('Now viewing as: %(role)s. Use "Return to Admin" to switch back.',
                 role=label), 'warning')
+    elif role == 'customer':
+        cust_id = request.form.get('customer_id', type=int)
+        cust = db.session.get(Customer, cust_id) if cust_id else None
+        if not cust or not cust.is_active:
+            flash(_('Please select a valid customer.'), 'danger')
+            return redirect(request.form.get('next') or url_for('dashboard'))
+        session['view_as_customer_id'] = cust.id
+        session.pop('view_as_role', None)
+        flash(_('Now viewing as customer: %(name)s. Use "Return to Admin" to switch back.',
+                name=cust.name), 'warning')
+        next_url = url_for('customer_dashboard')
     else:
         session.pop('view_as_role', None)
+        session.pop('view_as_customer_id', None)
         flash(_('Returned to admin view.'), 'success')
+        next_url = request.form.get('next') or url_for('dashboard')
     return redirect(next_url)
 
 
@@ -4346,7 +4385,7 @@ def admin_mantis_revert():
             mantis_tickets = Ticket.query.filter(
                 Ticket.internal_title.like('%[mantis:%')
             ).all()
-            for ticket in mantis_tickets:
+            for ticket in mantis_tickets[:500]:
                 upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(ticket.id))
                 for att in ticket.attachments.all():
                     disk_path = os.path.join(upload_dir, att.filename)

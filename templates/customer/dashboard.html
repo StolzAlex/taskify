@@ -114,16 +114,27 @@
             {% endif %}
           </div>
 
+          {% if view == 'groups' and customer_groups | length > 1 %}
+          <select name="project_id" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+            <option value="">{{ _('All Projects') }}</option>
+            {% for g in customer_groups %}
+            <option value="{{ g.id }}" {{ 'selected' if project_id == g.id }}>{{ g.name }}</option>
+            {% endfor %}
+          </select>
+          {% elif view == 'groups' and project_id %}
+          <input type="hidden" name="project_id" value="{{ project_id }}">
+          {% endif %}
+
           {% if view != 'awaiting' %}
           <select name="status" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
-            <option value="">{{ _('All Statuses') }}</option>
+            <option value="">{{ _('Active Statuses') if hide_closed else _('All Statuses') }}</option>
             {% for s in status_choices %}
             <option value="{{ s }}" {{ 'selected' if status_filter == s }}>{{ status_label(s) }}</option>
             {% endfor %}
           </select>
           {% endif %}
 
-          {% if q or status_filter %}
+          {% if q or status_filter or project_id %}
           <a href="{{ url_for('customer_dashboard', view=view) }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-x-lg me-1"></i>{{ _('Clear') }}
           </a>
@@ -132,7 +143,7 @@
           {% if hide_closed %}
           <a href="{{ url_for('customer_dashboard', view=view, q=q or None, status='resolved') }}"
              class="ms-auto text-muted small text-nowrap text-decoration-none">
-            <i class="bi bi-eye-slash me-1"></i>{{ _('Closed hidden') }}
+            <i class="bi bi-eye-slash me-1"></i>{{ _('Closed & resolved hidden') }}
           </a>
           {% endif %}
         </form>
@@ -164,22 +175,24 @@
                   </a>
                 </div>
                 {% endif %}
-                <a href="{{ url_for('ticket_status', token=ticket.token) }}"
-                   class="text-decoration-none fw-semibold {{ 'text-muted' if ticket.status in ('resolved', 'closed') }}">
-                  {{ ticket.subject }}
-                </a>
+                <div class="d-flex align-items-center flex-wrap gap-1">
+                  <a href="{{ url_for('ticket_status', token=ticket.token) }}"
+                     class="text-decoration-none fw-semibold {{ 'text-muted' if ticket.status in ('resolved', 'closed') }}">
+                    {{ ticket.subject }}
+                  </a>
+                  {% if meta.has_attachment %}
+                  <i class="bi bi-paperclip text-muted" title="{{ _('Has attachments') }}"></i>
+                  {% endif %}
+                  {% if meta.awaiting_reply %}
+                  <span class="badge bg-warning text-dark">
+                    <i class="bi bi-chat-dots-fill me-1"></i>{{ _('Reply from support') }}
+                  </span>
+                  {% endif %}
+                </div>
                 {% if view == 'groups' and ticket.submitter_email != customer.email %}
                 <div class="small text-muted mt-1">
                   <i class="bi bi-person me-1"></i>{{ ticket.submitter_email }}
                 </div>
-                {% endif %}
-                {% if meta.has_attachment %}
-                <i class="bi bi-paperclip text-muted ms-1" title="{{ _('Has attachments') }}"></i>
-                {% endif %}
-                {% if meta.awaiting_reply %}
-                <span class="badge bg-warning text-dark ms-1">
-                  <i class="bi bi-chat-dots-fill me-1"></i>{{ _('Reply from support') }}
-                </span>
                 {% endif %}
               </td>
               <td>
@@ -239,19 +252,19 @@
         <nav>
           <ul class="pagination pagination-sm mb-0">
             <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
-              <a class="page-link" href="{{ url_for('customer_dashboard', view=view, q=q or None, status=status_filter or None, page=pagination.prev_num) }}">‹</a>
+              <a class="page-link" href="{{ url_for('customer_dashboard', view=view, q=q or None, status=status_filter or None, project_id=project_id or None, page=pagination.prev_num) }}">‹</a>
             </li>
             {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
               {% if p %}
               <li class="page-item {{ 'active' if p == pagination.page }}">
-                <a class="page-link" href="{{ url_for('customer_dashboard', view=view, q=q or None, status=status_filter or None, page=p) }}">{{ p }}</a>
+                <a class="page-link" href="{{ url_for('customer_dashboard', view=view, q=q or None, status=status_filter or None, project_id=project_id or None, page=p) }}">{{ p }}</a>
               </li>
               {% else %}
               <li class="page-item disabled"><span class="page-link">…</span></li>
               {% endif %}
             {% endfor %}
             <li class="page-item {{ 'disabled' if not pagination.has_next }}">
-              <a class="page-link" href="{{ url_for('customer_dashboard', view=view, q=q or None, status=status_filter or None, page=pagination.next_num) }}">›</a>
+              <a class="page-link" href="{{ url_for('customer_dashboard', view=view, q=q or None, status=status_filter or None, project_id=project_id or None, page=pagination.next_num) }}">›</a>
             </li>
           </ul>
         </nav>
