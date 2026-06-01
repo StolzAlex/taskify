@@ -68,8 +68,8 @@ for i in $(seq 1 15); do
 done
 curl -sf http://localhost:11434/ &>/dev/null || { echo "  ERROR: Ollama did not start"; exit 1; }
 
-echo "  Pulling qwen2.5:0.5b (runs locally from cache if already present) …"
-ollama pull qwen2.5:0.5b
+echo "  Pulling gemma3:270m (runs locally from cache if already present) …"
+ollama pull gemma3:270m
 
 # ── .env AI block ─────────────────────────────────────────────────────────────
 echo "  Patching .env with AI settings …"
@@ -83,7 +83,7 @@ cat >> "$ENV_FILE" <<'ENV'
 # ── AI (Ollama) ───────────────────────────────────────────────────────────────
 AI_ENABLED=true
 AI_BASE_URL=http://localhost:11434
-AI_MODEL=qwen2.5:0.5b
+AI_MODEL=gemma3:270m
 AI_TIMEOUT=60
 ENV
 echo "  .env updated."
@@ -111,5 +111,5 @@ HTTP=$(ssh "$HOST" "curl -sf -o /dev/null -w '%{http_code}' http://127.0.0.1:800
 ok "App is up (HTTP 200 on /login)."
 
 echo -e "\n${BOLD}${GREEN}Deploy complete.${NC}"
-echo "  AI model : qwen2.5:0.5b"
+echo "  AI model : gemma3:270m"
 echo "  App URL  : http://aws-wt-mantis:8000  (or via reverse proxy)"

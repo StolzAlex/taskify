@@ -804,7 +804,7 @@
       headers: body != null ? { 'Content-Type': 'application/json' } : {},
       body:    body != null ? JSON.stringify(body) : undefined,
     });
-    if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || resp.statusText); }
+    if (!resp.ok) { const t = await resp.text().catch(() => ''); throw new Error(t || resp.statusText); }
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
