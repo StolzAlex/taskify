@@ -2233,8 +2233,8 @@ def _ticket_thread(ticket):
     for msg in ticket.messages.order_by(Message.created_at).all():
         if msg.is_customer_reply:
             sender = 'Customer'
-        elif msg.employee:
-            sender = msg.employee.name
+        elif msg.author:
+            sender = msg.author.name
         else:
             sender = 'Staff'
         parts.append(f"\n[{sender}]: {strip(msg.body)}")

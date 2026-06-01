@@ -90,7 +90,7 @@ echo "  .env updated."
 
 # ── Gunicorn timeout (AI needs > 30 s) ───────────────────────────────────────
 SERVICE=/etc/systemd/system/taskify.service
-if ! grep -q '\-\-timeout' "$SERVICE"; then
+if ! grep -q -- '--timeout' "$SERVICE"; then
   echo "  Adding --timeout 120 to gunicorn …"
   sudo sed -i 's|app:app|app:app \\\n    --timeout 120|' "$SERVICE"
   sudo systemctl daemon-reload
