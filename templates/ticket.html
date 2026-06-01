@@ -39,9 +39,16 @@
           </div>
           {% endif %}
         </div>
-        <span class="badge bg-{{ ticket.status_badge }} fs-6">
-          {{ status_label(ticket.status) }}
-        </span>
+        <div class="d-flex align-items-center gap-2">
+          {% if config.AI_ENABLED %}
+          <button type="button" id="aiSummaryBtn" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-lightbulb me-1"></i>{{ _('Briefing') }}
+          </button>
+          {% endif %}
+          <span class="badge bg-{{ ticket.status_badge }} fs-6">
+            {{ status_label(ticket.status) }}
+          </span>
+        </div>
       </div>
       <div class="card-body">
         <p class="text-muted small mb-2">
@@ -77,6 +84,11 @@
           <i class="bi bi-hash me-1"></i>{{ _('Token') }}: <code>{{ ticket.token }}</code>
         </p>
         <hr>
+        {% if config.AI_ENABLED %}
+        <div id="aiSummaryPanel" class="d-none mb-3">
+          <div class="alert alert-info py-2 px-3 mb-0 small" id="aiSummaryContent"></div>
+        </div>
+        {% endif %}
         <div class="ticket-body">{{ ticket.body|safe }}</div>
         {% set ticket_attachments = ticket.attachments.filter_by(message_id=None).all() %}
         {% if ticket_attachments %}
@@ -351,6 +363,21 @@
         <form method="post" action="{{ url_for('add_message', ticket_id=ticket.id) }}"
               id="msgForm" enctype="multipart/form-data">
           <div id="quill-editor" style="min-height: 120px;" class="mb-2"></div>
+          {% if config.AI_ENABLED %}
+          <div class="mb-2 d-flex align-items-center justify-content-end gap-2 flex-wrap">
+            <div class="btn-group btn-group-sm" role="group" aria-label="{{ _('Reply tone') }}">
+              <input type="radio" class="btn-check" name="aiTone" id="toneFormal" value="formal" autocomplete="off" checked>
+              <label class="btn btn-outline-secondary" for="toneFormal">{{ _('Formal') }}</label>
+              <input type="radio" class="btn-check" name="aiTone" id="toneFriendly" value="friendly" autocomplete="off">
+              <label class="btn btn-outline-secondary" for="toneFriendly">{{ _('Friendly') }}</label>
+              <input type="radio" class="btn-check" name="aiTone" id="toneSteps" value="steps" autocomplete="off">
+              <label class="btn btn-outline-secondary" for="toneSteps">{{ _('Steps') }}</label>
+            </div>
+            <button type="button" id="aiSuggestBtn" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-stars me-1"></i>{{ _('Suggest reply') }}
+            </button>
+          </div>
+          {% endif %}
           <input type="hidden" name="body" id="msgBody">
           <div class="mb-3">
             <label for="msgFile" class="form-label small text-muted">
@@ -576,9 +603,15 @@
       </h6></div>
       <div class="card-body">
         <form method="post" action="{{ url_for('set_internal_title', ticket_id=ticket.id) }}">
-          <input type="text" name="internal_title" class="form-control form-control-sm mb-2"
+          <input type="text" name="internal_title" id="internalTitleInput"
+                 class="form-control form-control-sm mb-2"
                  placeholder="{{ _('Optional \u2014 used as GitHub issue title') }}"
                  value="{{ ticket.internal_title or '' }}" maxlength="200">
+          {% if config.AI_ENABLED %}
+          <button type="button" id="aiTitleBtn" class="btn btn-outline-secondary btn-sm w-100 mb-2">
+            <i class="bi bi-stars me-1"></i>{{ _('Suggest title') }}
+          </button>
+          {% endif %}
           <button type="submit" class="btn btn-primary btn-sm w-100">
             <i class="bi bi-check2 me-1"></i>{{ _('Save') }}
           </button>
@@ -756,6 +789,64 @@
   document.getElementById('msgForm').addEventListener('submit', function () {
     document.getElementById('msgBody').value = quill.root.innerHTML;
   });
+
+  {% if config.AI_ENABLED %}
+  function aiBtnSpinner(btn, label) {
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>' + label;
+    return () => { btn.disabled = false; btn.innerHTML = orig; };
+  }
+
+  // Reply suggestion with tone
+  document.getElementById('aiSuggestBtn').addEventListener('click', async function () {
+    const restore = aiBtnSpinner(this, '{{ _("Thinking…") }}');
+    const tone = (document.querySelector('input[name="aiTone"]:checked') || {}).value || 'formal';
+    try {
+      const resp = await fetch('{{ url_for("ai_suggest_reply", ticket_id=ticket.id) }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tone }),
+      });
+      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || resp.statusText); }
+      const data = await resp.json();
+      quill.setContents([{ insert: data.reply + '\n' }]);
+      quill.setSelection(data.reply.length);
+    } catch (e) { alert('{{ _("AI error") }}: ' + e.message); }
+    finally { restore(); }
+  });
+
+  // Thread briefing
+  document.getElementById('aiSummaryBtn').addEventListener('click', async function () {
+    const restore = aiBtnSpinner(this, '{{ _("Thinking…") }}');
+    const panel = document.getElementById('aiSummaryPanel');
+    const content = document.getElementById('aiSummaryContent');
+    try {
+      const resp = await fetch('{{ url_for("ai_summarize_ticket", ticket_id=ticket.id) }}', { method: 'POST' });
+      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || resp.statusText); }
+      const data = await resp.json();
+      content.innerHTML = '<i class="bi bi-lightbulb-fill me-2 text-info"></i>'
+        + data.summary.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+      panel.classList.remove('d-none');
+    } catch (e) { alert('{{ _("AI error") }}: ' + e.message); }
+    finally { restore(); }
+  });
+
+  // Internal title suggestion
+  document.getElementById('aiTitleBtn').addEventListener('click', async function () {
+    const restore = aiBtnSpinner(this, '{{ _("Thinking…") }}');
+    try {
+      const resp = await fetch('{{ url_for("ai_suggest_title", ticket_id=ticket.id) }}', { method: 'POST' });
+      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || resp.statusText); }
+      const data = await resp.json();
+      const inp = document.getElementById('internalTitleInput');
+      inp.value = data.title;
+      inp.focus();
+      inp.select();
+    } catch (e) { alert('{{ _("AI error") }}: ' + e.message); }
+    finally { restore(); }
+  });
+  {% endif %}
 
   // Per-message inline edit editors
   const editQuills = {};

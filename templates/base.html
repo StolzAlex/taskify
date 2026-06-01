@@ -42,12 +42,6 @@
           </li>
           {% endif %}
 
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('help_page') }}">
-              <i class="bi bi-question-circle me-1"></i>{{ _('Help') }}
-            </a>
-          </li>
-
           {% if current_user.is_admin or view_as_role %}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle {% if view_as_role %}text-warning{% endif %}" href="#" role="button" data-bs-toggle="dropdown">
@@ -175,6 +169,12 @@
           </li>
 
         {% endif %}
+
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('help_page') }}">
+            <i class="bi bi-question-circle me-1"></i>{{ _('Help') }}
+          </a>
+        </li>
 
         <!-- Language switcher -->
         <li class="nav-item dropdown ms-2">

@@ -2207,6 +2207,116 @@ def delete_ticket(ticket_id):
 
 
 # ---------------------------------------------------------------------------
+# AI routes
+# ---------------------------------------------------------------------------
+
+def _ollama_chat(system_prompt, user_content):
+    resp = http_requests.post(
+        f"{app.config['AI_BASE_URL']}/api/chat",
+        json={
+            'model': app.config['AI_MODEL'],
+            'messages': [
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user',   'content': user_content},
+            ],
+            'stream': False,
+        },
+        timeout=app.config['AI_TIMEOUT'],
+    )
+    resp.raise_for_status()
+    return resp.json()['message']['content'].strip()
+
+
+def _ticket_thread(ticket):
+    strip = lambda h: re.sub(r'<[^>]+>', ' ', h or '').strip()
+    parts = [f"Subject: {ticket.subject}", "", strip(ticket.body)]
+    for msg in ticket.messages.order_by(Message.created_at).all():
+        if msg.is_customer_reply:
+            sender = 'Customer'
+        elif msg.employee:
+            sender = msg.employee.name
+        else:
+            sender = 'Staff'
+        parts.append(f"\n[{sender}]: {strip(msg.body)}")
+    return '\n'.join(parts)
+
+
+@app.route('/tickets/<int:ticket_id>/ai/suggest', methods=['POST'])
+@login_required
+def ai_suggest_reply(ticket_id):
+    if not app.config.get('AI_ENABLED'):
+        return jsonify({'error': 'AI not enabled'}), 503
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+
+    tone = (request.get_json(silent=True) or {}).get('tone', 'formal')
+    tone_hint = {
+        'friendly': 'Write in a warm, friendly tone.',
+        'steps':    'Structure your reply as a clear numbered step-by-step guide.',
+    }.get(tone, 'Write in a professional, formal tone.')
+
+    locale = ticket.locale or 'en'
+    lang = 'German' if locale.startswith('de') else 'English'
+    system_prompt = (
+        f"You are a professional support agent. "
+        f"Based on the support ticket below, write a helpful and concise reply in {lang}. "
+        f"{tone_hint} "
+        f"Output only the message body — no greeting, no signature, no subject line."
+    )
+    try:
+        return jsonify({'reply': _ollama_chat(system_prompt, _ticket_thread(ticket))})
+    except Exception as e:
+        app.logger.error(f'AI suggest failed: {e}')
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/tickets/<int:ticket_id>/ai/summary', methods=['POST'])
+@login_required
+def ai_summarize_ticket(ticket_id):
+    if not app.config.get('AI_ENABLED'):
+        return jsonify({'error': 'AI not enabled'}), 503
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+
+    locale = ticket.locale or 'en'
+    lang = 'German' if locale.startswith('de') else 'English'
+    system_prompt = (
+        f"You are a support team lead reviewing a ticket. "
+        f"Summarize the following ticket thread in {lang} using EXACTLY this format:\n"
+        f"**Problem:** one sentence\n"
+        f"**Status:** one sentence about where things stand\n"
+        f"**Next step:** one concrete action item\n\n"
+        f"Output only these three lines — no extra text."
+    )
+    try:
+        return jsonify({'summary': _ollama_chat(system_prompt, _ticket_thread(ticket))})
+    except Exception as e:
+        app.logger.error(f'AI summarize failed: {e}')
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/tickets/<int:ticket_id>/ai/title', methods=['POST'])
+@login_required
+def ai_suggest_title(ticket_id):
+    if not app.config.get('AI_ENABLED'):
+        return jsonify({'error': 'AI not enabled'}), 503
+    ticket = db.session.get(Ticket, ticket_id) or abort(404)
+
+    strip = lambda h: re.sub(r'<[^>]+>', ' ', h or '').strip()
+    context = f"{ticket.subject}\n\n{strip(ticket.body)}"
+    system_prompt = (
+        "You are a support ticket manager. "
+        "Given this ticket subject and description, suggest a short, specific internal title (max 60 characters). "
+        "The title must be useful for internal triage. "
+        "Output ONLY the title text — no quotes, no trailing punctuation, no explanation."
+    )
+    try:
+        text = _ollama_chat(system_prompt, context).strip('"\'').strip()[:200]
+        return jsonify({'title': text})
+    except Exception as e:
+        app.logger.error(f'AI title failed: {e}')
+        return jsonify({'error': str(e)}), 502
+
+
+# ---------------------------------------------------------------------------
 # Admin routes
 # ---------------------------------------------------------------------------
 
