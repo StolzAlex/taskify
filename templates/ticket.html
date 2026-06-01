@@ -798,20 +798,46 @@
     return () => { btn.disabled = false; btn.innerHTML = orig; };
   }
 
+  async function aiStream(url, body, onChunk) {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: body != null ? { 'Content-Type': 'application/json' } : {},
+      body:    body != null ? JSON.stringify(body) : undefined,
+    });
+    if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || resp.statusText); }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const part of parts) {
+        if (!part.startsWith('data: ')) continue;
+        const payload = part.slice(6).trim();
+        if (payload === '[DONE]') return;
+        const data = JSON.parse(payload);
+        if (data.error) throw new Error(data.error);
+        if (data.chunk) onChunk(data.chunk);
+      }
+    }
+  }
+
   // Reply suggestion with tone
   document.getElementById('aiSuggestBtn').addEventListener('click', async function () {
     const restore = aiBtnSpinner(this, '{{ _("Thinking…") }}');
     const tone = (document.querySelector('input[name="aiTone"]:checked') || {}).value || 'formal';
+    let text = '';
+    quill.setContents([]);
     try {
-      const resp = await fetch('{{ url_for("ai_suggest_reply", ticket_id=ticket.id) }}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tone }),
-      });
-      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || resp.statusText); }
-      const data = await resp.json();
-      quill.setContents([{ insert: data.reply + '\n' }]);
-      quill.setSelection(data.reply.length);
+      await aiStream(
+        '{{ url_for("ai_suggest_reply", ticket_id=ticket.id) }}',
+        { tone },
+        chunk => { text += chunk; quill.setContents([{ insert: text + '\n' }]); }
+      );
+      quill.setSelection(text.length);
     } catch (e) { alert('{{ _("AI error") }}: ' + e.message); }
     finally { restore(); }
   });
@@ -819,30 +845,37 @@
   // Thread briefing
   document.getElementById('aiSummaryBtn').addEventListener('click', async function () {
     const restore = aiBtnSpinner(this, '{{ _("Thinking…") }}');
-    const panel = document.getElementById('aiSummaryPanel');
+    const panel   = document.getElementById('aiSummaryPanel');
     const content = document.getElementById('aiSummaryContent');
+    let text = '';
+    panel.classList.remove('d-none');
+    content.innerHTML = '<i class="bi bi-lightbulb-fill me-2 text-info"></i><span id="aiSummaryStream"></span>';
+    const el = document.getElementById('aiSummaryStream');
     try {
-      const resp = await fetch('{{ url_for("ai_summarize_ticket", ticket_id=ticket.id) }}', { method: 'POST' });
-      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || resp.statusText); }
-      const data = await resp.json();
-      content.innerHTML = '<i class="bi bi-lightbulb-fill me-2 text-info"></i>'
-        + data.summary.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-      panel.classList.remove('d-none');
-    } catch (e) { alert('{{ _("AI error") }}: ' + e.message); }
+      await aiStream(
+        '{{ url_for("ai_summarize_ticket", ticket_id=ticket.id) }}',
+        null,
+        chunk => {
+          text += chunk;
+          el.innerHTML = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+        }
+      );
+    } catch (e) { alert('{{ _("AI error") }}: ' + e.message); panel.classList.add('d-none'); }
     finally { restore(); }
   });
 
   // Internal title suggestion
   document.getElementById('aiTitleBtn').addEventListener('click', async function () {
     const restore = aiBtnSpinner(this, '{{ _("Thinking…") }}');
+    const inp = document.getElementById('internalTitleInput');
+    let text = '';
     try {
-      const resp = await fetch('{{ url_for("ai_suggest_title", ticket_id=ticket.id) }}', { method: 'POST' });
-      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || resp.statusText); }
-      const data = await resp.json();
-      const inp = document.getElementById('internalTitleInput');
-      inp.value = data.title;
-      inp.focus();
-      inp.select();
+      await aiStream(
+        '{{ url_for("ai_suggest_title", ticket_id=ticket.id) }}',
+        null,
+        chunk => { text += chunk; inp.value = text.replace(/^["'\s]+|["'\s]+$/g, '').slice(0, 200); }
+      );
+      inp.focus(); inp.select();
     } catch (e) { alert('{{ _("AI error") }}: ' + e.message); }
     finally { restore(); }
   });

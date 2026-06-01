@@ -22,8 +22,10 @@ load_dotenv()
 
 import requests as http_requests
 from authlib.integrations.flask_client import OAuth
+import json
 from flask import (Flask, render_template, request, redirect, url_for,
-                   flash, abort, send_from_directory, session, jsonify)
+                   flash, abort, send_from_directory, session, jsonify,
+                   Response, stream_with_context)
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -2210,23 +2212,6 @@ def delete_ticket(ticket_id):
 # AI routes
 # ---------------------------------------------------------------------------
 
-def _ollama_chat(system_prompt, user_content):
-    resp = http_requests.post(
-        f"{app.config['AI_BASE_URL']}/api/chat",
-        json={
-            'model': app.config['AI_MODEL'],
-            'messages': [
-                {'role': 'system', 'content': system_prompt},
-                {'role': 'user',   'content': user_content},
-            ],
-            'stream': False,
-        },
-        timeout=app.config['AI_TIMEOUT'],
-    )
-    resp.raise_for_status()
-    return resp.json()['message']['content'].strip()
-
-
 def _ticket_thread(ticket):
     strip = lambda h: re.sub(r'<[^>]+>', ' ', h or '').strip()
     parts = [f"Subject: {ticket.subject}", "", strip(ticket.body)]
@@ -2239,6 +2224,46 @@ def _ticket_thread(ticket):
             sender = 'Staff'
         parts.append(f"\n[{sender}]: {strip(msg.body)}")
     return '\n'.join(parts)
+
+
+def _ollama_stream(system_prompt, user_content):
+    """Generator: yields SSE lines from Ollama's streaming API."""
+    try:
+        with http_requests.post(
+            f"{app.config['AI_BASE_URL']}/api/chat",
+            json={
+                'model': app.config['AI_MODEL'],
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user',   'content': user_content},
+                ],
+                'stream': True,
+            },
+            stream=True,
+            timeout=app.config['AI_TIMEOUT'],
+        ) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                data = json.loads(line)
+                chunk = data.get('message', {}).get('content', '')
+                if chunk:
+                    yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+                if data.get('done'):
+                    yield "data: [DONE]\n\n"
+                    return
+    except Exception as e:
+        app.logger.error(f'Ollama stream error: {e}')
+        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+
+def _sse(gen):
+    return Response(
+        stream_with_context(gen),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
 
 
 @app.route('/tickets/<int:ticket_id>/ai/suggest', methods=['POST'])
@@ -2262,11 +2287,7 @@ def ai_suggest_reply(ticket_id):
         f"{tone_hint} "
         f"Output only the message body — no greeting, no signature, no subject line."
     )
-    try:
-        return jsonify({'reply': _ollama_chat(system_prompt, _ticket_thread(ticket))})
-    except Exception as e:
-        app.logger.error(f'AI suggest failed: {e}')
-        return jsonify({'error': str(e)}), 502
+    return _sse(_ollama_stream(system_prompt, _ticket_thread(ticket)))
 
 
 @app.route('/tickets/<int:ticket_id>/ai/summary', methods=['POST'])
@@ -2286,11 +2307,7 @@ def ai_summarize_ticket(ticket_id):
         f"**Next step:** one concrete action item\n\n"
         f"Output only these three lines — no extra text."
     )
-    try:
-        return jsonify({'summary': _ollama_chat(system_prompt, _ticket_thread(ticket))})
-    except Exception as e:
-        app.logger.error(f'AI summarize failed: {e}')
-        return jsonify({'error': str(e)}), 502
+    return _sse(_ollama_stream(system_prompt, _ticket_thread(ticket)))
 
 
 @app.route('/tickets/<int:ticket_id>/ai/title', methods=['POST'])
@@ -2308,12 +2325,7 @@ def ai_suggest_title(ticket_id):
         "The title must be useful for internal triage. "
         "Output ONLY the title text — no quotes, no trailing punctuation, no explanation."
     )
-    try:
-        text = _ollama_chat(system_prompt, context).strip('"\'').strip()[:200]
-        return jsonify({'title': text})
-    except Exception as e:
-        app.logger.error(f'AI title failed: {e}')
-        return jsonify({'error': str(e)}), 502
+    return _sse(_ollama_stream(system_prompt, context))
 
 
 # ---------------------------------------------------------------------------
