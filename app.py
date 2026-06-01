@@ -2234,7 +2234,7 @@ def _ticket_thread(ticket):
         if msg.is_customer_reply:
             sender = 'Customer'
         elif msg.author:
-            sender = msg.author.name
+            sender = msg.author.username
         else:
             sender = 'Staff'
         parts.append(f"\n[{sender}]: {strip(msg.body)}")
