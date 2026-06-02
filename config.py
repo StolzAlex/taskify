@@ -53,7 +53,8 @@ class Config:
     MANTIS_UPLOAD_PATH  = os.environ.get('MANTIS_UPLOAD_PATH', '')
 
     # ── Local AI (Ollama) ─────────────────────────────────────────────────────
-    AI_ENABLED  = os.environ.get('AI_ENABLED', 'false').lower() == 'true'
-    AI_BASE_URL = os.environ.get('AI_BASE_URL', 'http://localhost:11434')
-    AI_MODEL    = os.environ.get('AI_MODEL', 'qwen2.5:0.5b')
-    AI_TIMEOUT  = int(os.environ.get('AI_TIMEOUT', 300))
+    AI_ENABLED      = os.environ.get('AI_ENABLED', 'false').lower() == 'true'
+    AI_BASE_URL     = os.environ.get('AI_BASE_URL', 'http://localhost:11434')
+    AI_MODEL        = os.environ.get('AI_MODEL', 'qwen2.5:0.5b')
+    AI_TIMEOUT      = int(os.environ.get('AI_TIMEOUT', 300))
+    AI_TEMPERATURE  = float(os.environ.get('AI_TEMPERATURE', 0.2))

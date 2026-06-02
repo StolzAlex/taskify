@@ -2240,6 +2240,7 @@ def _ollama_stream(system_prompt, user_content):
                     {'role': 'user',   'content': user_content},
                 ],
                 'stream': True,
+                'options': {'temperature': app.config['AI_TEMPERATURE']},
             },
             stream=True,
             timeout=app.config['AI_TIMEOUT'],
@@ -2287,6 +2288,7 @@ def ai_suggest_reply(ticket_id):
         f"You are a professional support agent. "
         f"Based on the support ticket below, write a helpful and concise reply in {lang}. "
         f"{tone_hint} "
+        f"Only use information explicitly present in the ticket. Do not invent names, solutions, or details not mentioned. "
         f"Output only the message body — no greeting, no signature, no subject line."
     )
     return _sse(_ollama_stream(system_prompt, _ticket_thread(ticket)))
@@ -2307,6 +2309,7 @@ def ai_summarize_ticket(ticket_id):
         f"**Problem:** one sentence\n"
         f"**Status:** one sentence about where things stand\n"
         f"**Next step:** one concrete action item\n\n"
+        f"Only use information explicitly present in the ticket. Do not invent or assume anything. "
         f"Output only these three lines — no extra text."
     )
     return _sse(_ollama_stream(system_prompt, _ticket_thread(ticket)))
@@ -2324,7 +2327,7 @@ def ai_suggest_title(ticket_id):
     system_prompt = (
         "You are a support ticket manager. "
         "Given this ticket subject and description, suggest a short, specific internal title (max 60 characters). "
-        "The title must be useful for internal triage. "
+        "The title must be useful for internal triage. Only use information present in the text. "
         "Output ONLY the title text — no quotes, no trailing punctuation, no explanation."
     )
     return _sse(_ollama_stream(system_prompt, context))
