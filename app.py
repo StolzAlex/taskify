@@ -32,6 +32,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_mail import Mail, Message as MailMessage
 from flask_babel import Babel, gettext as _, lazy_gettext as _l, get_locale, force_locale
 from markupsafe import escape, Markup
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 
 from config import Config
@@ -39,6 +40,7 @@ from models import db, Employee, Customer, Group, Ticket, Assignment, Message, A
 
 app = Flask(__name__)
 app.config.from_object(Config)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 # Warn loudly if the dev SECRET_KEY slips into production.
 if not app.debug and app.config['SECRET_KEY'] == 'dev-secret-change-in-production':
