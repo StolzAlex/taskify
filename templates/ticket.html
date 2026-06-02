@@ -793,16 +793,20 @@
   {% if config.AI_ENABLED %}
   function aiBtnSpinner(btn, label) {
     const orig = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>' + label;
-    return () => { btn.disabled = false; btn.innerHTML = orig; };
+    const controller = new AbortController();
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>' + label + ' <i class="bi bi-stop-circle ms-1"></i>';
+    const abortHandler = () => controller.abort();
+    btn.addEventListener('click', abortHandler, { once: true });
+    const restore = () => { btn.removeEventListener('click', abortHandler); btn.innerHTML = orig; };
+    return { signal: controller.signal, restore };
   }
 
-  async function aiStream(url, body, onChunk) {
+  async function aiStream(url, body, onChunk, signal) {
     const resp = await fetch(url, {
       method: 'POST',
       headers: body != null ? { 'Content-Type': 'application/json' } : {},
       body:    body != null ? JSON.stringify(body) : undefined,
+      signal,
     });
     if (!resp.ok) { const t = await resp.text().catch(() => ''); throw new Error(t || resp.statusText); }
     const reader = resp.body.getReader();
@@ -827,7 +831,7 @@
 
   // Reply suggestion with tone
   document.getElementById('aiSuggestBtn').addEventListener('click', async function () {
-    const restore = aiBtnSpinner(this, '{{ _("Thinking…") }}');
+    const { signal, restore } = aiBtnSpinner(this, '{{ _("Thinking…") }}');
     const tone = (document.querySelector('input[name="aiTone"]:checked') || {}).value || 'formal';
     let text = '';
     quill.setContents([]);
@@ -835,16 +839,17 @@
       await aiStream(
         '{{ url_for("ai_suggest_reply", ticket_id=ticket.id) }}',
         { tone },
-        chunk => { text += chunk; quill.setContents([{ insert: text + '\n' }]); }
+        chunk => { text += chunk; quill.setContents([{ insert: text + '\n' }]); },
+        signal
       );
       quill.setSelection(text.length);
-    } catch (e) { alert('{{ _("AI error") }}: ' + e.message); }
+    } catch (e) { if (e.name !== 'AbortError') alert('{{ _("AI error") }}: ' + e.message); }
     finally { restore(); }
   });
 
   // Thread briefing
   document.getElementById('aiSummaryBtn').addEventListener('click', async function () {
-    const restore = aiBtnSpinner(this, '{{ _("Thinking…") }}');
+    const { signal, restore } = aiBtnSpinner(this, '{{ _("Thinking…") }}');
     const panel   = document.getElementById('aiSummaryPanel');
     const content = document.getElementById('aiSummaryContent');
     let text = '';
@@ -858,25 +863,27 @@
         chunk => {
           text += chunk;
           el.innerHTML = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-        }
+        },
+        signal
       );
-    } catch (e) { alert('{{ _("AI error") }}: ' + e.message); panel.classList.add('d-none'); }
+    } catch (e) { if (e.name !== 'AbortError') { alert('{{ _("AI error") }}: ' + e.message); panel.classList.add('d-none'); } }
     finally { restore(); }
   });
 
   // Internal title suggestion
   document.getElementById('aiTitleBtn').addEventListener('click', async function () {
-    const restore = aiBtnSpinner(this, '{{ _("Thinking…") }}');
+    const { signal, restore } = aiBtnSpinner(this, '{{ _("Thinking…") }}');
     const inp = document.getElementById('internalTitleInput');
     let text = '';
     try {
       await aiStream(
         '{{ url_for("ai_suggest_title", ticket_id=ticket.id) }}',
         null,
-        chunk => { text += chunk; inp.value = text.replace(/^["'\s]+|["'\s]+$/g, '').slice(0, 200); }
+        chunk => { text += chunk; inp.value = text.replace(/^["'\s]+|["'\s]+$/g, '').slice(0, 200); },
+        signal
       );
       inp.focus(); inp.select();
-    } catch (e) { alert('{{ _("AI error") }}: ' + e.message); }
+    } catch (e) { if (e.name !== 'AbortError') alert('{{ _("AI error") }}: ' + e.message); }
     finally { restore(); }
   });
   {% endif %}
